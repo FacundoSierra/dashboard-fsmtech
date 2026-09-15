@@ -4,7 +4,7 @@
 
 ```
 Bóveda local (Obsidian + Claude Code)
-   │  tarea programada de Windows: commit, pull y push cada 15 minutos
+   │  tarea programada de Windows: commit, pull y push cada 2 minutos
    ▼
 Repo privado de GitHub con las notas  ◀── capturas del panel (API de GitHub)
    │  API de GitHub

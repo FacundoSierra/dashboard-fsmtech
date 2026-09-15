@@ -30,7 +30,7 @@ export default async function PaginaInbox({ searchParams }: PageProps<'/inbox'>)
 
       {typeof guardada === 'string' && (
         <p role="status" className="mb-4 rounded-xl bg-ok/15 px-3 py-2 text-sm text-ok">
-          Guardada en la bóveda. Llegará a Obsidian con la próxima sincronización.
+          Guardada en la bóveda. Llegará a Obsidian en unos minutos, en cuanto tu PC sincronice.
         </p>
       )}
 
