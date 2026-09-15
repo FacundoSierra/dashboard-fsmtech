@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --fondo: #f6f6f3;
+  --superficie: #ffffff;
+  --borde: #e4e4de;
+  --texto: #1c1c1a;
+  --tenue: #6b6b65;
+  --acento: #2563eb;
+  --acento-suave: #e0eaff;
+  --ok: #15803d;
+  --aviso: #b45309;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0f0f0e;
+    --superficie: #1a1a18;
+    --borde: #2d2d2a;
+    --texto: #ededea;
+    --tenue: #9d9d96;
+    --acento: #7aa8ff;
+    --acento-suave: #1b2c4d;
+    --ok: #4ade80;
+    --aviso: #fbbf24;
+  }
+}
+
+@theme inline {
+  --color-fondo: var(--fondo);
+  --color-superficie: var(--superficie);
+  --color-borde: var(--borde);
+  --color-texto: var(--texto);
+  --color-tenue: var(--tenue);
+  --color-acento: var(--acento);
+  --color-acento-suave: var(--acento-suave);
+  --color-ok: var(--ok);
+  --color-aviso: var(--aviso);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--fondo);
+  color: var(--texto);
+}
+
+/* Notas renderizadas desde Markdown */
+.prosa {
+  line-height: 1.65;
+  overflow-wrap: break-word;
+}
+.prosa h1 { font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin: 0 0 1rem; letter-spacing: -0.01em; }
+.prosa h2 { font-size: 1.25rem; font-weight: 650; margin: 2rem 0 0.6rem; }
+.prosa h3 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
+.prosa h4 { font-weight: 600; margin: 1.2rem 0 0.4rem; }
+.prosa p { margin: 0.6rem 0; }
+.prosa ul, .prosa ol { margin: 0.5rem 0; padding-left: 1.4rem; }
+.prosa ul { list-style: disc; }
+.prosa ol { list-style: decimal; }
+.prosa li { margin: 0.2rem 0; }
+.prosa .contains-task-list { list-style: none; padding-left: 0.2rem; }
+.prosa .contains-task-list .contains-task-list { padding-left: 1.4rem; }
+.prosa input[type="checkbox"] { margin-right: 0.5rem; accent-color: var(--acento); }
+.prosa a { color: var(--acento); text-decoration: underline; text-underline-offset: 2px; }
+.prosa strong { font-weight: 650; }
+.prosa code { font-family: var(--font-mono); font-size: 0.88em; background: var(--acento-suave); padding: 0.1em 0.35em; border-radius: 4px; }
+.prosa pre { overflow-x: auto; background: var(--superficie); border: 1px solid var(--borde); padding: 0.8rem; border-radius: 8px; margin: 0.8rem 0; }
+.prosa pre code { background: none; padding: 0; }
+.prosa blockquote { border-left: 3px solid var(--acento); padding: 0.1rem 0 0.1rem 0.9rem; margin: 0.8rem 0; color: var(--tenue); }
+.prosa table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.92rem; }
+.prosa th, .prosa td { border: 1px solid var(--borde); padding: 0.35rem 0.6rem; text-align: left; vertical-align: top; }
+.prosa th { background: var(--superficie); font-weight: 600; }
+.prosa hr { border-color: var(--borde); margin: 1.5rem 0; }
