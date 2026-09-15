@@ -5,16 +5,18 @@ import { usePathname } from 'next/navigation';
 
 const SECCIONES = [
   { href: '/', texto: 'Hoy' },
+  { href: '/semana', texto: 'Semana' },
   { href: '/clientes', texto: 'Clientes' },
   { href: '/proyectos', texto: 'Proyectos' },
   { href: '/reuniones', texto: 'Reuniones' },
+  { href: '/inbox', texto: 'Inbox' },
 ];
 
 export function Navegacion() {
   const ruta = usePathname();
 
   return (
-    <nav className="flex gap-1 overflow-x-auto">
+    <nav className="-mx-1 flex gap-1 overflow-x-auto px-1">
       {SECCIONES.map(({ href, texto }) => {
         const activa = href === '/' ? ruta === '/' : ruta.startsWith(href);
         return (

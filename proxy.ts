@@ -19,6 +19,8 @@ export async function proxy(request: NextRequest) {
   return NextResponse.redirect(login);
 }
 
+// Sin sesión solo pasa lo público y sin datos: estáticos de Next, robots.txt, el manifest y los iconos
+// (el navegador pide manifest e iconos sin la cookie de sesión)
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|manifest.webmanifest|icon|apple-icon).*)'],
 };

@@ -19,10 +19,15 @@ export const obtenerBoveda = cache(async (): Promise<Boveda> => {
   return {
     notas,
     porRuta: new Map(notas.map((nota) => [nota.ruta, nota])),
-    rutas: Object.fromEntries(notas.map((nota) => [nota.nombre, nota.ruta])),
-    titulos: Object.fromEntries(notas.map((nota) => [nota.nombre, nota.titulo])),
+    rutas: diccionario(notas.map((nota): [string, string] => [nota.nombre, nota.ruta])),
+    titulos: diccionario(notas.map((nota): [string, string] => [nota.nombre, nota.titulo])),
   };
 });
+
+/** Objeto sin prototipo: un `[[constructor]]` o `[[toString]]` en una nota no debe resolver a nada */
+function diccionario(pares: [string, string][]): Record<string, string> {
+  return Object.assign(Object.create(null) as Record<string, string>, Object.fromEntries(pares));
+}
 
 // ── Propiedades ──────────────────────────────────────────────────────────────
 

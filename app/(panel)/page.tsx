@@ -10,8 +10,11 @@ import {
   reunionesProximas,
   texto,
 } from '@/lib/boveda/consultas';
+import { capturas } from '@/lib/boveda/inbox';
 import { cuandoEs, fechaLarga, hoyMadrid } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
+
+const CAPTURAS_VISIBLES = 4;
 
 export default async function PaginaHoy() {
   const boveda = await obtenerBoveda();
@@ -28,6 +31,7 @@ export default async function PaginaHoy() {
   const urgentes = activos.flatMap((proyecto) =>
     proyecto.abiertas.filter(esPrioritaria).map((tarea) => ({ tarea, proyecto })),
   );
+  const inbox = capturas(boveda);
   const ideas = boveda.notas.filter((nota) => nota.carpeta === 'ideas');
 
   return (
@@ -135,6 +139,37 @@ export default async function PaginaHoy() {
             )}
           </Tarjeta>
 
+          <Tarjeta>
+            <TituloBloque
+              extra={
+                <Link href="/capturar" className="text-sm text-acento hover:underline">
+                  + Apuntar
+                </Link>
+              }
+            >
+              Inbox
+            </TituloBloque>
+            {inbox.length === 0 ? (
+              <Vacio>Nada pendiente de procesar.</Vacio>
+            ) : (
+              <ul className="space-y-2">
+                {inbox.slice(0, CAPTURAS_VISIBLES).map((captura) => (
+                  <li key={captura.nota.ruta} className="flex items-center justify-between gap-2">
+                    <Link href={hrefNota(captura.nota.ruta)} className="min-w-0 truncate text-sm hover:text-acento">
+                      {captura.nota.titulo}
+                    </Link>
+                    {captura.categoria && <Chip>{captura.categoria}</Chip>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {inbox.length > CAPTURAS_VISIBLES && (
+              <Link href="/inbox" className="mt-2 inline-block text-sm text-acento hover:underline">
+                Ver las {inbox.length}
+              </Link>
+            )}
+          </Tarjeta>
+
           {urgentes.length > 0 && (
             <Tarjeta>
               <TituloBloque>Urgente</TituloBloque>
@@ -157,7 +192,7 @@ export default async function PaginaHoy() {
               <Dato valor={activos.length} etiqueta="proyectos activos" href="/proyectos" />
               <Dato valor={proximas.length} etiqueta="reuniones próximas" href="/reuniones" />
               <Dato valor={requerimientosPendientes(boveda).length} etiqueta="requerimientos pendientes" />
-              <Dato valor={boveda.notas.filter((n) => n.carpeta === 'inbox').length} etiqueta="notas en el inbox" />
+              <Dato valor={inbox.length} etiqueta="notas en el inbox" href="/inbox" />
             </div>
           </Tarjeta>
 

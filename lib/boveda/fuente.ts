@@ -1,14 +1,12 @@
 import 'server-only';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { API_GITHUB, cabecerasGitHub, configGitHub, type ConfigGitHub } from './github';
 
 export interface ArchivoNota {
   ruta: string;
   contenido: string;
 }
-
-const API_GITHUB = 'https://api.github.com';
-const RE_REPO = /^[\w.-]+\/[\w.-]+$/;
 
 /** Solo notas: fuera carpetas ocultas (`.obsidian`, `.repos`, `.claude`…), plantillas y el CLAUDE.md de la raíz */
 export function esNotaVisible(ruta: string): boolean {
@@ -42,16 +40,8 @@ async function leerCarpeta(raiz: string): Promise<ArchivoNota[]> {
   return archivos;
 }
 
-function cabecerasGitHub(token: string): HeadersInit {
-  return {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/vnd.github+json',
-    'X-GitHub-Api-Version': '2022-11-28',
-  };
-}
-
 /** Producción: lee el repo privado de notas con la API de GitHub */
-async function leerGitHub(repo: string, rama: string, token: string): Promise<ArchivoNota[]> {
+async function leerGitHub({ token, repo, rama }: ConfigGitHub): Promise<ArchivoNota[]> {
   const arbol = await fetch(`${API_GITHUB}/repos/${repo}/git/trees/${encodeURIComponent(rama)}?recursive=1`, {
     headers: cabecerasGitHub(token),
     next: { revalidate: 60, tags: ['boveda'] },
@@ -87,8 +77,8 @@ export async function leerNotas(): Promise<ArchivoNota[]> {
   const carpeta = process.env.BOVEDA_DIR;
   if (carpeta) return leerCarpeta(carpeta);
 
-  const { GITHUB_TOKEN: token, GITHUB_REPO: repo, GITHUB_BRANCH: rama = 'main' } = process.env;
-  if (token && repo && RE_REPO.test(repo)) return leerGitHub(repo, rama, token);
+  const github = configGitHub();
+  if (github) return leerGitHub(github);
 
   throw new Error('Falta la fuente de las notas: define BOVEDA_DIR (local) o GITHUB_TOKEN y GITHUB_REPO (producción)');
 }
