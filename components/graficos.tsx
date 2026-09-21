@@ -165,7 +165,10 @@ export function FranjaCobros({ meses, cobros, nombre }: { meses: string[]; cobro
         ))}
       </div>
       <p className="sr-only">
-        {nombre}: {celdas.filter((c) => c.estado === 'cobrado').length} meses cobrados de {celdas.length}
+        {nombre}: {(() => {
+          const cobrados = celdas.filter((c) => c.estado === 'cobrado').length;
+          return `${cobrados} ${cobrados === 1 ? 'mes cobrado' : 'meses cobrados'} de ${celdas.length}`;
+        })()}
         {atrasados ? `, ${atrasados} con cobros atrasados` : ''}.
       </p>
     </div>

@@ -346,6 +346,8 @@ function TablaPlan({ plan }: { plan: PlanAnual }) {
 
 // ── Renovaciones ─────────────────────────────────────────────────────────────
 
+const esDominio = (concepto: string) => /\bdominio\b/i.test(concepto);
+
 /**
  * Las apuntadas en las fichas y en los planes, y las que se averiguan solas (dominios
  * `.com`/`.net` por RDAP). Va aparte porque consulta la red.
@@ -365,13 +367,20 @@ async function Renovaciones({ manuales, hoy }: { manuales: Renovacion[]; hoy: st
         ]
       : [],
   );
-  const sinFecha = estado.proyectos.filter((p) => p.dominio && !p.dominio.caduca).map((p) => p.dominio!.nombre);
+  // Los que el registro no publica y tampoco están apuntados en un plan ni en una ficha
+  const sinFecha = estado.proyectos
+    .filter((p) => p.dominio && !p.dominio.caduca)
+    .map((p) => p.dominio!.nombre)
+    // Solo cuenta una renovación del dominio, no la de un certificado del mismo sitio
+    .filter((dominio) => !manuales.some((r) => esDominio(r.concepto) && r.concepto.toLowerCase().includes(dominio)));
 
-  // Un mismo dominio puede salir de la ficha, del plan y del registro: cuenta una vez
+  // Un mismo dominio puede salir de la ficha, del plan y del registro: cuenta una vez. Solo se
+  // juntan renovaciones de dominio; el certificado de ese mismo sitio es otra cosa y se queda
   const vistas = new Set<string>();
   const todas = [...manuales, ...automaticas]
     .filter((r) => {
-      const clave = r.concepto.toLowerCase().match(/[a-z0-9-]+\.[a-z]{2,}(?:\.[a-z]{2,})?/)?.[0] ?? `${r.fecha}|${r.concepto}`;
+      const nombre = r.concepto.toLowerCase().match(/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/)?.[0]?.replace(/^www\./, '');
+      const clave = esDominio(r.concepto) && nombre ? `dominio:${nombre}` : `${r.fecha}|${r.concepto}`;
       if (vistas.has(clave)) return false;
       vistas.add(clave);
       return true;
