@@ -64,10 +64,19 @@ export default async function PaginaHoy() {
           <KpiWebs boveda={boveda} />
         </Suspense>
         <Kpi
-          etiqueta="Ingresos al mes"
-          valor={dinero.pagan ? euros(dinero.mensual) : '—'}
+          etiqueta="Te quedan al mes"
+          valor={dinero.conPlan ? euros(dinero.netoMensual) : '—'}
           href="/economia"
-          detalle={dinero.pagan ? `${dinero.pagan} ${dinero.pagan === 1 ? 'cliente' : 'clientes'} con cuota` : 'Sin cuotas en las fichas'}
+          estado={dinero.atrasados.length ? 'grave' : undefined}
+          detalle={
+            !dinero.conPlan
+              ? 'Sin planes de cobro'
+              : dinero.atrasados.length
+                ? `${euros(dinero.pendiente)} sin cobrar`
+                : dinero.pendiente
+                  ? `${euros(dinero.pendiente)} por cobrar este mes`
+                  : 'Cobros al día'
+          }
         />
         <Suspense fallback={<KpiCargando etiqueta="Avisos" />}>
           <KpiAvisos boveda={boveda} hoy={hoy} />

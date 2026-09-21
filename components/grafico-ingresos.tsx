@@ -88,11 +88,12 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
   const altoTotal = MARGEN_SUPERIOR + ALTO_GRAFICO + ALTO_EJE_X;
 
   return (
-    <div ref={contenedor} className="relative w-full">
+    // min-w-0 y el SVG al 100 %: el gráfico se adapta al hueco y nunca lo ensancha. Si impusiera
+    // su ancho, la columna crecería para que cupiera y el medidor ya no volvería a encoger
+    <div ref={contenedor} className="relative w-full min-w-0">
       <svg
-        width={ancho}
-        height={altoTotal}
         viewBox={`0 0 ${ancho} ${altoTotal}`}
+        style={{ width: '100%', height: 'auto' }}
         role="img"
         aria-label={`${titulo}. Último valor: ${puntos[ultimo].texto} en ${puntos[ultimo].etiqueta}. Usa las flechas para recorrer los meses.`}
         tabIndex={0}

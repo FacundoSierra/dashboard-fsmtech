@@ -19,7 +19,11 @@ En desarrollo, `BOVEDA_DIR` apunta a la carpeta de la bóveda: las notas se leen
 - **Contenido:** `GET /repos/{repo}/git/blobs/{sha}`, en caché sin caducidad. Un SHA siempre tiene el mismo contenido, así que solo se descargan las notas que han cambiado.
 - **Qué se lee:** solo `.md`. Quedan fuera las carpetas que empiezan por punto (`.obsidian`, `.claude`, `.scripts`…), `templates/` y el `CLAUDE.md` de la raíz.
 
-## Escritura: captura rápida (`lib/boveda/escritura.ts` y `lib/boveda/captura.ts`)
+## Escritura
+
+El panel escribe en la bóveda de dos formas y solo de dos: crear capturas en `inbox/` y marcar cobros. Lo segundo está en `docs/economia.md`.
+
+### Captura rápida (`lib/boveda/escritura.ts` y `lib/boveda/captura.ts`)
 - **Qué puede escribir:** solo notas nuevas en `inbox/`. La ruta se valida con `^inbox/[a-z0-9][a-z0-9-]*\.md$` y nunca se sobrescribe una nota existente.
 - **En producción:** `PUT /repos/{repo}/contents/{ruta}` sin `sha`, de modo que si la nota ya existe GitHub responde 422. Hace falta un token con "Contents: Read and write". La nota llega a Obsidian con la siguiente sincronización de la bóveda.
 - **En local:** se escribe en `BOVEDA_DIR` con la opción `wx`.
@@ -82,7 +86,7 @@ Resto del texto
 | Buscar | Todas las palabras de dos letras o más, sin distinguir tildes, en el título, las propiedades, las etiquetas o el texto; el título puntúa más |
 | Requerimientos pendientes | `tipo: requerimiento` con `estado` distinto de `hecho` y `descartado` |
 | Estado: qué se vigila | Proyectos con `estado: activo`: `web` (o la línea `Web:`), `supabase` (`https://<ref>.supabase.co`) y `remoto` (repo de GitHub) |
-| Economía | Fichas de cliente: `cuota_mensual` y `cuota_desde`, o una lista `cuotas`; sección «Renovaciones» con líneas `- YYYY-MM-DD — concepto`. Ver `docs/economia.md` |
+| Economía | `tipo: cobros` en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`: propiedad `plan` y casillas de la sección «Cobros». Sección «Renovaciones» de las fichas de cliente. Ver `docs/economia.md` |
 | Repos del PC | `dashboards/repos-locales.md`, que escribe `.scripts/estado-repos.ps1` de la bóveda |
 
 ## App instalable (PWA)

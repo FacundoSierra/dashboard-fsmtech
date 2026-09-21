@@ -156,13 +156,14 @@ async function Contenido() {
         )}
       </Tarjeta>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Tarjeta titulo="Bases de datos" icono={Database} sinRelleno>
           {conBase.length === 0 ? (
             <div className="p-4">
               <Vacio>Se vigilan con la propiedad `supabase` de la nota del proyecto.</Vacio>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <table className={TABLA}>
               <thead>
                 <tr>
@@ -187,6 +188,7 @@ async function Contenido() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </Tarjeta>
 
@@ -201,6 +203,7 @@ async function Contenido() {
             </div>
           ) : (
             <>
+              <div className="overflow-x-auto">
               <table className={TABLA}>
                 <thead>
                   <tr>
@@ -229,6 +232,7 @@ async function Contenido() {
                   ))}
                 </tbody>
               </table>
+              </div>
               {locales.actualizado && (
                 <p className="border-t border-borde px-4 py-2.5 text-xs text-apagado">
                   Datos del PC del {fechaHoraCorta(locales.actualizado)}. Si el PC está apagado, no se actualizan.

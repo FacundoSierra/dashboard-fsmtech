@@ -235,10 +235,11 @@ export function Fila({ etiqueta, children }: { etiqueta: string; children: React
 // ── Formato ──────────────────────────────────────────────────────────────────
 
 const EUROS = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-const EUROS_EXACTOS = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 });
+const EUROS_EXACTOS = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
 
+/** Con `exactos`, céntimos solo si los hay: `58 €`, pero `9,25 €` */
 export function euros(valor: number, exactos = false): string {
-  return (exactos ? EUROS_EXACTOS : EUROS).format(valor);
+  return (exactos && !Number.isInteger(valor) ? EUROS_EXACTOS : EUROS).format(valor);
 }
 
 export function porcentaje(valor: number, decimales = 0): string {

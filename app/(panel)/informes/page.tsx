@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ChevronRight, FileText } from 'lucide-react';
 import { Encabezado, Tarjeta, Vacio, euros } from '@/components/ui';
 import { obtenerBoveda, proyectos } from '@/lib/boveda/consultas';
-import { economia, nombreMes } from '@/lib/economia';
+import { economia, nombreMes, planVigente } from '@/lib/economia';
 import { hoyMadrid } from '@/lib/fechas';
 import { mesAnterior } from '@/lib/informes';
 
@@ -38,7 +38,9 @@ export default async function PaginaInformes() {
                 >
                   <span className="min-w-0">
                     <span className="block text-sm font-medium">{c.nota.titulo}</span>
-                    <span className="text-xs text-tenue">{c.actual ? `Cuota de ${euros(c.actual)} al mes` : 'Sin cuota'}</span>
+                    <span className="text-xs text-tenue">
+                      {planVigente(c, hoy) ? `Te paga ${euros(planVigente(c, hoy)!.cuotaMensual)} al mes` : 'Sin plan de cobros'}
+                    </span>
                   </span>
                   <ChevronRight className="size-4 shrink-0 text-apagado" aria-hidden />
                 </Link>

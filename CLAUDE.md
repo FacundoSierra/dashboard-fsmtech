@@ -22,7 +22,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
 - `lib/sesion.ts`: `verificarSesion()`, la comprobación fuerte
 - `lib/boveda/`:
   - Lectura: `fuente.ts` (carpeta local o API de GitHub) y `github.ts` (configuración y cabeceras)
-  - Escritura: `escritura.ts`, que solo crea notas nuevas en `inbox/`
+  - Escritura: `escritura.ts`, que crea notas nuevas en `inbox/` y marca cobros
   - Análisis: `parser.ts` (frontmatter, secciones, tareas, enlaces y etiquetas)
   - Consultas: `consultas.ts` (`obtenerBoveda()`, hoy, clientes, proyectos, reuniones), `inbox.ts`, `busqueda.ts` y `semana.ts`
   - Formato de las capturas: `captura.ts`
@@ -32,7 +32,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
   - `red.ts`: filtra las URLs antes de llamar a nada; `acceso.ts`: secreto de `/api/vigilancia`
   - `repos-locales.ts`: lee `dashboards/repos-locales.md`, que escribe la sincronización de la bóveda
 - `lib/avisos.ts`: todo lo anterior convertido en avisos ordenados por gravedad
-- `lib/economia.ts`: cuotas netas de las fichas de cliente, ingresos, evolución y renovaciones
+- `lib/economia.ts`: planes y cobros de cada cliente por año (lo acordado, lo que queda y lo cobrado), evolución y renovaciones
 - `lib/informes.ts`: informe mensual de un cliente
 - `app/api/vigilancia/`: lo que consulta la vigilancia horaria (`.github/workflows/vigilancia.yml` + `scripts/sincronizar-avisos.mjs`)
 - `app/login/`: formulario y Server Actions de sesión
@@ -53,7 +53,7 @@ Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. 
 - Nada de `Date.now()` al pintar (la regla de pureza de React lo marca): usar `estado.comprobado` como «ahora»
 - Las URLs que salen de las notas pasan por `urlVigilable()` antes de llamarlas
 - Cada Server Action que toque notas llama a `verificarSesion()` al empezar. No basta con el proxy: son endpoints POST propios
-- El panel solo escribe con `crearNotaInbox()`: notas nuevas en `inbox/`, sin sobrescribir ni borrar nada
+- El panel solo escribe de dos formas: `crearNotaInbox()` (notas nuevas en `inbox/`, sin sobrescribir ni borrar nada) y `marcarCobro()` (una casilla de cobro en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`, solo si la línea no ha cambiado). No añadir otras escrituras sin la misma acotación
 - Después de escribir, `updateTag('boveda')`. En Next 16, `revalidateTag` necesita un segundo argumento
 - Falla cerrado: sin `DASHBOARD_PASSWORD` y `DASHBOARD_SECRET` no se puede entrar
 - El repo de notas no se despliega nunca: el panel lo usa con un token de permisos finos limitado a ese repo

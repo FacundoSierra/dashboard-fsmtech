@@ -63,7 +63,7 @@ function Rejilla({
             <h2 className="mb-3 text-sm font-semibold capitalize text-tenue">
               {grupo} · {delGrupo.length}
             </h2>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {delGrupo.map((proyecto) => (
                 <TarjetaProyecto
                   key={proyecto.nota.ruta}

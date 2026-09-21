@@ -4,8 +4,8 @@ import { CalendarClock, ExternalLink, FileText, Lightbulb } from 'lucide-react';
 import { Markdown } from '@/components/markdown';
 import { Encabezado, Estado, Vacio, euros, nivelEstadoProyecto, porcentaje } from '@/components/ui';
 import { clientes, obtenerBoveda } from '@/lib/boveda/consultas';
-import { economia } from '@/lib/economia';
-import { cuandoEs, fechaCorta, hoyMadrid } from '@/lib/fechas';
+import { economia, planVigente } from '@/lib/economia';
+import { cuandoEs, hoyMadrid } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
 
 export const metadata: Metadata = { title: 'Clientes' };
@@ -33,15 +33,16 @@ export default async function PaginaClientes() {
     <>
       <Encabezado
         titulo="Clientes"
-        subtitulo={`${lista.length} clientes${dinero.pagan ? ` · ${euros(dinero.mensual)} al mes entre todos` : ''}`}
+        subtitulo={`${lista.length} clientes${dinero.conPlan ? ` · te quedan ${euros(dinero.netoMensual)} al mes entre todos` : ''}`}
       />
       {lista.length === 0 ? (
         <Vacio>No hay fichas de cliente.</Vacio>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lista.map((cliente) => {
             const reunion = cliente.proximaReunion;
-            const cuota = cuotaDe.get(cliente.nota.nombre);
+            const cuenta = cuotaDe.get(cliente.nota.nombre);
+            const plan = cuenta ? planVigente(cuenta, hoy) : undefined;
             return (
               <article key={cliente.nota.ruta} className="flex flex-col rounded-xl border border-borde bg-superficie shadow-tarjeta">
                 <div className="flex items-start gap-3 p-4">
@@ -63,8 +64,8 @@ export default async function PaginaClientes() {
 
                 <dl className="grid grid-cols-3 border-y border-borde text-center">
                   <div className="px-2 py-3">
-                    <dt className="text-xs text-apagado">Cuota</dt>
-                    <dd className="mt-0.5 text-sm font-semibold">{cuota?.cuotas.length ? euros(cuota.actual) : '—'}</dd>
+                    <dt className="text-xs text-apagado">Te queda</dt>
+                    <dd className="mt-0.5 text-sm font-semibold">{plan ? `${euros(plan.netoMensual)}/mes` : '—'}</dd>
                   </div>
                   <div className="border-x border-borde px-2 py-3">
                     <dt className="text-xs text-apagado">Proyectos</dt>
@@ -77,11 +78,24 @@ export default async function PaginaClientes() {
                 </dl>
 
                 <div className="flex-1 space-y-3 p-4 text-sm">
-                  {cuota?.actual && dinero.mensual ? (
-                    <p className="text-xs text-tenue">
-                      {porcentaje((cuota.actual / dinero.mensual) * 100)} de tus ingresos
-                      {cuota.desde && ` · cliente desde ${fechaCorta(cuota.desde)} de ${cuota.desde.slice(0, 4)}`}
-                    </p>
+                  {plan && cuenta ? (
+                    <Link href={`/economia#cliente-${cliente.nota.nombre}`} className="flex items-center justify-between gap-2 text-xs">
+                      <Estado
+                        nivel={cuenta.atrasados.length ? 'grave' : cuenta.pendiente ? 'aviso' : 'bien'}
+                      >
+                        <span className="text-xs">
+                          {cuenta.atrasados.length
+                            ? `${cuenta.atrasados.length} ${cuenta.atrasados.length === 1 ? 'cobro atrasado' : 'cobros atrasados'}`
+                            : cuenta.pendiente
+                              ? 'Cobro de este mes pendiente'
+                              : 'Cobros al día'}
+                        </span>
+                      </Estado>
+                      <span className="text-tenue">
+                        Te paga {euros(plan.cuotaMensual)}/mes
+                        {dinero.netoMensual > 0 && ` · ${porcentaje((plan.netoMensual / dinero.netoMensual) * 100)} de lo tuyo`}
+                      </span>
+                    </Link>
                   ) : null}
 
                   {reunion?.fecha && (

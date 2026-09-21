@@ -208,7 +208,7 @@ function SeccionProyecto({ p, ahora }: { p: InformeProyecto; ahora: number }) {
               : 'Este mes no hubo cambios en el código.'}
           </p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <ListaCambios titulo="Mejoras" lista={p.cambios.mejoras} />
             <ListaCambios titulo="Correcciones" lista={p.cambios.correcciones} />
             <ListaCambios titulo="Seguridad" lista={p.cambios.seguridad} />

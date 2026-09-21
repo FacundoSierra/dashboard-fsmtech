@@ -2,7 +2,7 @@ import 'server-only';
 import type { NivelEstado } from '@/components/ui';
 import { diasEntre } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
-import type { Economia } from './economia';
+import { nombreMes, type Economia } from './economia';
 import type { EstadoGeneral } from './vigilancia/estado';
 import type { ReposLocales } from './vigilancia/repos-locales';
 import { LENTA_MS, diasHasta, seRenuevaSolo } from './vigilancia/webs';
@@ -28,6 +28,13 @@ export const NIVEL_ESTADO: Record<NivelAviso, NivelEstado> = {
   aviso: 'aviso',
   info: 'neutro',
 };
+
+/** Meses de diferencia entre dos `YYYY-MM` */
+function mesesEntre(desde: string, hasta: string): number {
+  const [a1, m1] = desde.split('-').map(Number);
+  const [a2, m2] = hasta.split('-').map(Number);
+  return (a2 - a1) * 12 + (m2 - m1);
+}
 
 function plazo(dias: number): string {
   if (dias < 0) return `caducó hace ${-dias} ${dias === -1 ? 'día' : 'días'}`;
@@ -153,6 +160,19 @@ export function calcularAvisos({
         notificar: dias >= 0 && dias < 15,
       });
     }
+  }
+
+  // Cobros atrasados: no van al móvil, se ven en el panel y se marcan desde Economía
+  for (const { cliente, cobro } of economia?.atrasados ?? []) {
+    const mesesTarde = mesesEntre(cobro.mes, hoy.slice(0, 7));
+    avisos.push({
+      id: `cobro:${cliente.nota.nombre}:${cobro.mes}:${cobro.concepto.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      nivel: mesesTarde >= 2 ? 'grave' : 'aviso',
+      titulo: `${cliente.nota.titulo}: ${nombreMes(cobro.mes, true)} sin cobrar (${cobro.importe.toLocaleString('es-ES')} €)`,
+      detalle: cobro.concepto,
+      href: `/economia#cliente-${cliente.nota.nombre}`,
+      notificar: false,
+    });
   }
 
   for (const local of repos?.repos ?? []) {

@@ -1,3 +1,4 @@
+import type { Cobro } from '@/lib/economia';
 import type { Dia } from '@/lib/vigilancia/disponibilidad';
 import { duracion } from '@/lib/vigilancia/disponibilidad';
 
@@ -57,7 +58,9 @@ export function FranjaDisponibilidad({ dias, nombre }: { dias: Dia[]; nombre: st
   const sinDatos = dias.every((d) => d.estado === 'sin-datos');
 
   return (
-    <div>
+    // `relative`: el texto para lectores de pantalla va en posición absoluta; sin esto se
+    // colocaría respecto a la página y, dentro de una tabla con scroll, la ensancharía
+    <div className="relative">
       <div className="flex h-7 items-end gap-[2px]" aria-hidden>
         {dias.map((dia) => {
           const fecha = FECHA_CORTA.format(new Date(`${dia.fecha}T00:00:00Z`));
@@ -85,6 +88,77 @@ export function FranjaDisponibilidad({ dias, nombre }: { dias: Dia[]; nombre: st
           : conIncidencia
             ? `${conIncidencia} días con incidencias en los últimos ${dias.length}`
             : `sin incidencias en los últimos ${dias.length} días`}
+      </p>
+    </div>
+  );
+}
+
+// ── Franja de cobros del año ─────────────────────────────────────────────────
+
+
+const INICIAL_MES = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+const MES_LARGO = new Intl.DateTimeFormat('es-ES', { month: 'long', timeZone: 'UTC' });
+
+type EstadoMes = 'cobrado' | 'atrasado' | 'pendiente' | 'programado' | 'nada';
+
+function estadoDelMes(cobros: Cobro[]): EstadoMes {
+  if (cobros.length === 0) return 'nada';
+  if (cobros.some((c) => c.estado === 'atrasado')) return 'atrasado';
+  if (cobros.some((c) => c.estado === 'pendiente')) return 'pendiente';
+  if (cobros.every((c) => c.estado === 'cobrado')) return 'cobrado';
+  return 'programado';
+}
+
+/**
+ * Los doce meses del año de un cliente. Como en la de disponibilidad, el estado no va
+ * solo por color: lo atrasado es la celda más alta, lo pendiente de este mes la mediana, y
+ * lo cobrado y lo programado las bajas (programado sin relleno de color).
+ */
+export function FranjaCobros({ anio, cobros, nombre }: { anio: number; cobros: Cobro[]; nombre: string }) {
+  const meses = Array.from({ length: 12 }, (_, i) => {
+    const mes = `${anio}-${String(i + 1).padStart(2, '0')}`;
+    const delMes = cobros.filter((c) => c.mes === mes);
+    const total = delMes.reduce((t, c) => t + c.importe, 0);
+    return { mes, i, estado: estadoDelMes(delMes), total };
+  });
+  const atrasados = meses.filter((m) => m.estado === 'atrasado').length;
+
+  const estilo: Record<EstadoMes, string> = {
+    atrasado: 'h-7 bg-critico',
+    pendiente: 'h-5 bg-aviso',
+    cobrado: 'h-3.5 bg-bien',
+    programado: 'h-3.5 bg-sin-datos',
+    nada: 'h-3.5 border border-dashed border-borde-fuerte',
+  };
+  const texto: Record<EstadoMes, string> = {
+    atrasado: 'sin cobrar, atrasado',
+    pendiente: 'pendiente de cobrar este mes',
+    cobrado: 'cobrado',
+    programado: 'por cobrar',
+    nada: 'sin cobros',
+  };
+
+  return (
+    <div className="relative">
+      <div className="flex h-7 items-end gap-[3px]" aria-hidden>
+        {meses.map((m) => (
+          <span
+            key={m.mes}
+            title={`${MES_LARGO.format(new Date(Date.UTC(anio, m.i, 1)))}: ${texto[m.estado]}${m.total ? ` (${m.total.toLocaleString('es-ES')} €)` : ''}`}
+            className={`min-w-0 flex-1 rounded-[2px] ${estilo[m.estado]}`}
+          />
+        ))}
+      </div>
+      <div className="mt-1 flex gap-[3px] text-center text-[10px] text-apagado" aria-hidden>
+        {INICIAL_MES.map((inicial, i) => (
+          <span key={i} className="flex-1">
+            {inicial}
+          </span>
+        ))}
+      </div>
+      <p className="sr-only">
+        {nombre}, cobros de {anio}: {meses.filter((m) => m.estado === 'cobrado').length} meses cobrados
+        {atrasados ? `, ${atrasados} con cobros atrasados` : ''}.
       </p>
     </div>
   );
