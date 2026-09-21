@@ -179,13 +179,15 @@ export default async function PaginaEconomia() {
 
 function estadoCobros(c: EconomiaCliente, plan: PlanAnual | undefined): { nivel: NivelEstado; texto: string } {
   if (!plan) return { nivel: 'sin-datos', texto: 'Sin plan en vigor' };
+  // Un plan que todavía no ha empezado no es «sin plan»: se dice cuándo empieza
+  if (!c.plan) return { nivel: 'neutro', texto: `Empieza en ${nombreMes(plan.desde, true).replace(/ de \d{4}$/, '')}` };
   if (c.atrasados.length) return { nivel: 'grave', texto: `${c.atrasados.length} sin cobrar` };
   if (c.pendiente) return { nivel: 'aviso', texto: 'Pendiente este mes' };
   return { nivel: 'bien', texto: 'Al día' };
 }
 
 function TarjetaCliente({ cliente, anio }: { cliente: EconomiaCliente; anio: number }) {
-  const plan = cliente.plan;
+  const plan = cliente.plan ?? cliente.proximo;
   const estado = estadoCobros(cliente, plan);
   const debidos = plan?.cobros.filter((c) => c.estado === 'atrasado' || c.estado === 'pendiente') ?? [];
 

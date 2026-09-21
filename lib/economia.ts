@@ -81,6 +81,8 @@ export interface EconomiaCliente {
   nota: Nota;
   /** El plan en vigor este mes */
   plan?: PlanAnual;
+  /** Si no hay plan en vigor, el siguiente que va a empezar */
+  proximo?: PlanAnual;
   planes: PlanAnual[];
   cobradoAnio: number;
   /** Lo que ya debería haber cobrado y no ha cobrado (este mes y anteriores) */
@@ -305,6 +307,7 @@ export function economia(boveda: Boveda, hoy: string): Economia {
       return {
         nota,
         plan: planEnMes(suyos, mesActual),
+        proximo: [...suyos].sort((a, b) => a.desde.localeCompare(b.desde)).find((p) => p.desde > mesActual),
         planes: suyos,
         cobradoAnio: cobros.filter((c) => c.cobrado && c.mes.startsWith(`${anioActual}-`)).reduce((t, c) => t + c.importe, 0),
         pendiente: debidos.reduce((t, c) => t + c.importe, 0),
