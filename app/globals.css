@@ -1,41 +1,111 @@
 @import "tailwindcss";
 
+/*
+ * Sistema de diseño del panel.
+ *
+ * Los colores de datos y de estado salen de la paleta de referencia de visualización,
+ * validados contra las superficies de aquí (tarjeta blanca y #1a1a19):
+ *   - serie: azul, >= 3:1 sobre la tarjeta en los dos modos
+ *   - estados (bien / aviso / grave / crítico): reservados para estado, nunca para series
+ *   - bien y crítico se confunden con deuteranopía (ΔE 4,1): un estado nunca va solo por
+ *     color, siempre con icono y texto, y en las franjas de disponibilidad las incidencias
+ *     cambian también de altura
+ */
 :root {
-  --fondo: #f6f6f3;
+  /* Superficies */
+  --fondo: #f5f5f3;
   --superficie: #ffffff;
-  --borde: #e4e4de;
-  --texto: #1c1c1a;
-  --tenue: #6b6b65;
-  --acento: #2563eb;
-  --acento-suave: #e0eaff;
-  --ok: #15803d;
-  --aviso: #b45309;
+  --superficie-2: #f9f9f7;
+  --borde: #e6e5e0;
+  --borde-fuerte: #d4d3cc;
+
+  /* Tinta */
+  --texto: #0f0f0e;
+  --tenue: #57564f;
+  --apagado: #898781;
+
+  /* Acento de la interfaz: enlaces y selección */
+  --acento: #256abf;
+  --acento-fuerte: #1c5cab;
+  --acento-suave: #e8f0fb;
+
+  /* Datos */
+  --serie: #2a78d6;
+  --serie-suave: rgba(42, 120, 214, 0.1);
+  --rejilla: #e8e7e1;
+  --eje: #c3c2b7;
+  --sin-datos: #e2e1db;
+
+  /* Estados */
+  --bien: #0ca30c;
+  --bien-texto: #006300;
+  --aviso: #fab219;
+  --grave: #ec835a;
+  --critico: #d03b3b;
+  --critico-texto: #b42323;
+
+  /* Compatibilidad con los nombres anteriores */
+  --ok: var(--bien-texto);
+
+  --sombra: 0 1px 2px rgba(15, 15, 14, 0.04), 0 1px 1px rgba(15, 15, 14, 0.02);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fondo: #0f0f0e;
-    --superficie: #1a1a18;
-    --borde: #2d2d2a;
-    --texto: #ededea;
-    --tenue: #9d9d96;
-    --acento: #7aa8ff;
+    --fondo: #0e0e0d;
+    --superficie: #1a1a19;
+    --superficie-2: #20201e;
+    --borde: #2c2c2a;
+    --borde-fuerte: #3a3a37;
+
+    --texto: #f5f5f2;
+    --tenue: #c3c2b7;
+    --apagado: #8f8d86;
+
+    --acento: #6da7ec;
+    --acento-fuerte: #256abf;
     --acento-suave: #1b2c4d;
-    --ok: #4ade80;
-    --aviso: #fbbf24;
+
+    --serie: #3987e5;
+    --serie-suave: rgba(57, 135, 229, 0.14);
+    --rejilla: #2c2c2a;
+    --eje: #383835;
+    --sin-datos: #2f2f2c;
+
+    --bien: #0ca30c;
+    --bien-texto: #34c534;
+    --critico: #d03b3b;
+    --critico-texto: #f07474;
+
+    --sombra: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 }
 
 @theme inline {
   --color-fondo: var(--fondo);
   --color-superficie: var(--superficie);
+  --color-superficie-2: var(--superficie-2);
   --color-borde: var(--borde);
+  --color-borde-fuerte: var(--borde-fuerte);
   --color-texto: var(--texto);
   --color-tenue: var(--tenue);
+  --color-apagado: var(--apagado);
   --color-acento: var(--acento);
+  --color-acento-fuerte: var(--acento-fuerte);
   --color-acento-suave: var(--acento-suave);
-  --color-ok: var(--ok);
+  --color-serie: var(--serie);
+  --color-serie-suave: var(--serie-suave);
+  --color-rejilla: var(--rejilla);
+  --color-eje: var(--eje);
+  --color-sin-datos: var(--sin-datos);
+  --color-bien: var(--bien);
+  --color-bien-texto: var(--bien-texto);
   --color-aviso: var(--aviso);
+  --color-grave: var(--grave);
+  --color-critico: var(--critico);
+  --color-critico-texto: var(--critico-texto);
+  --color-ok: var(--ok);
+  --shadow-tarjeta: var(--sombra);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -43,6 +113,27 @@
 body {
   background: var(--fondo);
   color: var(--texto);
+}
+
+/* Números que se alinean en columna: tablas y ejes. Las cifras grandes van proporcionales */
+.cifras {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Informes: al imprimir solo sale el documento */
+@media print {
+  /* Siempre en claro: en modo oscuro el texto claro saldría invisible sobre el papel */
+  :root {
+    --fondo: #ffffff; --superficie: #ffffff; --superficie-2: #f9f9f7;
+    --borde: #e6e5e0; --borde-fuerte: #d4d3cc;
+    --texto: #0f0f0e; --tenue: #57564f; --apagado: #6f6d67;
+    --acento: #256abf; --acento-fuerte: #1c5cab; --acento-suave: #e8f0fb;
+    --bien-texto: #006300; --critico-texto: #b42323;
+  }
+  body { background: #fff; color: #000; }
+  .no-imprimir { display: none !important; }
+  .imprimir-plano { box-shadow: none !important; border-color: #ddd !important; }
+  @page { margin: 16mm; }
 }
 
 /* Notas renderizadas desde Markdown */

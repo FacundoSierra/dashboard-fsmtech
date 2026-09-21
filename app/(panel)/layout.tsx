@@ -1,39 +1,49 @@
+import Form from 'next/form';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { cerrarSesion } from '@/app/login/acciones';
-import { Navegacion } from '@/components/navegacion';
+import { Plus, Search } from 'lucide-react';
+import { BarraInferior, BarraLateral, Marca } from '@/components/navegacion';
 import { verificarSesion } from '@/lib/sesion';
 
 export default async function LayoutPanel({ children }: { children: ReactNode }) {
   await verificarSesion();
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 sm:px-6">
-      <header className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-borde bg-fondo/85 px-4 py-3 backdrop-blur sm:-mx-6 sm:flex-nowrap sm:px-6">
-        <Link href="/" className="font-semibold tracking-tight">
-          FSMTECH
-        </Link>
-        <div className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-1">
-          <Navegacion />
-        </div>
-        <div className="ml-auto flex items-center gap-1 sm:ml-0">
-          <Link href="/buscar" aria-label="Buscar" className="rounded-lg p-2 text-tenue hover:text-texto">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-5" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
-          </Link>
-          <Link href="/capturar" className="whitespace-nowrap rounded-lg bg-acento px-3 py-1.5 text-sm font-medium text-white">
-            + Apuntar
-          </Link>
-          <form action={cerrarSesion}>
-            <button type="submit" className="px-2 py-1.5 text-sm text-tenue hover:text-texto">
-              Salir
-            </button>
-          </form>
-        </div>
-      </header>
-      <main className="flex-1 py-6 sm:py-8">{children}</main>
+    <div className="min-h-screen">
+      <BarraLateral />
+
+      <div className="lg:pl-60 print:pl-0">
+        <header className="no-imprimir sticky top-0 z-20 border-b border-borde bg-fondo/85 backdrop-blur">
+          <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:px-6">
+            <Link href="/" className="flex items-center gap-2 lg:hidden" aria-label="Inicio">
+              <Marca />
+            </Link>
+
+            <Form action="/buscar" className="relative min-w-0 flex-1 sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-apagado" aria-hidden />
+              <input
+                type="search"
+                name="q"
+                placeholder="Buscar en las notas"
+                aria-label="Buscar en las notas"
+                className="h-9 w-full rounded-lg border border-borde bg-superficie pl-8 pr-3 text-sm outline-none placeholder:text-apagado focus:border-acento focus:ring-2 focus:ring-acento/25"
+              />
+            </Form>
+
+            <Link
+              href="/capturar"
+              className="ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90"
+            >
+              <Plus className="size-4" aria-hidden />
+              <span className="hidden sm:inline">Apuntar</span>
+            </Link>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:pb-12 print:p-0">{children}</main>
+      </div>
+
+      <BarraInferior />
     </div>
   );
 }

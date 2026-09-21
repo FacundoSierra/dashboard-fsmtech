@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Chip, Encabezado, TituloBloque, Vacio } from '@/components/ui';
+import { Chip, Encabezado, Estado, Seccion, Vacio } from '@/components/ui';
 import {
   obtenerBoveda,
   reunionesAnteriores,
@@ -22,14 +22,12 @@ export default async function PaginaReuniones() {
     <>
       <Encabezado titulo="Reuniones" subtitulo={`${proximas.length} próximas`} />
       <div className="space-y-8">
-        <section>
-          <TituloBloque>Próximas</TituloBloque>
+        <Seccion titulo="Próximas">
           <ListaReuniones reuniones={proximas} hoy={hoy} titulos={boveda.titulos} vacio="No hay reuniones previstas." />
-        </section>
-        <section>
-          <TituloBloque>Anteriores</TituloBloque>
+        </Seccion>
+        <Seccion titulo="Anteriores">
           <ListaReuniones reuniones={anteriores} hoy={hoy} titulos={boveda.titulos} vacio="Todavía no hay reuniones pasadas." />
-        </section>
+        </Seccion>
       </div>
     </>
   );
@@ -49,7 +47,7 @@ function ListaReuniones({
   if (reuniones.length === 0) return <Vacio>{vacio}</Vacio>;
 
   return (
-    <ul className="divide-y divide-borde overflow-hidden rounded-2xl border border-borde bg-superficie">
+    <ul className="divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie shadow-tarjeta">
       {reuniones.map((reunion) => {
         const detalles = [
           reunion.fecha && fechaLarga(reunion.fecha),
@@ -69,7 +67,11 @@ function ListaReuniones({
               {reunion.fecha && (
                 <Chip tono={reunion.fecha >= hoy ? 'acento' : 'neutro'}>{cuandoEs(reunion.fecha, hoy)}</Chip>
               )}
-              {reunion.abiertas.length > 0 && <Chip tono="aviso">{reunion.abiertas.length} tareas</Chip>}
+              {reunion.abiertas.length > 0 && (
+                <Estado nivel="aviso">
+                  <span className="text-xs">{reunion.abiertas.length} tareas</span>
+                </Estado>
+              )}
             </div>
           </li>
         );

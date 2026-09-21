@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Markdown } from '@/components/markdown';
-import { Chip, Encabezado, Tarjeta, Vacio, type Tono } from '@/components/ui';
+import { Chip, Encabezado, Estado, Tarjeta, Vacio, type Tono } from '@/components/ui';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
 import { capturas } from '@/lib/boveda/inbox';
 import { cuandoEs, fechaLarga, hoyMadrid } from '@/lib/fechas';
@@ -9,7 +9,7 @@ import { hrefNota } from '@/lib/rutas';
 
 export const metadata: Metadata = { title: 'Inbox' };
 
-const TONO_CATEGORIA: Record<string, Tono> = { idea: 'acento', tarea: 'aviso', nota: 'neutro' };
+const TONO_CATEGORIA: Record<string, Tono> = { idea: 'acento', tarea: 'neutro', nota: 'neutro' };
 
 export default async function PaginaInbox({ searchParams }: PageProps<'/inbox'>) {
   const boveda = await obtenerBoveda();
@@ -22,15 +22,15 @@ export default async function PaginaInbox({ searchParams }: PageProps<'/inbox'>)
       <Encabezado titulo="Inbox" subtitulo={`${lista.length} ${lista.length === 1 ? 'nota pendiente' : 'notas pendientes'} de procesar`} />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <Link href="/capturar" className="rounded-lg bg-acento px-4 py-2 text-sm font-medium text-white">
+        <Link href="/capturar" className="rounded-lg bg-acento-fuerte px-4 py-2 text-sm font-medium text-white hover:opacity-90">
           + Apuntar
         </Link>
         <p className="text-sm text-tenue">Procésalas en Obsidian: muévelas a su sitio o conviértelas en tareas.</p>
       </div>
 
       {typeof guardada === 'string' && (
-        <p role="status" className="mb-4 rounded-xl bg-ok/15 px-3 py-2 text-sm text-ok">
-          Guardada en la bóveda. Llegará a Obsidian en unos minutos, en cuanto tu PC sincronice.
+        <p role="status" className="mb-4 rounded-xl border border-borde bg-superficie px-3 py-2">
+          <Estado nivel="bien">Guardada en la bóveda. Llegará a Obsidian en unos minutos, en cuanto tu PC sincronice.</Estado>
         </p>
       )}
 

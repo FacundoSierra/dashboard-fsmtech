@@ -1,6 +1,6 @@
 # Dashboard FSMTECH
 
-Panel privado que resume clientes, proyectos, objetivos diarios, la semana y las reuniones a partir de las notas de una bóveda de Obsidian. Permite apuntar capturas rápidas en su inbox y se puede instalar en el móvil.
+Panel privado que resume clientes, proyectos, objetivos diarios, la semana y las reuniones a partir de las notas de una bóveda de Obsidian. Vigila las webs, bases de datos y despliegues de los clientes, avisa al móvil cuando algo se cae, lleva la economía de las cuotas y genera informes mensuales de mantenimiento. Permite apuntar capturas rápidas en su inbox y se puede instalar en el móvil.
 
 ## En local
 
@@ -21,6 +21,8 @@ Abre http://localhost:3000 e introduce la contraseña. En local, las capturas se
    - `GITHUB_TOKEN`: token con permisos finos, solo para el repo de notas, con "Contents: Read and write". La escritura hace falta para la captura rápida.
    - `GITHUB_REPO`: `usuario/repo`
    - `GITHUB_BRANCH` (por defecto `main`)
+   - `GITHUB_TOKEN_LECTURA`: token de solo lectura para los repos de código (estado, despliegues, informes)
+   - `VIGILANCIA_SECRET`: secreto de la vigilancia horaria
 3. Añade el dominio en Settings → Domains y crea en el DNS el registro que indique Vercel.
 4. Comprueba que sin sesión todas las rutas redirigen a `/login`, salvo el manifest y los iconos.
 
@@ -29,3 +31,5 @@ Abre http://localhost:3000 e introduce la contraseña. En local, las capturas se
 - **iPhone (Safari):** Compartir → "Añadir a pantalla de inicio".
 
 Arquitectura, escritura, caché y seguridad: [docs/arquitectura.md](docs/arquitectura.md).
+Vigilancia, avisos e informes, y cómo ponerlos en marcha: [docs/vigilancia.md](docs/vigilancia.md).
+Economía y formato de las cuotas: [docs/economia.md](docs/economia.md).

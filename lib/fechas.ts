@@ -71,3 +71,27 @@ export function cuandoEs(fecha: string, hoy: string): string {
   if (dias === -1) return 'ayer';
   return dias > 0 ? `en ${dias} días` : `hace ${-dias} días`;
 }
+
+/** Tiempo transcurrido desde un instante ISO: `hace 5 min`, `hace 3 h`, `hace 2 días` */
+export function haceTiempo(iso: string, ahora: number = Date.now()): string {
+  const minutos = Math.max(0, Math.round((ahora - new Date(iso).getTime()) / 60_000));
+  if (minutos < 1) return 'ahora mismo';
+  if (minutos < 60) return `hace ${minutos} min`;
+  const horas = Math.round(minutos / 60);
+  if (horas < 24) return `hace ${horas} h`;
+  const dias = Math.round(horas / 24);
+  return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`;
+}
+
+/** Instante ISO → `21 sep, 14:05` en hora de Madrid */
+export function fechaHoraCorta(iso: string): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    timeZone: ZONA_HORARIA,
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+    .format(new Date(iso))
+    .replace('.', '');
+}

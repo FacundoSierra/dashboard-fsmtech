@@ -1,0 +1,37 @@
+# Vigilancia horaria de las webs, bases de datos y despliegues de los clientes.
+# Pregunta al panel y abre o cierra incidencias de este repo; GitHub las avisa al móvil.
+# Detalle en docs/vigilancia.md.
+name: Vigilancia
+
+on:
+  schedule:
+    # Cada hora, al minuto 17: en punto GitHub va saturado y retrasa las ejecuciones.
+    # Cada ejecución gasta 1 minuto de Actions: unos 744 al mes de los 2.000 gratuitos.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vigilancia
+  cancel-in-progress: false
+
+jobs:
+  vigilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/sincronizar-avisos.mjs
+        env:
+          VIGILANCIA_URL: ${{ secrets.VIGILANCIA_URL }}
+          VIGILANCIA_SECRET: ${{ secrets.VIGILANCIA_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}

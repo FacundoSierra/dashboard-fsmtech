@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Fragment } from 'react';
 import { Markdown } from '@/components/markdown';
-import { Tarjeta, TituloBloque } from '@/components/ui';
+import { Tarjeta } from '@/components/ui';
 import { buscarNota, notasQueEnlazan, obtenerBoveda } from '@/lib/boveda/consultas';
 import { hrefNota } from '@/lib/rutas';
 
@@ -54,8 +54,7 @@ export default async function PaginaNota({ params }: PageProps<'/nota/[...ruta]'
       <Markdown texto={nota.cuerpo} rutas={boveda.rutas} />
 
       {entrantes.length > 0 && (
-        <Tarjeta className="mt-10">
-          <TituloBloque>Enlazada desde</TituloBloque>
+        <Tarjeta className="mt-10" titulo={`Enlazada desde · ${entrantes.length}`}>
           <ul className="space-y-1.5 text-sm">
             {entrantes.map((otra) => (
               <li key={otra.ruta}>

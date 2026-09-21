@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { diasEntre } from '@/lib/fechas';
 import { verificarSesion } from '@/lib/sesion';
+import type { AutorizacionVigilancia } from '@/lib/vigilancia/acceso';
 import { leerNotas } from './fuente';
 import { contenidoSeccion, enlacesDe, nombreDeDestino, parsearNota, tareasDe, vinetasDe } from './parser';
 import type { Boveda, Nota, Tarea } from './tipos';
@@ -12,6 +13,19 @@ const DIAS_PENDIENTES_ANTERIORES = 14;
 /** Lee y analiza todas las notas una vez por petición, siempre después de comprobar la sesión */
 export const obtenerBoveda = cache(async (): Promise<Boveda> => {
   await verificarSesion();
+  return cargarBoveda();
+});
+
+/**
+ * Lo mismo, para `/api/vigilancia`, que no tiene sesión: la llama la vigilancia horaria de
+ * GitHub con su propio secreto. Exige la autorización que da `autorizarVigilancia()`.
+ */
+export async function obtenerBovedaParaVigilancia(autorizacion: AutorizacionVigilancia): Promise<Boveda> {
+  if (!autorizacion) throw new Error('Sin autorización de la vigilancia');
+  return cargarBoveda();
+}
+
+async function cargarBoveda(): Promise<Boveda> {
   const notas = (await leerNotas())
     .map(({ ruta, contenido }) => parsearNota(ruta, contenido))
     .sort((a, b) => a.ruta.localeCompare(b.ruta));
@@ -22,7 +36,7 @@ export const obtenerBoveda = cache(async (): Promise<Boveda> => {
     rutas: diccionario(notas.map((nota): [string, string] => [nota.nombre, nota.ruta])),
     titulos: diccionario(notas.map((nota): [string, string] => [nota.nombre, nota.titulo])),
   };
-});
+}
 
 /** Objeto sin prototipo: un `[[constructor]]` o `[[toString]]` en una nota no debe resolver a nada */
 function diccionario(pares: [string, string][]): Record<string, string> {
@@ -128,6 +142,10 @@ export interface ResumenProyecto {
   stack: string[];
   web?: string;
   remoto?: string;
+  /** Repo de GitHub sacado de `remoto` */
+  repo?: RepoGitHub;
+  /** URL pública del proyecto de Supabase (`https://<ref>.supabase.co`); no es una clave */
+  supabase?: string;
   /** Tareas sin hacer de "Próximos pasos", las prioritarias primero */
   abiertas: Tarea[];
   hechas: number;
@@ -147,11 +165,31 @@ export function proyectos(boveda: Boveda): ResumenProyecto[] {
         stack: lista(p.stack),
         web: texto(p.web) ?? nota.cuerpo.match(/Web:\s*(https?:\/\/[^\s)>]+)/)?.[1],
         remoto: texto(p.remoto),
+        repo: repoDeRemoto(texto(p.remoto)),
+        supabase: urlSupabase(texto(p.supabase)),
         abiertas: [...abiertas.filter(esPrioritaria), ...abiertas.filter((t) => !esPrioritaria(t))],
         hechas: tareas.length - abiertas.length,
       };
     })
     .sort((a, b) => a.nota.titulo.localeCompare(b.nota.titulo, 'es'));
+}
+
+export interface RepoGitHub {
+  propietario: string;
+  nombre: string;
+}
+
+const RE_REPO_GITHUB = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/;
+
+/** `https://github.com/FacundoSierra/pactum` → `{ propietario, nombre }` */
+export function repoDeRemoto(remoto: string | undefined): RepoGitHub | undefined {
+  const partes = remoto?.match(RE_REPO_GITHUB);
+  return partes ? { propietario: partes[1], nombre: partes[2] } : undefined;
+}
+
+/** Solo URLs de proyecto de Supabase: el panel no llama a ninguna otra dirección desde esta propiedad */
+function urlSupabase(valor: string | undefined): string | undefined {
+  return valor && /^https:\/\/[a-z0-9]{20}\.supabase\.co\/?$/.test(valor) ? valor.replace(/\/$/, '') : undefined;
 }
 
 // ── Reuniones ────────────────────────────────────────────────────────────────

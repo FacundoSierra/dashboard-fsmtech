@@ -22,14 +22,14 @@ export function FormularioLogin({ desde }: { desde: string }) {
         />
       </label>
       {estado.error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-critico-texto">
           {estado.error}
         </p>
       )}
       <button
         type="submit"
         disabled={enviando}
-        className="w-full rounded-lg bg-acento px-3 py-2 font-medium text-white disabled:opacity-60"
+        className="w-full rounded-lg bg-acento-fuerte px-3 py-2 font-medium text-white disabled:opacity-60"
       >
         {enviando ? 'Entrando…' : 'Entrar'}
       </button>

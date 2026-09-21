@@ -81,6 +81,9 @@ Resto del texto
 | Inbox | Notas de `inbox/`, las más recientes primero; `categoria`, `fecha`, `hora` y `relacionado` si las tienen |
 | Buscar | Todas las palabras de dos letras o más, sin distinguir tildes, en el título, las propiedades, las etiquetas o el texto; el título puntúa más |
 | Requerimientos pendientes | `tipo: requerimiento` con `estado` distinto de `hecho` y `descartado` |
+| Estado: qué se vigila | Proyectos con `estado: activo`: `web` (o la línea `Web:`), `supabase` (`https://<ref>.supabase.co`) y `remoto` (repo de GitHub) |
+| Economía | Fichas de cliente: `cuota_mensual` y `cuota_desde`, o una lista `cuotas`; sección «Renovaciones» con líneas `- YYYY-MM-DD — concepto`. Ver `docs/economia.md` |
+| Repos del PC | `dashboards/repos-locales.md`, que escribe `.scripts/estado-repos.ps1` de la bóveda |
 
 ## App instalable (PWA)
 - **Manifest (`app/manifest.ts`):**
@@ -89,6 +92,11 @@ Resto del texto
   - `share_target`: al compartir desde otra app del móvil se abre `/capturar?titulo=…&texto=…&url=…` con el texto ya escrito.
 - **Iconos:** se generan con `ImageResponse` en `app/icon.tsx`, `app/apple-icon.tsx` y `app/iconos/[tamano]` (192 y 512).
 - **Sin service worker:** el panel necesita conexión y no guarda notas en el dispositivo.
+
+## Vigilancia
+
+Ver [vigilancia.md](vigilancia.md): qué se comprueba, cachés, avisos, la acción horaria que
+abre incidencias en GitHub y los informes mensuales.
 
 ## Seguridad
 - **Proxy (`proxy.ts`):** comprobación optimista. Sin cookie válida, todo redirige a `/login` salvo lo público y sin datos: estáticos de Next, `robots.txt`, `manifest.webmanifest` e iconos. El navegador pide el manifest y los iconos sin cookies.
@@ -102,3 +110,6 @@ Resto del texto
 - **Falla cerrado:** sin `DASHBOARD_PASSWORD`, o sin un `DASHBOARD_SECRET` de 32 caracteres o más, no se puede entrar.
 - **Token de GitHub:** permisos finos, solo el repo de notas y solo "Contents". El panel solo crea notas en `inbox/`.
 - **Sin indexar:** cabecera `X-Robots-Tag`, metadatos `robots` y `robots.txt` con `Disallow: /`.
+- **`/api/vigilancia`:** el proxy la deja pasar sin cookie. Se autentica dentro con `Authorization: Bearer <VIGILANCIA_SECRET>` comparado en tiempo constante, falla cerrado (sin secreto de 32 caracteres, nadie entra) y responde 404 sin él. Solo devuelve los avisos a notificar.
+- **Token de lectura:** `GITHUB_TOKEN_LECTURA` es solo lectura y distinto de `GITHUB_TOKEN`: si se filtra, no puede tocar las notas.
+- **Llamadas a webs:** las URLs salen de las notas; `urlVigilable()` solo deja pasar `http(s)` con dominio, nunca `localhost`, `.local`, `.internal` ni IPs.

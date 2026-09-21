@@ -29,7 +29,7 @@ export default async function PaginaBuscar({ searchParams }: PageProps<'/buscar'
           aria-label="Buscar en las notas"
           className="min-w-0 flex-1 rounded-lg border border-borde bg-superficie px-3 py-2 outline-none focus:border-acento focus:ring-2 focus:ring-acento/30"
         />
-        <button type="submit" className="rounded-lg bg-acento px-4 py-2 font-medium text-white">
+        <button type="submit" className="rounded-lg bg-acento-fuerte px-4 py-2 font-medium text-white hover:opacity-90">
           Buscar
         </button>
       </Form>
@@ -82,7 +82,7 @@ function Resaltado({ texto, terminos }: { texto: string; terminos: string[] }) {
     if (inicio < cursor) continue;
     if (inicio > cursor) partes.push(texto.slice(cursor, inicio));
     partes.push(
-      <mark key={inicio} className="rounded bg-aviso/25 px-0.5 text-inherit">
+      <mark key={inicio} className="rounded bg-acento-suave px-0.5 text-inherit">
         {texto.slice(inicio, fin)}
       </mark>,
     );

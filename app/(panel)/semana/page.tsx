@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Markdown } from '@/components/markdown';
 import { ListaTareas } from '@/components/tareas';
-import { Chip, Encabezado, Tarjeta } from '@/components/ui';
+import { Chip, Encabezado, Estado, Kpi, Tarjeta } from '@/components/ui';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
 import { resumenSemana, type DiaSemana } from '@/lib/boveda/semana';
 import { esFechaValida, fechaCorta, fechaLarga, hoyMadrid, inicioSemana, sumarDias } from '@/lib/fechas';
@@ -10,7 +10,7 @@ import { hrefNota } from '@/lib/rutas';
 
 export const metadata: Metadata = { title: 'Semana' };
 
-const BOTON = 'rounded-lg border border-borde bg-superficie px-3 py-1.5 hover:text-acento';
+const BOTON = 'rounded-lg border border-borde bg-superficie px-3 py-1.5 shadow-tarjeta hover:text-acento';
 
 export default async function PaginaSemana({ searchParams }: PageProps<'/semana'>) {
   const boveda = await obtenerBoveda();
@@ -37,18 +37,18 @@ export default async function PaginaSemana({ searchParams }: PageProps<'/semana'
           Siguiente →
         </Link>
         <span className="ml-auto">
-          <Chip tono="ok">
+          <Estado nivel="bien">
             Racha de dailies: {semana.racha} {semana.racha === 1 ? 'día' : 'días'}
-          </Chip>
+          </Estado>
         </span>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Cifra valor={`${totales.objetivosHechos}/${totales.objetivosTotales}`} etiqueta="objetivos hechos" />
-        <Cifra valor={totales.completado} etiqueta="completado en dailies" />
-        <Cifra valor={totales.enNotas} etiqueta="hecho en proyectos y notas" />
-        <Cifra valor={totales.reuniones} etiqueta="reuniones" />
-        <Cifra valor={`${totales.dailies}/7`} etiqueta="dailies" />
+        <Kpi etiqueta="Objetivos hechos" valor={`${totales.objetivosHechos}/${totales.objetivosTotales}`} />
+        <Kpi etiqueta="Completado en dailies" valor={totales.completado} />
+        <Kpi etiqueta="Hecho en proyectos" valor={totales.enNotas} />
+        <Kpi etiqueta="Reuniones" valor={totales.reuniones} />
+        <Kpi etiqueta="Dailies" valor={`${totales.dailies}/7`} />
       </div>
 
       <div className="space-y-3">
@@ -60,14 +60,6 @@ export default async function PaginaSemana({ searchParams }: PageProps<'/semana'
   );
 }
 
-function Cifra({ valor, etiqueta }: { valor: string | number; etiqueta: string }) {
-  return (
-    <div className="rounded-2xl border border-borde bg-superficie p-3">
-      <span className="block text-2xl font-semibold">{valor}</span>
-      <span className="block text-xs text-tenue">{etiqueta}</span>
-    </div>
-  );
-}
 
 function TarjetaDia({ dia, hoy, rutas }: { dia: DiaSemana; hoy: string; rutas: Record<string, string> }) {
   const esHoy = dia.fecha === hoy;
@@ -90,9 +82,11 @@ function TarjetaDia({ dia, hoy, rutas }: { dia: DiaSemana; hoy: string; rutas: R
             !futuro && <Chip>Sin daily</Chip>
           )}
           {dia.objetivosTotales > 0 && (
-            <Chip tono={completo ? 'ok' : 'neutro'}>
-              {dia.objetivosHechos}/{dia.objetivosTotales} objetivos
-            </Chip>
+            <Estado nivel={completo ? 'bien' : 'neutro'}>
+              <span className="text-xs">
+                {dia.objetivosHechos}/{dia.objetivosTotales} objetivos
+              </span>
+            </Estado>
           )}
         </div>
       </div>

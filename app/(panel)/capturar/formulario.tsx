@@ -85,7 +85,7 @@ export function FormularioCaptura({
       </label>
 
       {estado.error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-critico-texto">
           {estado.error}
         </p>
       )}
@@ -93,7 +93,7 @@ export function FormularioCaptura({
       <button
         type="submit"
         disabled={guardando}
-        className="w-full rounded-lg bg-acento px-4 py-2.5 font-medium text-white disabled:opacity-60 sm:w-auto"
+        className="w-full rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white disabled:opacity-60 sm:w-auto"
       >
         {guardando ? 'Guardando…' : 'Guardar en el inbox'}
       </button>
