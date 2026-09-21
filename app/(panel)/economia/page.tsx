@@ -23,6 +23,7 @@ import {
 import { obtenerBoveda } from '@/lib/boveda/consultas';
 import {
   economia,
+  mesesDelPlan,
   nombreMes,
   planVigente,
   type Cobro,
@@ -145,14 +146,15 @@ export default async function PaginaEconomia() {
                     detalle: datos.netoMensual ? porcentaje((plan!.netoMensual / datos.netoMensual) * 100) : undefined,
                   }))}
               />
-              {datos.principal && datos.principal.porcentaje >= 50 && (
+              {/* Con un solo cliente con plan es obvio y no aporta nada */}
+              {datos.conPlan > 1 && datos.principal && datos.principal.porcentaje >= 50 && (
                 <p className="mt-4 text-xs text-tenue">Más de la mitad de lo que ganas depende de un solo cliente.</p>
               )}
             </Tarjeta>
           </div>
 
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-tenue">Clientes · {anio}</h2>
+            <h2 className="text-sm font-semibold text-tenue">Clientes</h2>
             <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
               {datos.clientes.map((c) => (
                 <TarjetaCliente key={c.nota.ruta} cliente={c} anio={anio} />
@@ -176,7 +178,7 @@ export default async function PaginaEconomia() {
 // ── Tarjeta de un cliente ────────────────────────────────────────────────────
 
 function estadoCobros(c: EconomiaCliente, plan: PlanAnual | undefined): { nivel: NivelEstado; texto: string } {
-  if (!plan) return { nivel: 'sin-datos', texto: 'Sin plan este año' };
+  if (!plan) return { nivel: 'sin-datos', texto: 'Sin plan en vigor' };
   if (c.atrasados.length) return { nivel: 'grave', texto: `${c.atrasados.length} sin cobrar` };
   if (c.pendiente) return { nivel: 'aviso', texto: 'Pendiente este mes' };
   return { nivel: 'bien', texto: 'Al día' };
@@ -196,10 +198,15 @@ function TarjetaCliente({ cliente, anio }: { cliente: EconomiaCliente; anio: num
               {cliente.nota.titulo}
             </Link>
           </h3>
-          <div className="mt-1">
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
             <Estado nivel={estado.nivel}>
               <span className="text-xs text-tenue">{estado.texto}</span>
             </Estado>
+            {plan && (
+              <span className="text-xs capitalize text-apagado">
+                {nombreMes(plan.desde)} – {nombreMes(plan.hasta)}
+              </span>
+            )}
           </div>
         </div>
         {plan && (
@@ -218,12 +225,12 @@ function TarjetaCliente({ cliente, anio }: { cliente: EconomiaCliente; anio: num
 
       {!plan ? (
         <p className="border-t border-borde px-4 py-3 text-xs text-tenue">
-          Sin plan de cobros en {anio}. Se crea en <code>clientes/{cliente.nota.nombre}/cobros/{cliente.nota.nombre}-cobros-{anio}.md</code>.
+          Sin plan de cobros en vigor. Se crea en <code>clientes/{cliente.nota.nombre}/cobros/{cliente.nota.nombre}-cobros-{anio}.md</code>.
         </p>
       ) : (
         <>
           <div className="px-4 pb-4">
-            <FranjaCobros anio={anio} cobros={plan.cobros} nombre={cliente.nota.titulo} />
+            <FranjaCobros meses={mesesDelPlan(plan)} cobros={plan.cobros} nombre={cliente.nota.titulo} />
           </div>
 
           {debidos.length > 0 && (
@@ -236,7 +243,7 @@ function TarjetaCliente({ cliente, anio }: { cliente: EconomiaCliente; anio: num
 
           <details className="border-t border-borde">
             <summary className="cursor-pointer px-4 py-2.5 text-xs text-tenue hover:text-texto">
-              Plan y todos los cobros de {anio}
+              El trato y todos sus cobros
             </summary>
             <div className="space-y-4 px-4 pb-4">
               <TablaPlan plan={plan} />

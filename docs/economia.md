@@ -1,7 +1,8 @@
 # Economía: planes y cobros
 
 La página `/economia`, las tarjetas de cliente y los avisos de cobros salen de una nota por
-cliente y año en la bóveda. La lógica está en `lib/economia.ts`.
+cliente y año de trato en la bóveda. El año de trato empieza cuando empieza el trato (de
+septiembre a agosto, por ejemplo), no en enero. La lógica está en `lib/economia.ts`.
 
 ## Dónde va cada cosa
 
@@ -9,8 +10,8 @@ cliente y año en la bóveda. La lógica está en `lib/economia.ts`.
 clientes/<cliente>/
   <cliente>.md                     ← la ficha: quién es, contactos, renovaciones sueltas
   cobros/
-    <cliente>-cobros-2026.md       ← lo ACORDADO en 2026 (plan) y lo COBRADO (casillas)
-    <cliente>-cobros-2027.md       ← si cambia el trato, nota nueva el año siguiente
+    <cliente>-cobros-2026.md       ← el trato que empieza en 2026: lo ACORDADO y lo COBRADO
+    <cliente>-cobros-2027.md       ← el siguiente año de trato, con sus condiciones
   documentos/                      ← facturas y contratos en PDF
   reuniones/
 ```
@@ -26,8 +27,8 @@ Va en las propiedades de la nota. Una línea por concepto:
 tipo: cobros
 cliente: "[[bodegas-agrovello]]"
 anio: 2026
-desde: 2026-10          # opcional: primer mes; por defecto enero
-hasta: 2026-12          # opcional: último mes; por defecto diciembre
+desde: 2026-09          # primer mes del trato; por defecto enero
+hasta: 2027-08          # opcional: por defecto, doce meses desde `desde`
 plan:
   - concepto: Mantenimiento
     importe: 50

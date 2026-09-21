@@ -93,11 +93,10 @@ export function FranjaDisponibilidad({ dias, nombre }: { dias: Dia[]; nombre: st
   );
 }
 
-// ── Franja de cobros del año ─────────────────────────────────────────────────
-
+// ── Franja de cobros de un plan ──────────────────────────────────────────────
 
 const INICIAL_MES = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-const MES_LARGO = new Intl.DateTimeFormat('es-ES', { month: 'long', timeZone: 'UTC' });
+const MES_LARGO = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 type EstadoMes = 'cobrado' | 'atrasado' | 'pendiente' | 'programado' | 'nada';
 
@@ -110,18 +109,26 @@ function estadoDelMes(cobros: Cobro[]): EstadoMes {
 }
 
 /**
- * Los doce meses del año de un cliente. Como en la de disponibilidad, el estado no va
- * solo por color: lo atrasado es la celda más alta, lo pendiente de este mes la mediana, y
- * lo cobrado y lo programado las bajas (programado sin relleno de color).
+ * Los meses de un plan (normalmente doce, de septiembre a agosto, por ejemplo). Como en la de
+ * disponibilidad, el estado no va solo por color: lo atrasado es la celda más alta, lo
+ * pendiente de este mes la mediana, y lo cobrado y lo programado las bajas (programado sin
+ * relleno de color).
  */
-export function FranjaCobros({ anio, cobros, nombre }: { anio: number; cobros: Cobro[]; nombre: string }) {
-  const meses = Array.from({ length: 12 }, (_, i) => {
-    const mes = `${anio}-${String(i + 1).padStart(2, '0')}`;
+export function FranjaCobros({ meses, cobros, nombre }: { meses: string[]; cobros: Cobro[]; nombre: string }) {
+  const celdas = meses.map((mes) => {
     const delMes = cobros.filter((c) => c.mes === mes);
-    const total = delMes.reduce((t, c) => t + c.importe, 0);
-    return { mes, i, estado: estadoDelMes(delMes), total };
+    const [anio, m] = mes.split('-').map(Number);
+    return {
+      mes,
+      inicial: INICIAL_MES[m - 1],
+      // Enero lleva el año debajo, para ver dónde cambia
+      anio: m === 1 && mes !== meses[0] ? String(anio).slice(2) : undefined,
+      nombreLargo: MES_LARGO.format(new Date(Date.UTC(anio, m - 1, 1))),
+      estado: estadoDelMes(delMes),
+      total: delMes.reduce((suma, c) => suma + c.importe, 0),
+    };
   });
-  const atrasados = meses.filter((m) => m.estado === 'atrasado').length;
+  const atrasados = celdas.filter((c) => c.estado === 'atrasado').length;
 
   const estilo: Record<EstadoMes, string> = {
     atrasado: 'h-7 bg-critico',
@@ -141,23 +148,24 @@ export function FranjaCobros({ anio, cobros, nombre }: { anio: number; cobros: C
   return (
     <div className="relative">
       <div className="flex h-7 items-end gap-[3px]" aria-hidden>
-        {meses.map((m) => (
+        {celdas.map((c) => (
           <span
-            key={m.mes}
-            title={`${MES_LARGO.format(new Date(Date.UTC(anio, m.i, 1)))}: ${texto[m.estado]}${m.total ? ` (${m.total.toLocaleString('es-ES')} €)` : ''}`}
-            className={`min-w-0 flex-1 rounded-[2px] ${estilo[m.estado]}`}
+            key={c.mes}
+            title={`${c.nombreLargo}: ${texto[c.estado]}${c.total ? ` (${c.total.toLocaleString('es-ES')} €)` : ''}`}
+            className={`min-w-0 flex-1 rounded-[2px] ${estilo[c.estado]}`}
           />
         ))}
       </div>
-      <div className="mt-1 flex gap-[3px] text-center text-[10px] text-apagado" aria-hidden>
-        {INICIAL_MES.map((inicial, i) => (
-          <span key={i} className="flex-1">
-            {inicial}
+      <div className="mt-1 flex gap-[3px] text-center text-[10px] leading-tight text-apagado" aria-hidden>
+        {celdas.map((c) => (
+          <span key={c.mes} className="flex-1">
+            {c.inicial}
+            {c.anio && <span className="block">{c.anio}</span>}
           </span>
         ))}
       </div>
       <p className="sr-only">
-        {nombre}, cobros de {anio}: {meses.filter((m) => m.estado === 'cobrado').length} meses cobrados
+        {nombre}: {celdas.filter((c) => c.estado === 'cobrado').length} meses cobrados de {celdas.length}
         {atrasados ? `, ${atrasados} con cobros atrasados` : ''}.
       </p>
     </div>

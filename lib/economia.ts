@@ -7,7 +7,9 @@ import { esFechaValida } from '@/lib/fechas';
 /**
  * Economía del negocio: lo acordado con cada cliente y lo cobrado.
  *
- * Cada cliente tiene una nota por año en `clientes/<cliente>/cobros/<cliente>-cobros-<año>.md`:
+ * Cada cliente tiene una nota por cada periodo de su trato, normalmente un año desde que
+ * empieza (de septiembre a agosto, por ejemplo), en
+ * `clientes/<cliente>/cobros/<cliente>-cobros-<año en que empieza>.md`:
  *
  *  - En sus propiedades, el **plan** del año: una línea por concepto. Las líneas sin `paga`
  *    son trabajo de Facundo (mantenimiento, desarrollo). Las que llevan `paga` son servicios
@@ -60,7 +62,7 @@ export interface PlanAnual {
   /** Nombre de la nota del cliente */
   cliente: string;
   anio: number;
-  /** Primer y último mes en que rige el plan, `YYYY-MM` */
+  /** Primer y último mes en que rige el plan, `YYYY-MM`. Por defecto, doce meses desde `desde` */
   desde: string;
   hasta: string;
   lineas: LineaPlan[];
@@ -77,7 +79,7 @@ export interface PlanAnual {
 
 export interface EconomiaCliente {
   nota: Nota;
-  /** El plan del año en curso */
+  /** El plan en vigor este mes */
   plan?: PlanAnual;
   planes: PlanAnual[];
   cobradoAnio: number;
@@ -236,8 +238,9 @@ function planDe(nota: Nota, mesActual: string): PlanAnual | null {
   if (!anio || !cliente) return null;
 
   const lineas = (Array.isArray(p.plan) ? p.plan : []).map(lineaDePlan).filter((l): l is LineaPlan => l !== null);
+  // El trato va por años desde que empieza, no por años naturales: sin `hasta`, dura doce meses
   const desde = typeof p.desde === 'string' && RE_MES.test(p.desde) ? p.desde : `${anio}-01`;
-  const hasta = typeof p.hasta === 'string' && RE_MES.test(p.hasta) ? p.hasta : `${anio}-12`;
+  const hasta = typeof p.hasta === 'string' && RE_MES.test(p.hasta) ? p.hasta : sumarMeses(desde, 11);
 
   const mensuales = lineas.filter((l) => l.cada === 'mes');
   const cuotaMensual = mensuales.filter(seCobra).reduce((t, l) => t + l.importe, 0);
@@ -301,7 +304,7 @@ export function economia(boveda: Boveda, hoy: string): Economia {
       const debidos = cobros.filter((c) => c.estado === 'atrasado' || c.estado === 'pendiente');
       return {
         nota,
-        plan: suyos.find((p) => p.anio === anioActual),
+        plan: planEnMes(suyos, mesActual),
         planes: suyos,
         cobradoAnio: cobros.filter((c) => c.cobrado && c.mes.startsWith(`${anioActual}-`)).reduce((t, c) => t + c.importe, 0),
         pendiente: debidos.reduce((t, c) => t + c.importe, 0),
@@ -367,4 +370,9 @@ export function economia(boveda: Boveda, hoy: string): Economia {
 /** Plan de un cliente en vigor este mes, para las tarjetas */
 export function planVigente(cliente: EconomiaCliente, hoy: string): PlanAnual | undefined {
   return planEnMes(cliente.planes, mesDe(hoy));
+}
+
+/** Los meses que cubre un plan, del primero al último */
+export function mesesDelPlan(plan: PlanAnual): string[] {
+  return mesesEntre(plan.desde, plan.hasta);
 }
