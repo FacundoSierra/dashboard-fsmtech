@@ -264,7 +264,6 @@ export async function inicioVigilancia(token: string): Promise<string | null> {
   const respuesta = await gh<{ created_at: string }[]>(
     `/repos/${repoVigilancia()}/issues?labels=vigilancia-inicio&state=all&per_page=1&sort=created&direction=asc`,
     token,
-    3600,
   );
   return respuesta.ok && respuesta.datos.length ? respuesta.datos[0].created_at : null;
 }
