@@ -157,7 +157,9 @@ export function calcularAvisos({
         nivel: dias < 0 ? 'grave' : dias < 15 ? 'grave' : 'aviso',
         titulo: `${renovacion.concepto}: ${dias < 0 ? `venció hace ${-dias} días` : dias === 0 ? 'vence hoy' : `vence en ${dias} días`}`,
         href: '/economia#renovaciones',
-        notificar: dias >= 0 && dias < 15,
+        // También vencida: si no, la incidencia se cerraría como resuelta al día siguiente
+        // de vencer. Sigue abierta hasta que se apunte la fecha nueva
+        notificar: dias < 15,
       });
     }
   }
