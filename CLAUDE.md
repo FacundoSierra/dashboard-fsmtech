@@ -19,6 +19,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
 ## Estructura
 - `proxy.ts`: sin sesión, redirige a `/login` todo salvo lo público y sin datos (estáticos, `robots.txt`, manifest e iconos)
 - `lib/firma.ts`: token de sesión firmado con HMAC (Web Crypto)
+- `lib/passkeys/` y `app/api/passkeys/`: entrar con huella o cara (WebAuthn). `config.ts` lee los dispositivos de la variable `PASSKEYS` y saca el dominio de la petición; `reto.ts` guarda el reto en una cookie de cinco minutos
 - `lib/sesion.ts`: `verificarSesion()`, la comprobación fuerte
 - `lib/boveda/`:
   - Lectura: `fuente.ts` (carpeta local o API de GitHub) y `github.ts` (configuración y cabeceras)
@@ -35,7 +36,8 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
 - `lib/economia.ts`: planes y cobros de cada cliente por año (lo acordado, lo que queda y lo cobrado), evolución y renovaciones
 - `lib/informes.ts`: informe mensual de un cliente
 - `app/api/vigilancia/`: lo que consulta la vigilancia horaria (`.github/workflows/vigilancia.yml` + `scripts/sincronizar-avisos.mjs`)
-- `app/login/`: formulario y Server Actions de sesión
+- `app/login/`: formulario y Server Actions de sesión, con el botón de huella si hay dispositivos registrados
+- `app/(panel)/ajustes/`: los dispositivos registrados y el alta de uno nuevo
 - `app/(panel)/`: páginas del panel
   - Resúmenes: Hoy (`/`), `/semana`, `/clientes`, `/proyectos`, `/reuniones` e `/inbox`
   - Negocio: `/estado`, `/economia`, `/informes` e `/informes/[cliente]`
@@ -55,7 +57,8 @@ Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. 
 - Cada Server Action que toque notas llama a `verificarSesion()` al empezar. No basta con el proxy: son endpoints POST propios
 - El panel solo escribe de dos formas: `crearNotaInbox()` (notas nuevas en `inbox/`, sin sobrescribir ni borrar nada) y `marcarCobro()` (una casilla de cobro en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`, solo si la línea no ha cambiado). No añadir otras escrituras sin la misma acotación
 - Después de escribir, `updateTag('boveda')`. En Next 16, `revalidateTag` necesita un segundo argumento
-- Falla cerrado: sin `DASHBOARD_PASSWORD` y `DASHBOARD_SECRET` no se puede entrar
+- Falla cerrado: sin `DASHBOARD_PASSWORD` y `DASHBOARD_SECRET` no se puede entrar. Sin `PASSKEYS`, la entrada con huella responde 404 y solo queda la contraseña
+- La contraseña se queda siempre como respaldo de las passkeys: no quitarla
 - El repo de notas no se despliega nunca: el panel lo usa con un token de permisos finos limitado a ese repo
 - Si cambian las convenciones de las notas (secciones, propiedades), actualizar `lib/boveda/` y la tabla de `docs/arquitectura.md`
 - Hacer push a `main` publica el panel

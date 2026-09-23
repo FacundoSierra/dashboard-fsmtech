@@ -102,6 +102,23 @@ Resto del texto
 Ver [vigilancia.md](vigilancia.md): qué se comprueba, cachés, avisos, la acción horaria que
 abre incidencias en GitHub y los informes mensuales.
 
+## Entrar con huella o cara (passkeys)
+
+WebAuthn con `@simplewebauthn`: Touch ID en el Mac, Windows Hello en el PC y Face ID en el móvil. La llave privada no sale del dispositivo; el panel solo guarda la parte pública, que no sirve para entrar por sí sola.
+
+Como el panel no tiene base de datos, los dispositivos viven en la variable `PASSKEYS` de Vercel (un JSON con `id`, `llave`, `nombre` y `creado`). Al registrar uno en **Ajustes**, el panel devuelve el valor entero para pegar allí; hasta que no se pega y se vuelve a desplegar, ese dispositivo no entra.
+
+| Paso | Ruta | Sesión |
+|---|---|---|
+| Opciones de registro | `/api/passkeys/registro/opciones` | Sí |
+| Comprobar el registro | `/api/passkeys/registro/verificar` | Sí |
+| Opciones de entrada | `/api/passkeys/entrar/opciones` | No |
+| Comprobar la entrada | `/api/passkeys/entrar/verificar` | No |
+
+Las dos rutas de entrada son las únicas, junto a `/api/vigilancia`, que el proxy deja pasar sin sesión: fallan cerradas (404 si no hay dispositivos) y solo abren sesión si la firma del dispositivo cuadra con el reto, el dominio y la dirección esperados. El reto viaja en una cookie `httpOnly` de cinco minutos limitada a `/api/passkeys`. No se guarda contador de uso: las passkeys que se sincronizan entre dispositivos no lo incrementan.
+
+Para quitar un dispositivo, se borra de `PASSKEYS` y se vuelve a desplegar. La contraseña sigue siendo el respaldo.
+
 ## Seguridad
 - **Proxy (`proxy.ts`):** comprobación optimista. Sin cookie válida, todo redirige a `/login` salvo lo público y sin datos: estáticos de Next, `robots.txt`, `manifest.webmanifest` e iconos. El navegador pide el manifest y los iconos sin cookies.
 - **Capa de acceso a datos (`lib/sesion.ts`):** `obtenerBoveda()` llama a `verificarSesion()` antes de leer ninguna nota. Una página nueva no puede devolver notas sin sesión aunque el proxy no la cubra.

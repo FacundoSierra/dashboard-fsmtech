@@ -20,8 +20,11 @@ export async function proxy(request: NextRequest) {
 }
 
 // Sin sesión solo pasa lo público y sin datos: estáticos de Next, robots.txt, el manifest y los iconos
-// (el navegador pide manifest e iconos sin la cookie de sesión). Y `/api/vigilancia`, que no
-// usa la cookie: se autentica con su propio secreto dentro de la ruta y falla cerrado.
+// (el navegador pide manifest e iconos sin la cookie de sesión). Y las dos rutas que se autentican
+// solas y fallan cerrado: `/api/vigilancia`, con su propio secreto, y `/api/passkeys/entrar/*`,
+// que comprueba la firma del dispositivo registrado.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|manifest.webmanifest|icon|apple-icon|api/vigilancia$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|manifest.webmanifest|icon|apple-icon|api/vigilancia$|api/passkeys/entrar/).*)',
+  ],
 };

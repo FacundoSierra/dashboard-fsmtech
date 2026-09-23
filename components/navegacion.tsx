@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Settings,
   Search,
   Wallet,
   X,
@@ -105,6 +106,23 @@ function ListaGrupos({ ruta, alPulsar }: { ruta: string; alPulsar?: () => void }
   );
 }
 
+function EnlaceAjustes({ ruta, alPulsar }: { ruta: string; alPulsar?: () => void }) {
+  const activa = esActiva('/ajustes', ruta);
+  return (
+    <Link
+      href="/ajustes"
+      onClick={alPulsar}
+      aria-current={activa ? 'page' : undefined}
+      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium ${
+        activa ? 'bg-acento-suave text-acento' : 'text-tenue hover:bg-superficie-2 hover:text-texto'
+      }`}
+    >
+      <Settings className="size-4" aria-hidden />
+      Ajustes
+    </Link>
+  );
+}
+
 function BotonSalir() {
   return (
     <form action={cerrarSesion}>
@@ -131,7 +149,8 @@ export function BarraLateral() {
       <nav aria-label="Secciones" className="flex-1 overflow-y-auto px-3">
         <ListaGrupos ruta={ruta} />
       </nav>
-      <div className="border-t border-borde p-3">
+      <div className="space-y-0.5 border-t border-borde p-3">
+        <EnlaceAjustes ruta={ruta} />
         <BotonSalir />
       </div>
     </aside>
@@ -168,6 +187,7 @@ export function BarraInferior() {
                 <Search className="size-4" aria-hidden />
                 Buscar
               </Link>
+              <EnlaceAjustes ruta={ruta} alPulsar={() => setAbierto(false)} />
               <BotonSalir />
             </div>
           </div>
