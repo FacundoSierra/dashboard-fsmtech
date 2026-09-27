@@ -1,5 +1,6 @@
 import 'server-only';
 import { readdir, readFile } from 'node:fs/promises';
+import { unstable_cache } from 'next/cache';
 import path from 'node:path';
 import { API_GITHUB, cabecerasGitHub, configGitHub, type ConfigGitHub } from './github';
 
@@ -48,28 +49,46 @@ async function leerGitHub({ token, repo, rama }: ConfigGitHub): Promise<ArchivoN
   });
   if (!arbol.ok) throw new Error(`GitHub respondió ${arbol.status} al listar las notas`);
 
-  const { tree, truncated } = (await arbol.json()) as {
+  const { sha: huella, tree, truncated } = (await arbol.json()) as {
+    sha: string;
     tree: { path: string; type: string; sha: string }[];
     truncated: boolean;
   };
   if (truncated) console.warn('GitHub devolvió la lista de archivos incompleta');
 
-  return Promise.all(
-    tree
-      .filter((elemento) => elemento.type === 'blob' && esNotaVisible(elemento.path))
-      .map(async ({ path: ruta, sha }) => {
-        // Un SHA siempre tiene el mismo contenido: se guarda en caché sin caducidad
-        // y solo se descargan las notas que han cambiado
-        const respuesta = await fetch(`${API_GITHUB}/repos/${repo}/git/blobs/${sha}`, {
-          headers: cabecerasGitHub(token),
-          cache: 'force-cache',
-        });
-        if (!respuesta.ok) throw new Error(`GitHub respondió ${respuesta.status} al leer ${ruta}`);
+  const notas = tree.filter((elemento) => elemento.type === 'blob' && esNotaVisible(elemento.path));
 
-        const blob = (await respuesta.json()) as { content: string; encoding: string };
-        const contenido = blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').toString('utf8') : blob.content;
-        return { ruta, contenido };
-      }),
+  // Todo el contenido de esta versión de la bóveda, en una sola entrada de caché. La clave
+  // es la huella del árbol, que cambia en cuanto cambia cualquier nota: nunca puede servir
+  // una versión vieja. Sin esto, cada página hacía 84 lecturas de caché (el árbol y cada
+  // nota por separado); con esto hace dos. La bóveda pesa unos 330 kB y el límite de una
+  // entrada son 2 MB: si algún día lo pasa, Next no la guarda y se vuelve a leer nota a nota.
+  const leerVersion = unstable_cache(() => descargarNotas(repo, token, notas), ['boveda-notas', huella], {
+    tags: ['boveda'],
+  });
+  return leerVersion();
+}
+
+/** El contenido de cada nota, por su SHA */
+async function descargarNotas(
+  repo: string,
+  token: string,
+  notas: { path: string; sha: string }[],
+): Promise<ArchivoNota[]> {
+  return Promise.all(
+    notas.map(async ({ path: ruta, sha }) => {
+      // Un SHA siempre tiene el mismo contenido: se guarda en caché sin caducidad
+      // y solo se descargan las notas que han cambiado
+      const respuesta = await fetch(`${API_GITHUB}/repos/${repo}/git/blobs/${sha}`, {
+        headers: cabecerasGitHub(token),
+        cache: 'force-cache',
+      });
+      if (!respuesta.ok) throw new Error(`GitHub respondió ${respuesta.status} al leer ${ruta}`);
+
+      const blob = (await respuesta.json()) as { content: string; encoding: string };
+      const contenido = blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').toString('utf8') : blob.content;
+      return { ruta, contenido };
+    }),
   );
 }
 
