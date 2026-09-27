@@ -10,6 +10,7 @@ import {
   CalendarDays,
   FileText,
   FolderKanban,
+  FolderLock,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -45,6 +46,7 @@ const GRUPOS: { titulo: string; secciones: Seccion[] }[] = [
     secciones: [
       { href: '/estado', texto: 'Estado', icono: Activity },
       { href: '/economia', texto: 'Economía', icono: Wallet },
+      { href: '/documentos', texto: 'Documentos', icono: FolderLock },
       { href: '/informes', texto: 'Informes', icono: FileText },
     ],
   },

@@ -33,6 +33,7 @@ El panel solo escribe lo que está en esta tabla (`lib/boveda/escritura.ts`). Ca
 | `marcarCobro` | Nota de cobros, «Cobros» | La casilla y la fecha de cobro | Economía |
 | `anadirCobroExtra` | Nota de cobros, «Cobros» | Una línea nueva, ya cobrada | Economía |
 | `anadirRenovacion` | Ficha de cliente, «Renovaciones» | Una línea nueva | Economía |
+| `crearNotaDocumento` | `clientes/<cliente>/documentos/<AAAA-MM-DD>-<cliente>-<titulo>.md`, nueva | Crea la nota de un documento subido; nunca sobrescribe. El archivo va al almacén privado (`docs/documentos.md`) | Documentos |
 
 Garantías comunes:
 
@@ -128,6 +129,7 @@ Resto del texto
 | Estado: qué se vigila | Proyectos con `estado: activo`: `web` (o la línea `Web:`), `supabase` (`https://<ref>.supabase.co`) y `remoto` (repo de GitHub) |
 | Economía | `tipo: cobros` en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`: propiedad `plan` y casillas de la sección «Cobros». Sección «Renovaciones» de las fichas de cliente. Ver `docs/economia.md` |
 | Repos del PC | `dashboards/repos-locales.md`, que escribe `.scripts/estado-repos.ps1` de la bóveda |
+| Documentos | `tipo: documento` en `clientes/<cliente>/documentos/`: `categoria`, `cliente`, `fecha`, `importe`, `cobro` y `archivo` (en el almacén privado). Ver `docs/documentos.md` |
 
 ## App instalable (PWA)
 - **Manifest (`app/manifest.ts`):**

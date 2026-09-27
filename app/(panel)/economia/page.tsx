@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { CalendarClock, FileText, PieChart, TrendingUp } from 'lucide-react';
+import { CalendarClock, FileText, Paperclip, PieChart, TrendingUp } from 'lucide-react';
 import { BotonCobro } from '@/components/boton-cobro';
 import { CobroExtra, NuevaRenovacion } from '@/components/formularios-economia';
 import { GraficoIngresos } from '@/components/grafico-ingresos';
@@ -22,6 +22,7 @@ import {
   type NivelEstado,
 } from '@/components/ui';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
+import { documentos, facturaDe, hrefArchivo, type Documento } from '@/lib/documentos/documentos';
 import {
   economia,
   mesesDelPlan,
@@ -45,6 +46,7 @@ export default async function PaginaEconomia() {
   const anio = Number(hoy.slice(0, 4));
   const datos = economia(boveda, hoy);
   const hayPlanes = datos.clientes.some((c) => c.planes.length > 0);
+  const docs = documentos(boveda);
 
   return (
     <>
@@ -158,7 +160,7 @@ export default async function PaginaEconomia() {
             <h2 className="text-sm font-semibold text-tenue">Clientes</h2>
             <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
               {datos.clientes.map((c) => (
-                <TarjetaCliente key={c.nota.ruta} cliente={c} anio={anio} hoy={hoy} />
+                <TarjetaCliente key={c.nota.ruta} cliente={c} anio={anio} hoy={hoy} docs={docs} />
               ))}
             </div>
           </section>
@@ -191,7 +193,7 @@ function estadoCobros(c: EconomiaCliente, plan: PlanAnual | undefined): { nivel:
   return { nivel: 'bien', texto: 'Al día' };
 }
 
-function TarjetaCliente({ cliente, anio, hoy }: { cliente: EconomiaCliente; anio: number; hoy: string }) {
+function TarjetaCliente({ cliente, anio, hoy, docs }: { cliente: EconomiaCliente; anio: number; hoy: string; docs: Documento[] }) {
   const plan = cliente.plan ?? cliente.proximo;
   const estado = estadoCobros(cliente, plan);
   const debidos = plan?.cobros.filter((c) => c.estado === 'atrasado' || c.estado === 'pendiente') ?? [];
@@ -243,7 +245,7 @@ function TarjetaCliente({ cliente, anio, hoy }: { cliente: EconomiaCliente; anio
           {debidos.length > 0 && (
             <ul className="divide-y divide-borde border-t border-borde">
               {debidos.map((cobro) => (
-                <FilaCobro key={cobro.linea} cobro={cobro} ruta={plan.nota.ruta} />
+                <FilaCobro key={cobro.linea} cobro={cobro} ruta={plan.nota.ruta} cliente={cliente.nota.nombre} docs={docs} />
               ))}
             </ul>
           )}
@@ -256,7 +258,7 @@ function TarjetaCliente({ cliente, anio, hoy }: { cliente: EconomiaCliente; anio
               <TablaPlan plan={plan} />
               <ul className="divide-y divide-borde rounded-lg border border-borde">
                 {plan.cobros.map((cobro) => (
-                  <FilaCobro key={cobro.linea} cobro={cobro} ruta={plan.nota.ruta} />
+                  <FilaCobro key={cobro.linea} cobro={cobro} ruta={plan.nota.ruta} cliente={cliente.nota.nombre} docs={docs} />
                 ))}
               </ul>
               <Link href={hrefNota(plan.nota.ruta)} className="inline-flex items-center gap-1 text-xs text-tenue hover:text-acento">
@@ -282,19 +284,38 @@ const ESTADO_COBRO: Record<Cobro['estado'], { nivel: NivelEstado; texto: string 
   programado: { nivel: 'sin-datos', texto: 'Por cobrar' },
 };
 
-function FilaCobro({ cobro, ruta }: { cobro: Cobro; ruta: string }) {
+function FilaCobro({ cobro, ruta, cliente, docs }: { cobro: Cobro; ruta: string; cliente: string; docs: Documento[] }) {
   const estado = ESTADO_COBRO[cobro.estado];
+  const factura = facturaDe(docs, cliente, cobro.mes, cobro.importe);
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-2.5">
       <div className="min-w-0">
         <p className="truncate text-sm">
           <span className="capitalize">{nombreMes(cobro.mes)}</span> · {cobro.concepto}
         </p>
-        <Estado nivel={estado.nivel}>
-          <span className="text-xs text-tenue">
-            {cobro.cobrado && cobro.fechaCobro ? `Cobrado el ${fechaCorta(cobro.fechaCobro)}` : estado.texto}
-          </span>
-        </Estado>
+        <div className="flex flex-wrap items-center gap-x-3">
+          <Estado nivel={estado.nivel}>
+            <span className="text-xs text-tenue">
+              {cobro.cobrado && cobro.fechaCobro ? `Cobrado el ${fechaCorta(cobro.fechaCobro)}` : estado.texto}
+            </span>
+          </Estado>
+          {factura ? (
+            <a href={hrefArchivo(factura)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-acento hover:underline">
+              <Paperclip className="size-3" aria-hidden />
+              Factura
+            </a>
+          ) : (
+            cobro.estado !== 'programado' && (
+              <Link
+                href={`/documentos?cliente=${encodeURIComponent(cliente)}&categoria=factura&cobro=${cobro.mes}#subir`}
+                className="inline-flex items-center gap-1 text-xs text-apagado hover:text-acento"
+              >
+                <Paperclip className="size-3" aria-hidden />
+                Sin factura
+              </Link>
+            )
+          )}
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <span className="cifras text-sm font-medium">{euros(cobro.importe, true)}</span>

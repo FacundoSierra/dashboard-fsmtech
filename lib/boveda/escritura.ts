@@ -21,6 +21,7 @@ import { buscarLinea, finDeBloque, insertarAlFinal, rangoSeccion, sangriaDe, sal
  *  | `marcarCobro`      | Nota de cobros: «Cobros»                    | La casilla y la fecha de cobro    |
  *  | `anadirCobroExtra` | Nota de cobros: «Cobros»                    | Una línea nueva, ya cobrada       |
  *  | `anadirRenovacion` | Ficha de cliente: «Renovaciones»            | Una línea nueva                   |
+ *  | `crearNotaDocumento` | `clientes/<cliente>/documentos/…`, nueva  | Crea la nota, nunca sobrescribe   |
  *
  * Si la línea que se quiere tocar ya no está igual que cuando se pintó la página (porque se ha
  * cambiado en Obsidian), no se toca nada. En producción se escribe además con el `sha` de lo
@@ -354,4 +355,16 @@ export async function anadirRenovacion(ruta: string, fecha: string, concepto: st
     (lineas) => insertarAlFinal(lineas, seccion(lineas, 'renovaciones', 'Renovaciones'), [nueva]),
     `renovaciones: ${cliente} ${fecha}`,
   );
+}
+
+// ── Documentos ───────────────────────────────────────────────────────────────
+
+// `clientes/<cliente>/documentos/<AAAA-MM-DD>-<cliente>-<titulo>.md`: en la carpeta de su cliente y con su nombre delante
+const RE_RUTA_DOCUMENTO = /^clientes\/([a-z0-9][a-z0-9-]*)\/documentos\/\d{4}-\d{2}-\d{2}-\1-[a-z0-9][a-z0-9-]*\.md$/;
+
+/** La nota que describe un documento subido; el archivo va aparte, en el almacén privado */
+export async function crearNotaDocumento(ruta: string, contenido: string): Promise<void> {
+  const cliente = ruta.match(RE_RUTA_DOCUMENTO)?.[1];
+  if (!cliente) throw new ErrorEscritura('El nombre del documento no es válido.');
+  await crearNota(ruta, contenido, `documentos: ${cliente} ${ruta.split('/').at(-1)?.slice(0, 10)}`, 'Ya hay un documento con ese nombre y esa fecha: cambia el título.');
 }

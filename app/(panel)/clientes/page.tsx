@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { CalendarClock, ExternalLink, FileText, Lightbulb } from 'lucide-react';
+import { CalendarClock, ExternalLink, FileText, FolderLock, Lightbulb } from 'lucide-react';
 import { Markdown } from '@/components/markdown';
 import { Encabezado, Estado, Vacio, euros, nivelEstadoProyecto, porcentaje } from '@/components/ui';
 import { clientes, obtenerBoveda } from '@/lib/boveda/consultas';
+import { documentos } from '@/lib/documentos/documentos';
 import { economia, planVigente } from '@/lib/economia';
 import { cuandoEs, hoyMadrid } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
@@ -28,6 +29,7 @@ export default async function PaginaClientes() {
   const lista = clientes(boveda, hoy);
   const dinero = economia(boveda, hoy);
   const cuotaDe = new Map(dinero.clientes.map((c) => [c.nota.nombre, c]));
+  const docsDe = Map.groupBy(documentos(boveda), (d) => d.cliente);
 
   return (
     <>
@@ -167,6 +169,13 @@ export default async function PaginaClientes() {
                   <Link href={`/informes/${encodeURIComponent(cliente.nota.nombre)}`} className="inline-flex items-center gap-1 text-tenue hover:text-acento">
                     <FileText className="size-3.5" aria-hidden />
                     Informe del mes
+                  </Link>
+                  <Link
+                    href={`/documentos?cliente=${encodeURIComponent(cliente.nota.nombre)}`}
+                    className="inline-flex items-center gap-1 text-tenue hover:text-acento"
+                  >
+                    <FolderLock className="size-3.5" aria-hidden />
+                    Documentos{docsDe.get(cliente.nota.nombre)?.length ? ` · ${docsDe.get(cliente.nota.nombre)!.length}` : ''}
                   </Link>
                   {cliente.web && (
                     <a href={cliente.web} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-tenue hover:text-acento">

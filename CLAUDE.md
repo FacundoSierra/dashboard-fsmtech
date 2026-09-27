@@ -2,7 +2,7 @@
 
 # Dashboard FSMTECH
 
-Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. Lee las notas Markdown de su bóveda de Obsidian, que están en un repo privado de GitHub, y resume clientes, proyectos, objetivos diarios, la semana y las reuniones. Vigila las webs, bases de datos y despliegues de los proyectos, lleva la economía de las cuotas, genera informes mensuales para los clientes y avisa al móvil de las caídas con una acción horaria de GitHub. También escribe en la bóveda, siempre acotado: capturas en el inbox, objetivos de la diaria (marcar, añadir, pasar a «A la espera»), cobros y renovaciones. Se puede instalar en el móvil como app.
+Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. Lee las notas Markdown de su bóveda de Obsidian, que están en un repo privado de GitHub, y resume clientes, proyectos, objetivos diarios, la semana y las reuniones. Vigila las webs, bases de datos y despliegues de los proyectos, lleva la economía de las cuotas, genera informes mensuales para los clientes y avisa al móvil de las caídas con una acción horaria de GitHub. También escribe en la bóveda, siempre acotado: capturas en el inbox, objetivos de la diaria (marcar, añadir, pasar a «A la espera»), cobros y renovaciones. Y guarda los documentos de los clientes (facturas, contratos) en un almacén privado, con una nota por documento en la bóveda. Se puede instalar en el móvil como app.
 
 ## Stack
 - Next.js 16 (App Router, `proxy.ts`) + React 19 + TypeScript
@@ -32,20 +32,22 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
   - `estado.ts`: `estadoGeneral()`, una vez por petición; `disponibilidad.ts`: franja de 30 días y porcentaje
   - `red.ts`: filtra las URLs antes de llamar a nada; `acceso.ts`: secreto de `/api/vigilancia`
   - `repos-locales.ts`: lee `dashboards/repos-locales.md`, que escribe la sincronización de la bóveda
+- `lib/documentos/`: documentos de los clientes. `almacen.ts` (Vercel Blob privado, o `DOCUMENTOS_DIR` en local), `archivos.ts` (el tipo, por el contenido), `documentos.ts` (las notas `tipo: documento`) y `tipos.ts` (categorías y límites, también para el navegador)
 - `lib/avisos.ts`: todo lo anterior convertido en avisos ordenados por gravedad
 - `lib/economia.ts`: planes y cobros de cada cliente por año (lo acordado, lo que queda y lo cobrado), evolución y renovaciones
 - `lib/informes.ts`: informe mensual de un cliente
+- `app/api/documentos/`: el único camino a los archivos del almacén privado, con sesión
 - `app/api/vigilancia/`: lo que consulta la vigilancia horaria (`.github/workflows/vigilancia.yml` + `scripts/sincronizar-avisos.mjs`)
 - `app/login/`: formulario y Server Actions de sesión, con el botón de huella si hay dispositivos registrados
 - `app/(panel)/ajustes/`: los dispositivos registrados y el alta de uno nuevo
 - `app/(panel)/`: páginas del panel
   - Resúmenes: Hoy (`/`), `/semana`, `/clientes`, `/proyectos`, `/reuniones` e `/inbox`
-  - Negocio: `/estado`, `/economia`, `/informes` e `/informes/[cliente]`
+  - Negocio: `/estado`, `/economia`, `/documentos`, `/informes` e `/informes/[cliente]`
   - Herramientas: `/buscar`, `/capturar` y el lector `/nota/[...ruta]`
 - `app/manifest.ts`, `app/icon.tsx`, `app/apple-icon.tsx` y `app/iconos/[tamano]`: app instalable
 - `components/`: sistema de diseño (`ui.tsx`), navegación (menú lateral y barra inferior), gráficos, avisos, Markdown con `[[enlaces]]` de Obsidian, lista de tareas e icono
 
-Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. Vigilancia, avisos e informes en `docs/vigilancia.md`; economía en `docs/economia.md`.
+Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. Vigilancia, avisos e informes en `docs/vigilancia.md`; economía en `docs/economia.md`; documentos en `docs/documentos.md`.
 
 ## Reglas
 - Lee `AGENTS.md` antes de programar: esta versión de Next.js tiene cambios incompatibles con versiones anteriores
@@ -60,6 +62,7 @@ Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. 
 - Si cambia cómo se monta la diaria, cambiarlo en `lib/boveda/diaria.ts` y en `.scripts/nota-diaria.ps1` de la bóveda: tienen que salir iguales
 - Después de escribir, `updateTag('boveda')`. En Next 16, `revalidateTag` necesita un segundo argumento
 - Falla cerrado: sin `DASHBOARD_PASSWORD` y `DASHBOARD_SECRET` no se puede entrar. Sin `PASSKEYS`, la entrada con huella responde 404 y solo queda la contraseña
+- Los archivos de los documentos nunca van a la bóveda ni a Git: al almacén privado. Solo se abren por `/api/documentos`, que comprueba la sesión en la propia ruta. Los tipos se aceptan por su contenido, no por el nombre; no añadir tipos que el navegador pueda interpretar como página (HTML, SVG)
 - La contraseña se queda siempre como respaldo de las passkeys: no quitarla
 - El repo de notas no se despliega nunca: el panel lo usa con un token de permisos finos limitado a ese repo
 - Si cambian las convenciones de las notas (secciones, propiedades), actualizar `lib/boveda/` y la tabla de `docs/arquitectura.md`
