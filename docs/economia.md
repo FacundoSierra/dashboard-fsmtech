@@ -85,7 +85,8 @@ En el cuerpo, sección «Cobros», una casilla por cobro:
 Tres formas de marcar un cobro, y las tres acaban en la misma línea:
 
 1. **En Obsidian**, pulsando la casilla (y añadiendo la fecha, si quieres)
-2. **Desde el panel**, en Economía: botón «Cobrado» (y «Deshacer» si te equivocas)
+2. **Desde el panel**, en Economía: botón «Cobrado» (y «Deshacer» si te equivocas). Lo que no
+   estaba en el plan, con «Cobro extra»
 3. **Diciéndoselo a Claude** («ha pagado Bodegas lo de octubre»)
 
 ### Estados
@@ -103,22 +104,32 @@ La altura cambia con el estado porque el verde y el rojo no se distinguen con de
 Los atrasados salen como aviso en el panel, pero **no van al móvil**: los cobros se marcan a
 mano y habría falsas alarmas cada vez que se olvide una casilla.
 
-## Cómo marca el panel un cobro
+## Qué escribe el panel en la economía
 
-Es la segunda cosa que el panel puede escribir en la bóveda, además de crear capturas en
-`inbox/`. Está acotada (`marcarCobro()` en `lib/boveda/escritura.ts`):
+Tres cosas, todas acotadas (`lib/boveda/escritura.ts`; la lista completa de escrituras del
+panel está en `docs/arquitectura.md`):
 
-- Solo en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`: la nota tiene que estar en la
-  carpeta de su propio cliente
-- Solo una línea con forma de cobro, y solo cambia la casilla y la fecha de cobro
-- Solo si la línea sigue igual que cuando se pintó la página. En producción escribe con el
-  `sha` de lo que leyó: si la nota ha cambiado entretanto, GitHub responde 409 y no se toca
-- Es una Server Action: comprueba la sesión antes de nada
+| Botón | Escritura | Dónde | Qué cambia |
+|---|---|---|---|
+| «Cobrado» / «Deshacer» | `marcarCobro()` | Nota de cobros, sección «Cobros» | La casilla y `— cobrado AAAA-MM-DD` |
+| «Cobro extra» | `anadirCobroExtra()` | Nota de cobros del plan en vigor, sección «Cobros» | Una línea nueva ya marcada: `- [x] 2026-11 — Landing de Navidad — 150 € — cobrado 2026-11-14` |
+| «Apuntar una renovación» | `anadirRenovacion()` | Ficha del cliente, sección «Renovaciones» | Una línea nueva: `- 2027-01-12 — Dominio ejemplo.es` |
+
+- Las notas de cobros, solo en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`, en la
+  carpeta de su propio cliente; las fichas, solo en `clientes/<cliente>/<cliente>.md`
+- Marcar solo toca una línea con forma de cobro, y solo si sigue igual que cuando se pintó la
+  página. En producción escribe con el `sha` de lo que leyó: si la nota ha cambiado
+  entretanto, GitHub responde 409 y no se toca
+- El cobro extra es **lo ya cobrado** que no estaba en el plan (un trabajo suelto): la fecha
+  no puede ser futura, y el mes de la línea es el de esa fecha. Lo que se va a cobrar cada
+  mes va en el plan. Cuenta en «Cobrado este año», no en lo que queda al mes
+- El importe se escribe como a mano: `150`, `49,90`
+- Son Server Actions: comprueban la sesión antes de nada y validan lo que llega
 
 El cambio llega a Obsidian con la siguiente sincronización del PC, en dos minutos como mucho.
-Si en esos dos minutos se edita la misma nota en Obsidian, la sincronización puede chocar y
-pararse (lo apunta en `sincronizar-boveda.log`): conviene no marcar el mismo cobro a la vez
-en los dos sitios.
+Si en esos dos minutos se edita la misma línea en Obsidian, la sincronización puede chocar y
+pararse: el PC lo avisa con una nota en `inbox/sincronizacion-atascada.md`, que llega al móvil
+por Obsidian Sync, y se arregla a mano.
 
 ## Qué calcula
 
@@ -136,5 +147,5 @@ en los dos sitios.
 Salen de tres sitios y se juntan en una lista, contando cada dominio una sola vez:
 
 - Líneas del plan con `renueva`
-- La sección «Renovaciones» de la ficha del cliente: `- 2026-10-06 — Certificado SSL de ejemplo.es`
+- La sección «Renovaciones» de la ficha del cliente: `- 2026-10-06 — Certificado SSL de ejemplo.es`. Se puede apuntar desde el panel, al pie de la lista de renovaciones
 - Los dominios `.com` y `.net` de las webs, por RDAP. Los `.es` no publican la caducidad

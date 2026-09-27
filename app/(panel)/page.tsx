@@ -1,15 +1,17 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { Bell, CalendarClock, CheckSquare, Flame, Inbox, History } from 'lucide-react';
+import { Bell, CalendarClock, CheckSquare, Flame, Hourglass, Inbox, History } from 'lucide-react';
 import { ListaAvisos } from '@/components/avisos';
-import { ListaTareas } from '@/components/tareas';
-import { Chip, EnlaceAccion, Kpi, Medidor, Tarjeta, Vacio, euros } from '@/components/ui';
+import { NuevoObjetivo } from '@/components/tarea-editable';
+import { ListaTareas, ListaTareasEditable } from '@/components/tareas';
+import { Chip, EnlaceAccion, Estado, Kpi, Medidor, Tarjeta, Vacio, euros } from '@/components/ui';
 import { calcularAvisos } from '@/lib/avisos';
 import { esPrioritaria, obtenerBoveda, proyectos, resumenHoy, reunionesProximas } from '@/lib/boveda/consultas';
 import { capturas } from '@/lib/boveda/inbox';
-import type { Boveda } from '@/lib/boveda/tipos';
+import { ultimaSubidaDelPc } from '@/lib/boveda/sincronizacion';
+import type { Boveda, Tarea } from '@/lib/boveda/tipos';
 import { economia } from '@/lib/economia';
-import { cuandoEs, fechaHoraMadrid, fechaLarga, hoyMadrid } from '@/lib/fechas';
+import { cuandoEs, diasEntre, esFechaValida, fechaHoraMadrid, fechaLarga, haceTiempo, hoyMadrid } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
 import { estadoGeneral } from '@/lib/vigilancia/estado';
 import { reposLocales } from '@/lib/vigilancia/repos-locales';
@@ -17,6 +19,8 @@ import { reposLocales } from '@/lib/vigilancia/repos-locales';
 const CAPTURAS_VISIBLES = 4;
 const AVISOS_VISIBLES = 5;
 const MES_CORTO = new Intl.DateTimeFormat('es-ES', { month: 'short', timeZone: 'UTC' });
+/** La regla de la bóveda: lo que lleva más de una semana esperando se dice en voz alta */
+const DIAS_ESPERANDO_MUCHO = 7;
 
 function saludo(): string {
   const hora = Number(fechaHoraMadrid().hora.slice(0, 2));
@@ -31,7 +35,7 @@ export default async function PaginaHoy() {
   const { rutas } = boveda;
   const hoy = hoyMadrid();
 
-  const { daily, objetivos, completado, anteriores } = resumenHoy(boveda, hoy);
+  const { daily, objetivos, espera, completado, anteriores } = resumenHoy(boveda, hoy);
   const principales = objetivos.filter((t) => t.nivel === 0);
   const hechos = principales.filter((t) => t.hecha).length;
 
@@ -99,8 +103,14 @@ export default async function PaginaHoy() {
             ) : principales.length === 0 ? (
               <Vacio>La daily de hoy no tiene objetivos.</Vacio>
             ) : (
-              <ListaTareas tareas={objetivos} rutas={rutas} />
+              <ListaTareasEditable tareas={objetivos} rutas={rutas} ruta={daily.ruta} mover="espera" />
             )}
+            <div className="mt-4">
+              <NuevoObjetivo creaDiaria={!daily} />
+            </div>
+            <Suspense fallback={null}>
+              <SubidaDelPc />
+            </Suspense>
             {completado.length > 0 && (
               <details className="mt-4 border-t border-borde pt-3">
                 <summary className="cursor-pointer text-sm text-tenue">Completado hoy · {completado.length}</summary>
@@ -110,6 +120,18 @@ export default async function PaginaHoy() {
               </details>
             )}
           </Tarjeta>
+
+          {daily && espera.length > 0 && (
+            <Tarjeta titulo={`A la espera · ${espera.filter((t) => t.nivel === 0 && !t.hecha).length}`} icono={Hourglass}>
+              <ListaTareasEditable
+                tareas={espera}
+                rutas={rutas}
+                ruta={daily.ruta}
+                mover="objetivos"
+                detalle={(tarea) => <DiasEsperando tarea={tarea} hoy={hoy} />}
+              />
+            </Tarjeta>
+          )}
 
           {pendientesAnteriores > 0 && (
             <Tarjeta titulo={`De días anteriores · ${pendientesAnteriores}`} icono={History}>
@@ -126,7 +148,7 @@ export default async function PaginaHoy() {
                         </Link>{' '}
                         · {cuandoEs(fecha, hoy)}
                       </p>
-                      <ListaTareas tareas={tareas} rutas={rutas} />
+                      <ListaTareasEditable tareas={tareas} rutas={rutas} ruta={nota.ruta} />
                     </div>
                   ))}
                 </div>
@@ -211,6 +233,32 @@ export default async function PaginaHoy() {
         </div>
       </div>
     </>
+  );
+}
+
+/** Lo marcado aquí llega a Obsidian cuando el PC sincroniza: esto dice cuándo lo hizo por última vez */
+async function SubidaDelPc() {
+  const ultima = await ultimaSubidaDelPc();
+  if (!ultima) return null;
+  return (
+    <p className="mt-3 text-xs text-apagado">
+      Lo que marques aquí llega a Obsidian cuando el PC sincroniza. Última subida del PC: {haceTiempo(ultima)}.
+    </p>
+  );
+}
+
+/** `— **Roberto** — desde 2026-09-21`: cuántos días lleva, en voz alta si pasa de una semana */
+function DiasEsperando({ tarea, hoy }: { tarea: Tarea; hoy: string }) {
+  const desde = tarea.texto.match(/desde (\d{4}-\d{2}-\d{2})/)?.[1];
+  if (tarea.nivel > 0 || tarea.hecha || !esFechaValida(desde)) return null;
+  const dias = diasEntre(desde, hoy);
+  if (dias <= DIAS_ESPERANDO_MUCHO) return null;
+  return (
+    <span className="ml-2 inline-flex align-middle">
+      <Estado nivel="grave">
+        <span className="text-xs">{dias} días esperando</span>
+      </Estado>
+    </span>
   );
 }
 

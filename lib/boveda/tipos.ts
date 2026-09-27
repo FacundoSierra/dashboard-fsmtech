@@ -5,6 +5,8 @@ export interface Tarea {
   hecha: boolean;
   /** Nivel de sangría: 0 para las tareas de primer nivel */
   nivel: number;
+  /** La línea tal cual está en la nota, sin la sangría: identifica la casilla al marcarla desde el panel */
+  linea: string;
 }
 
 export interface Seccion {

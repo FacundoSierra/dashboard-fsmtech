@@ -57,7 +57,7 @@ export function tareasDe(texto: string): Tarea[] {
     if (!tarea || !tarea[3].trim()) continue; // las `- [ ]` vacías de las plantillas no cuentan
 
     const sangria = tarea[1].replace(/\t/g, '  ').length;
-    tareas.push({ texto: tarea[3].trim(), hecha: tarea[2] !== ' ', nivel: Math.floor(sangria / 2) });
+    tareas.push({ texto: tarea[3].trim(), hecha: tarea[2] !== ' ', nivel: Math.floor(sangria / 2), linea: linea.trim() });
   }
   return tareas;
 }

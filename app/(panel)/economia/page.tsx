@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { CalendarClock, FileText, PieChart, TrendingUp } from 'lucide-react';
 import { BotonCobro } from '@/components/boton-cobro';
+import { CobroExtra, NuevaRenovacion } from '@/components/formularios-economia';
 import { GraficoIngresos } from '@/components/grafico-ingresos';
 import { BarrasHorizontales, FranjaCobros } from '@/components/graficos';
 import {
@@ -157,7 +158,7 @@ export default async function PaginaEconomia() {
             <h2 className="text-sm font-semibold text-tenue">Clientes</h2>
             <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
               {datos.clientes.map((c) => (
-                <TarjetaCliente key={c.nota.ruta} cliente={c} anio={anio} />
+                <TarjetaCliente key={c.nota.ruta} cliente={c} anio={anio} hoy={hoy} />
               ))}
             </div>
           </section>
@@ -168,7 +169,11 @@ export default async function PaginaEconomia() {
         <Suspense
           fallback={<div className="h-48 animate-pulse rounded-xl border border-borde bg-superficie" aria-label="Cargando renovaciones" />}
         >
-          <Renovaciones manuales={datos.renovaciones} hoy={hoy} />
+          <Renovaciones
+            manuales={datos.renovaciones}
+            clientes={datos.clientes.map((c) => ({ ruta: c.nota.ruta, titulo: c.nota.titulo }))}
+            hoy={hoy}
+          />
         </Suspense>
       </div>
     </>
@@ -186,7 +191,7 @@ function estadoCobros(c: EconomiaCliente, plan: PlanAnual | undefined): { nivel:
   return { nivel: 'bien', texto: 'Al día' };
 }
 
-function TarjetaCliente({ cliente, anio }: { cliente: EconomiaCliente; anio: number }) {
+function TarjetaCliente({ cliente, anio, hoy }: { cliente: EconomiaCliente; anio: number; hoy: string }) {
   const plan = cliente.plan ?? cliente.proximo;
   const estado = estadoCobros(cliente, plan);
   const debidos = plan?.cobros.filter((c) => c.estado === 'atrasado' || c.estado === 'pendiente') ?? [];
@@ -260,6 +265,10 @@ function TarjetaCliente({ cliente, anio }: { cliente: EconomiaCliente; anio: num
               </Link>
             </div>
           </details>
+
+          <div className="border-t border-borde px-4 py-2.5">
+            <CobroExtra ruta={plan.nota.ruta} hoy={hoy} />
+          </div>
         </>
       )}
     </article>
@@ -354,7 +363,16 @@ const esDominio = (concepto: string) => /\bdominio\b/i.test(concepto);
  * Las apuntadas en las fichas y en los planes, y las que se averiguan solas (dominios
  * `.com`/`.net` por RDAP). Va aparte porque consulta la red.
  */
-async function Renovaciones({ manuales, hoy }: { manuales: Renovacion[]; hoy: string }) {
+async function Renovaciones({
+  manuales,
+  clientes,
+  hoy,
+}: {
+  manuales: Renovacion[];
+  /** Las fichas donde se puede apuntar una renovación */
+  clientes: { ruta: string; titulo: string }[];
+  hoy: string;
+}) {
   const estado = await estadoGeneral(await obtenerBoveda());
 
   const automaticas: Renovacion[] = estado.proyectos.flatMap(({ proyecto, dominio }) =>
@@ -420,6 +438,11 @@ async function Renovaciones({ manuales, hoy }: { manuales: Renovacion[]; hoy: st
           {sinFecha.join(', ')}: su registro no publica la caducidad. Apúntala en el plan de cobros (campo{' '}
           <code>renueva</code>) o en la sección «Renovaciones» de la ficha del cliente.
         </p>
+      )}
+      {clientes.length > 0 && (
+        <div className="border-t border-borde px-4 py-2.5">
+          <NuevaRenovacion clientes={clientes} hoy={hoy} />
+        </div>
       )}
     </Tarjeta>
   );

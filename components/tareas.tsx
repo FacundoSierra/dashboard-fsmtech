@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import type { Tarea } from '@/lib/boveda/tipos';
 import { Markdown } from './markdown';
+import { TareaEditable } from './tarea-editable';
 
 /** `compacta`: cada tarea en dos líneas como mucho, para tarjetas que van en rejilla */
 export function ListaTareas({
@@ -34,6 +36,43 @@ export function ListaTareas({
             <Markdown texto={tarea.texto} rutas={rutas} enLinea />
           </span>
         </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Las tareas de una diaria, que se marcan desde el panel. `mover`: a qué otra lista se pueden
+ * mandar las de primer nivel. `detalle`: algo más que enseñar detrás del texto de una tarea.
+ */
+export function ListaTareasEditable({
+  tareas,
+  rutas,
+  ruta,
+  mover,
+  detalle,
+}: {
+  tareas: Tarea[];
+  rutas: Record<string, string>;
+  /** La diaria donde están */
+  ruta: string;
+  mover?: 'espera' | 'objetivos';
+  detalle?: (tarea: Tarea) => ReactNode;
+}) {
+  return (
+    <ul className="space-y-2">
+      {tareas.map((tarea, i) => (
+        <TareaEditable
+          key={`${i}-${tarea.linea}`}
+          ruta={ruta}
+          linea={tarea.linea}
+          hecha={tarea.hecha}
+          nivel={tarea.nivel}
+          mover={tarea.nivel === 0 ? mover : undefined}
+        >
+          <Markdown texto={tarea.texto} rutas={rutas} enLinea />
+          {detalle?.(tarea)}
+        </TareaEditable>
       ))}
     </ul>
   );

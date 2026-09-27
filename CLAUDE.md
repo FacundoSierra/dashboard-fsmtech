@@ -2,7 +2,7 @@
 
 # Dashboard FSMTECH
 
-Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. Lee las notas Markdown de su bóveda de Obsidian, que están en un repo privado de GitHub, y resume clientes, proyectos, objetivos diarios, la semana y las reuniones. Vigila las webs, bases de datos y despliegues de los proyectos, lleva la economía de las cuotas, genera informes mensuales para los clientes y avisa al móvil de las caídas con una acción horaria de GitHub. También permite apuntar capturas rápidas en el inbox de la bóveda. Se puede instalar en el móvil como app.
+Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. Lee las notas Markdown de su bóveda de Obsidian, que están en un repo privado de GitHub, y resume clientes, proyectos, objetivos diarios, la semana y las reuniones. Vigila las webs, bases de datos y despliegues de los proyectos, lleva la economía de las cuotas, genera informes mensuales para los clientes y avisa al móvil de las caídas con una acción horaria de GitHub. También escribe en la bóveda, siempre acotado: capturas en el inbox, objetivos de la diaria (marcar, añadir, pasar a «A la espera»), cobros y renovaciones. Se puede instalar en el móvil como app.
 
 ## Stack
 - Next.js 16 (App Router, `proxy.ts`) + React 19 + TypeScript
@@ -23,7 +23,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
 - `lib/sesion.ts`: `verificarSesion()`, la comprobación fuerte
 - `lib/boveda/`:
   - Lectura: `fuente.ts` (carpeta local o API de GitHub) y `github.ts` (configuración y cabeceras)
-  - Escritura: `escritura.ts`, que crea notas nuevas en `inbox/` y marca cobros
+  - Escritura: `escritura.ts` (todas las escrituras, cada una acotada), `lineas.ts` (secciones y líneas del texto crudo), `diaria.ts` (monta la diaria igual que el script del PC) y `sincronizacion.ts` (cuándo subió el PC por última vez)
   - Análisis: `parser.ts` (frontmatter, secciones, tareas, enlaces y etiquetas)
   - Consultas: `consultas.ts` (`obtenerBoveda()`, hoy, clientes, proyectos, reuniones), `inbox.ts`, `busqueda.ts` y `semana.ts`
   - Formato de las capturas: `captura.ts`
@@ -55,7 +55,9 @@ Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. 
 - Nada de `Date.now()` al pintar (la regla de pureza de React lo marca): usar `estado.comprobado` como «ahora»
 - Las URLs que salen de las notas pasan por `urlVigilable()` antes de llamarlas
 - Cada Server Action que toque notas llama a `verificarSesion()` al empezar. No basta con el proxy: son endpoints POST propios
-- El panel solo escribe de dos formas: `crearNotaInbox()` (notas nuevas en `inbox/`, sin sobrescribir ni borrar nada) y `marcarCobro()` (una casilla de cobro en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`, solo si la línea no ha cambiado). No añadir otras escrituras sin la misma acotación
+- El panel solo escribe lo que está en la tabla de `lib/boveda/escritura.ts` (y de `docs/arquitectura.md`): cada escritura acotada por ruta, sección y forma de línea, y solo si la línea que toca no ha cambiado. No añadir otras escrituras sin la misma acotación, ni ninguna que borre o reescriba una nota entera
+- Marcar un objetivo cambia la casilla en su sitio, no mueve la línea a «Completado»: dos líneas añadidas a la vez al final de la misma sección, en el PC y en GitHub, paran la sincronización del PC
+- Si cambia cómo se monta la diaria, cambiarlo en `lib/boveda/diaria.ts` y en `.scripts/nota-diaria.ps1` de la bóveda: tienen que salir iguales
 - Después de escribir, `updateTag('boveda')`. En Next 16, `revalidateTag` necesita un segundo argumento
 - Falla cerrado: sin `DASHBOARD_PASSWORD` y `DASHBOARD_SECRET` no se puede entrar. Sin `PASSKEYS`, la entrada con huella responde 404 y solo queda la contraseña
 - La contraseña se queda siempre como respaldo de las passkeys: no quitarla

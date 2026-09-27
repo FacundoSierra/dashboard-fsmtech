@@ -106,6 +106,8 @@ export interface ResumenHoy {
   daily?: Nota;
   /** Todas las tareas de "Objetivos", con subtareas */
   objetivos: Tarea[];
+  /** Todas las tareas de "A la espera", con subtareas */
+  espera: Tarea[];
   completado: Tarea[];
   /** Objetivos sin marcar de días anteriores que no están en la daily de hoy */
   anteriores: { fecha: string; nota: Nota; tareas: Tarea[] }[];
@@ -115,6 +117,7 @@ export function resumenHoy(boveda: Boveda, hoy: string): ResumenHoy {
   const hastaHoy = dailies(boveda).filter((nota) => nota.nombre <= hoy);
   const daily = hastaHoy.find((nota) => nota.nombre === hoy);
   const objetivos = daily ? tareasDe(contenidoSeccion(daily, 'objetivos') ?? '') : [];
+  const espera = daily ? tareasDe(contenidoSeccion(daily, 'a la espera') ?? '') : [];
   const completado = daily
     ? tareasDe(contenidoSeccion(daily, 'completado') ?? '').filter((t) => t.nivel === 0 && t.hecha)
     : [];
@@ -130,7 +133,7 @@ export function resumenHoy(boveda: Boveda, hoy: string): ResumenHoy {
     if (tareas.length) anteriores.push({ fecha: nota.nombre, nota, tareas });
   }
 
-  return { daily, objetivos, completado, anteriores };
+  return { daily, objetivos, espera, completado, anteriores };
 }
 
 // ── Proyectos ────────────────────────────────────────────────────────────────
