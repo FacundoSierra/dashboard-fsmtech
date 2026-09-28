@@ -134,6 +134,7 @@ Resto del texto
 | Semana: racha | Días seguidos con daily hasta hoy, o hasta ayer si hoy aún no hay |
 | Clientes | Notas con `tipo: cliente`; `estado` (potencial, activo, pausado, perdido) y `linea` (desarrollo, consultoria-financiera, otro). Ver `docs/economia.md` |
 | Clientes: proyectos | Propiedad `cliente` de los proyectos |
+| Clientes: seguimiento | Última reunión hasta hoy o `ultimo_contacto` de la ficha (llamadas y correos sin nota de reunión), lo más reciente; avisa a los 14 días sin hablar con un potencial y a los 30 con un activo. Próximo paso: la primera tarea abierta de sus proyectos activos, las prioritarias primero. Esperando: lo de «A la espera» de la última diaria que enlaza al cliente o a sus proyectos |
 | Clientes: contactos | Propiedad `empresa` de las personas o enlaces en la sección "Contactos" |
 | Clientes: ideas | "Oportunidades / ideas" de sus contactos, y las ideas de las dailies que enlazan al cliente o a sus proyectos |
 | Proyectos | `tipo: proyecto`: `estado`, `cliente`, `stack`, `web` (o la línea `Web:` del cuerpo), `remoto` y tareas de "Próximos pasos" |

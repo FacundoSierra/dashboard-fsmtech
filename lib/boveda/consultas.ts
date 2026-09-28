@@ -299,6 +299,15 @@ export interface ResumenCliente {
   ideas: { texto: string; origen: Nota }[];
   linea: Linea;
   estado: EstadoCliente;
+  /**
+   * Última vez que se habló con él: su última reunión hasta hoy, o `ultimo_contacto` de la ficha
+   * (para llamadas y correos que no llevan nota de reunión), lo que sea más reciente
+   */
+  ultimoContacto?: string;
+  /** La primera tarea abierta de sus proyectos activos, las prioritarias primero */
+  proximoPaso?: { tarea: Tarea; proyecto: Nota };
+  /** Lo que tiene él o alguien de su lado: «A la espera» de la última diaria que lo enlaza */
+  esperando: Tarea[];
 }
 
 export function clientes(boveda: Boveda, hoy: string): ResumenCliente[] {
@@ -306,6 +315,9 @@ export function clientes(boveda: Boveda, hoy: string): ResumenCliente[] {
   const proximas = reunionesProximas(boveda, hoy);
   const personas = boveda.notas.filter((nota) => nota.carpeta === 'personas');
   const diarias = dailies(boveda);
+  const todas = reuniones(boveda);
+  const ultimaDiaria = diarias.find((d) => d.nombre <= hoy);
+  const enEspera = ultimaDiaria ? tareasDe(contenidoSeccion(ultimaDiaria, 'a la espera') ?? '').filter((t) => t.nivel === 0 && !t.hecha) : [];
 
   return boveda.notas
     .filter((nota) => nota.propiedades.tipo === 'cliente')
@@ -343,6 +355,17 @@ export function clientes(boveda: Boveda, hoy: string): ResumenCliente[] {
         ideas,
         linea: lineaDe(nota),
         estado: estadoClienteDe(nota),
+        ultimoContacto: [
+          ...todas.filter((r) => r.cliente === nota.nombre && r.fecha && r.fecha <= hoy).map((r) => r.fecha!),
+          ...[texto(nota.propiedades.ultimo_contacto)].filter((f): f is string => Boolean(f && RE_FECHA.test(f) && f <= hoy)),
+        ]
+          .sort()
+          .at(-1),
+        proximoPaso: suyos
+          .filter((p) => p.estado === 'activo')
+          .flatMap((p) => p.abiertas.filter((t) => t.nivel === 0).map((tarea) => ({ tarea, proyecto: p.nota })))
+          .sort((a, b) => Number(esPrioritaria(b.tarea)) - Number(esPrioritaria(a.tarea)))[0],
+        esperando: enEspera.filter((t) => enlacesDe(t.texto).some((enlace) => relacionadas.has(enlace))),
       };
     })
     .sort((a, b) => a.nota.titulo.localeCompare(b.nota.titulo, 'es'));

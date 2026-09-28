@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { CalendarClock, ExternalLink, FileText, FolderLock, Lightbulb } from 'lucide-react';
+import type { Nota, Tarea } from '@/lib/boveda/tipos';
+import { CalendarClock, ExternalLink, FileText, FolderLock, Hourglass, Lightbulb, MessagesSquare, Route } from 'lucide-react';
 import { Markdown } from '@/components/markdown';
 import { Encabezado, Estado, Vacio, euros, nivelEstadoProyecto, porcentaje, type NivelEstado } from '@/components/ui';
 import {
@@ -16,7 +17,7 @@ import {
 } from '@/lib/boveda/consultas';
 import { documentos } from '@/lib/documentos/documentos';
 import { economia, planVigente } from '@/lib/economia';
-import { cuandoEs, hoyMadrid } from '@/lib/fechas';
+import { cuandoEs, diasEntre, hoyMadrid } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
 
 export const metadata: Metadata = { title: 'Clientes' };
@@ -37,6 +38,8 @@ function iniciales(nombre: string): string {
 const ORDEN: EstadoCliente[] = ['potencial', 'activo', 'pausado', 'perdido'];
 const NIVEL: Record<EstadoCliente, NivelEstado> = { potencial: 'neutro', activo: 'bien', pausado: 'aviso', perdido: 'sin-datos' };
 const PLURAL: Record<EstadoCliente, string> = { potencial: 'Potenciales', activo: 'Activos', pausado: 'Pausados', perdido: 'Perdidos' };
+/** Días sin hablar a partir de los cuales se avisa: a un potencial se le enfría antes */
+const DIAS_SIN_HABLAR: Partial<Record<EstadoCliente, number>> = { potencial: 14, activo: 30 };
 
 function hrefFiltro(estado?: EstadoCliente, linea?: Linea): string {
   const parametros = new URLSearchParams();
@@ -167,6 +170,14 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                 </dl>
 
                 <div className="flex-1 space-y-3 p-4 text-sm">
+                  <SeguimientoCliente
+                    ultimo={cliente.ultimoContacto}
+                    limite={DIAS_SIN_HABLAR[cliente.estado]}
+                    proximoPaso={cliente.proximoPaso}
+                    esperando={cliente.esperando}
+                    hoy={hoy}
+                    rutas={boveda.rutas}
+                  />
                   {plan && cuenta ? (
                     <Link href={`/economia#cliente-${cliente.nota.nombre}`} className="flex items-center justify-between gap-2 text-xs">
                       <Estado
@@ -279,5 +290,58 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
         </div>
       )}
     </>
+  );
+}
+
+/** Cuándo se habló por última vez, qué toca hacer y qué se le está esperando */
+function SeguimientoCliente({
+  ultimo,
+  limite,
+  proximoPaso,
+  esperando,
+  hoy,
+  rutas,
+}: {
+  ultimo?: string;
+  limite?: number;
+  proximoPaso?: { tarea: Tarea; proyecto: Nota };
+  esperando: Tarea[];
+  hoy: string;
+  rutas: Record<string, string>;
+}) {
+  const dias = ultimo ? diasEntre(ultimo, hoy) : undefined;
+  const frio = limite !== undefined && (dias === undefined || dias > limite);
+  return (
+    <div className="space-y-1.5 text-xs">
+      {frio ? (
+        <Estado nivel="aviso">
+          <span className="text-xs">{dias === undefined ? 'Sin reuniones ni contacto apuntados' : `${dias} días sin hablar`}</span>
+        </Estado>
+      ) : (
+        <p className="flex items-center gap-1.5 text-tenue">
+          <MessagesSquare className="size-3.5 shrink-0 text-apagado" aria-hidden />
+          {ultimo ? `Última reunión o contacto: ${cuandoEs(ultimo, hoy)}` : 'Sin reuniones apuntadas'}
+        </p>
+      )}
+      {proximoPaso && (
+        <p className="flex items-start gap-1.5">
+          <Route className="mt-0.5 size-3.5 shrink-0 text-apagado" aria-hidden />
+          <span className="line-clamp-2 min-w-0">
+            <span className="text-apagado">Próximo paso: </span>
+            <Markdown texto={proximoPaso.tarea.texto} rutas={rutas} enLinea />
+          </span>
+        </p>
+      )}
+      {esperando.slice(0, 2).map((tarea) => (
+        <p key={tarea.linea} className="flex items-start gap-1.5">
+          <Hourglass className="mt-0.5 size-3.5 shrink-0 text-apagado" aria-hidden />
+          <span className="line-clamp-2 min-w-0">
+            <span className="text-apagado">Esperando: </span>
+            <Markdown texto={tarea.texto} rutas={rutas} enLinea />
+          </span>
+        </p>
+      ))}
+      {esperando.length > 2 && <p className="pl-5 text-apagado">y {esperando.length - 2} más a la espera</p>}
+    </div>
   );
 }
