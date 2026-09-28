@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { CalendarClock, FileText, Paperclip, PieChart, TrendingUp } from 'lucide-react';
+import { CalendarClock, FileText, HandCoins, Paperclip, PieChart, TrendingUp } from 'lucide-react';
 import { BotonCobro } from '@/components/boton-cobro';
 import { CobroExtra, NuevaRenovacion } from '@/components/formularios-economia';
 import { GraficoIngresos } from '@/components/grafico-ingresos';
 import { BarrasHorizontales, FranjaCobros } from '@/components/graficos';
 import {
+  Chip,
   Encabezado,
   Estado,
   FILA,
@@ -21,7 +22,7 @@ import {
   porcentaje,
   type NivelEstado,
 } from '@/components/ui';
-import { obtenerBoveda } from '@/lib/boveda/consultas';
+import { LINEAS, esLinea, lineaDe, obtenerBoveda, type Linea } from '@/lib/boveda/consultas';
 import { documentos, facturaDe, hrefArchivo, type Documento } from '@/lib/documentos/documentos';
 import {
   economia,
@@ -40,17 +41,41 @@ import { estadoGeneral } from '@/lib/vigilancia/estado';
 
 export const metadata: Metadata = { title: 'Economía' };
 
-export default async function PaginaEconomia() {
+export default async function PaginaEconomia({ searchParams }: PageProps<'/economia'>) {
+  const { linea: pedida } = await searchParams;
   const boveda = await obtenerBoveda();
   const hoy = hoyMadrid();
   const anio = Number(hoy.slice(0, 4));
-  const datos = economia(boveda, hoy);
+  const linea = esLinea(pedida) ? pedida : undefined;
+  const datos = economia(boveda, hoy, { linea });
+  // Solo las líneas de negocio que tienen algún cliente: con una sola, el filtro sobra
+  const lineas = [...new Set(boveda.notas.filter((n) => n.propiedades.tipo === 'cliente').map(lineaDe))] as Linea[];
+  const conRentabilidad = datos.clientes
+    .filter((c) => c.rentabilidad.cobrado > 0 || c.rentabilidad.coste > 0)
+    .sort((a, b) => b.rentabilidad.margen - a.rentabilidad.margen);
   const hayPlanes = datos.clientes.some((c) => c.planes.length > 0);
   const docs = documentos(boveda);
 
   return (
     <>
       <Encabezado titulo="Economía" subtitulo={`Lo acordado con cada cliente en ${anio} y lo que te han pagado`} />
+
+      {(lineas.length > 1 || linea) && (
+        <nav aria-label="Línea de negocio" className="-mt-2 mb-5 flex flex-wrap gap-1.5">
+          {[undefined, ...lineas].map((valor) => (
+            <Link
+              key={valor ?? 'todas'}
+              href={valor ? `/economia?linea=${valor}` : '/economia'}
+              aria-current={linea === valor ? 'true' : undefined}
+              className={`rounded-full border px-3 py-1 text-xs ${
+                linea === valor ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
+              }`}
+            >
+              {valor ? LINEAS[valor] : 'Todas las líneas'}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {!hayPlanes ? (
         <Tarjeta>
@@ -70,9 +95,10 @@ export default async function PaginaEconomia() {
               valor={euros(datos.netoMensual)}
               icono={TrendingUp}
               detalle={
-                datos.variacion === 0
+                (datos.variacion === 0
                   ? `${datos.conPlan} ${datos.conPlan === 1 ? 'cliente' : 'clientes'} con plan`
-                  : `${datos.variacion > 0 ? '+' : '−'}${euros(Math.abs(datos.variacion))} respecto al mes pasado`
+                  : `${datos.variacion > 0 ? '+' : '−'}${euros(Math.abs(datos.variacion))} respecto al mes pasado`) +
+                (datos.clientes.some((c) => c.plan?.estimado) ? '. Las sesiones, por su media' : '')
               }
             />
             <Kpi etiqueta={`Cobrado en ${anio}`} valor={euros(datos.cobradoAnio)} detalle="Casillas marcadas" />
@@ -156,6 +182,29 @@ export default async function PaginaEconomia() {
             </Tarjeta>
           </div>
 
+          <Tarjeta titulo="Lo que te ha dejado cada cliente · últimos 12 meses" icono={HandCoins}>
+            {conRentabilidad.length === 0 ? (
+              <Vacio>Aún no hay cobros marcados en los últimos doce meses.</Vacio>
+            ) : (
+              <>
+                <BarrasHorizontales
+                  titulo="Lo que te ha dejado cada cliente en los últimos doce meses"
+                  barras={conRentabilidad.map((c) => ({
+                    clave: c.nota.nombre,
+                    etiqueta: c.nota.titulo,
+                    valor: Math.max(0, c.rentabilidad.margen),
+                    texto: euros(c.rentabilidad.margen),
+                    detalle: `cobrado ${euros(c.rentabilidad.cobrado)} − pagado a proveedores ${euros(c.rentabilidad.coste)}`,
+                  }))}
+                />
+                <p className="mt-4 text-xs text-tenue">
+                  Lo cobrado de verdad (casillas marcadas) menos lo que pagas tú por cada cliente según su plan: dominios, hosting y demás.
+                  No cuenta tus horas.
+                </p>
+              </>
+            )}
+          </Tarjeta>
+
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-tenue">Clientes</h2>
             <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
@@ -216,18 +265,41 @@ function TarjetaCliente({ cliente, anio, hoy, docs }: { cliente: EconomiaCliente
                 {nombreMes(plan.desde)} – {nombreMes(plan.hasta)}
               </span>
             )}
+            {cliente.linea !== 'desarrollo' && <Chip>{LINEAS[cliente.linea]}</Chip>}
           </div>
+          {cliente.rentabilidad.cobrado > 0 && (
+            <p className="mt-1 text-xs text-tenue">
+              En 12 meses te ha dejado <span className="cifras font-medium text-texto">{euros(cliente.rentabilidad.margen, true)}</span>
+            </p>
+          )}
         </div>
         {plan && (
           <dl className="flex gap-5 text-right">
-            <div>
-              <dt className="text-xs text-apagado">Te paga</dt>
-              <dd className="cifras text-sm font-semibold">{euros(plan.cuotaMensual, true)}/mes</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-apagado">Te queda</dt>
-              <dd className="cifras text-sm font-semibold">{euros(plan.netoMensual, true)}/mes</dd>
-            </div>
+            {plan.cuotaMensual > 0 || plan.tarifas.length === 0 ? (
+              <>
+                <div>
+                  <dt className="text-xs text-apagado">Te paga</dt>
+                  <dd className="cifras text-sm font-semibold">{euros(plan.cuotaMensual, true)}/mes</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-apagado">Te queda</dt>
+                  <dd className="cifras text-sm font-semibold">{euros(plan.netoMensual, true)}/mes</dd>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <dt className="text-xs text-apagado">Tarifa</dt>
+                  <dd className="cifras text-sm font-semibold">
+                    {plan.tarifas.map((t) => `${euros(t.importe, true)}/${t.cada === 'hora' ? 'hora' : 'sesión'}`).join(' · ')}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-apagado">Te queda de media</dt>
+                  <dd className="cifras text-sm font-semibold">{euros(plan.netoMensual, true)}/mes</dd>
+                </div>
+              </>
+            )}
           </dl>
         )}
       </div>
@@ -354,7 +426,7 @@ function TablaPlan({ plan }: { plan: PlanAnual }) {
                 )}
               </td>
               <td className={`${TD} cifras whitespace-nowrap text-right`}>
-                {euros(linea.importe, true)}/{linea.cada}
+                {euros(linea.importe, true)}/{linea.cada === 'sesion' ? 'sesión' : linea.cada}
               </td>
               <td className={`${TD} text-tenue`}>{quienPaga(linea)}</td>
             </tr>

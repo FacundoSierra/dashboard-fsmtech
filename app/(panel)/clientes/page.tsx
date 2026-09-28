@@ -1,9 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { CalendarClock, ExternalLink, FileText, FolderLock, Lightbulb } from 'lucide-react';
 import { Markdown } from '@/components/markdown';
-import { Encabezado, Estado, Vacio, euros, nivelEstadoProyecto, porcentaje } from '@/components/ui';
-import { clientes, obtenerBoveda } from '@/lib/boveda/consultas';
+import { Encabezado, Estado, Vacio, euros, nivelEstadoProyecto, porcentaje, type NivelEstado } from '@/components/ui';
+import {
+  ESTADOS_CLIENTE,
+  LINEAS,
+  clientes,
+  esEstadoCliente,
+  esLinea,
+  obtenerBoveda,
+  type EstadoCliente,
+  type Linea,
+} from '@/lib/boveda/consultas';
 import { documentos } from '@/lib/documentos/documentos';
 import { economia, planVigente } from '@/lib/economia';
 import { cuandoEs, hoyMadrid } from '@/lib/fechas';
@@ -23,10 +33,45 @@ function iniciales(nombre: string): string {
     .join('');
 }
 
-export default async function PaginaClientes() {
+/** El embudo, en su orden: de quien aún no es cliente a quien ya no lo es */
+const ORDEN: EstadoCliente[] = ['potencial', 'activo', 'pausado', 'perdido'];
+const NIVEL: Record<EstadoCliente, NivelEstado> = { potencial: 'neutro', activo: 'bien', pausado: 'aviso', perdido: 'sin-datos' };
+const PLURAL: Record<EstadoCliente, string> = { potencial: 'Potenciales', activo: 'Activos', pausado: 'Pausados', perdido: 'Perdidos' };
+
+function hrefFiltro(estado?: EstadoCliente, linea?: Linea): string {
+  const parametros = new URLSearchParams();
+  if (estado) parametros.set('estado', estado);
+  if (linea) parametros.set('linea', linea);
+  const consulta = parametros.toString();
+  return consulta ? `/clientes?${consulta}` : '/clientes';
+}
+
+function Filtro({ href, activo, children }: { href: string; activo: boolean; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-current={activo ? 'true' : undefined}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${
+        activo ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+export default async function PaginaClientes({ searchParams }: PageProps<'/clientes'>) {
+  const parametros = await searchParams;
   const boveda = await obtenerBoveda();
   const hoy = hoyMadrid();
-  const lista = clientes(boveda, hoy);
+  const todos = clientes(boveda, hoy);
+  const estado = esEstadoCliente(parametros.estado) ? parametros.estado : undefined;
+  const linea = esLinea(parametros.linea) ? parametros.linea : undefined;
+  const lineas = [...new Set(todos.map((c) => c.linea))];
+  const deLaLinea = todos.filter((c) => !linea || c.linea === linea);
+  const lista = deLaLinea
+    .filter((c) => !estado || c.estado === estado)
+    .sort((a, b) => ORDEN.indexOf(a.estado) - ORDEN.indexOf(b.estado) || a.nota.titulo.localeCompare(b.nota.titulo, 'es'));
   const dinero = economia(boveda, hoy);
   const cuotaDe = new Map(dinero.clientes.map((c) => [c.nota.nombre, c]));
   const docsDe = Map.groupBy(documentos(boveda), (d) => d.cliente);
@@ -35,10 +80,39 @@ export default async function PaginaClientes() {
     <>
       <Encabezado
         titulo="Clientes"
-        subtitulo={`${lista.length} clientes${dinero.conPlan ? ` · te quedan ${euros(dinero.netoMensual)} al mes entre todos` : ''}`}
+        subtitulo={`${todos.length} clientes${dinero.conPlan ? ` · te quedan ${euros(dinero.netoMensual)} al mes entre todos` : ''}`}
       />
+
+      <div className="mb-5 space-y-2">
+        <nav aria-label="Por dónde va cada cliente" className="flex flex-wrap items-center gap-1.5">
+          <Filtro href={hrefFiltro(undefined, linea)} activo={!estado}>
+            Todos · {deLaLinea.length}
+          </Filtro>
+          {ORDEN.map((valor, i) => (
+            <span key={valor} className="inline-flex items-center gap-1.5">
+              {i === 1 && <span aria-hidden className="text-apagado">→</span>}
+              <Filtro href={hrefFiltro(valor, linea)} activo={estado === valor}>
+                {PLURAL[valor]} · {deLaLinea.filter((c) => c.estado === valor).length}
+              </Filtro>
+            </span>
+          ))}
+        </nav>
+        {(lineas.length > 1 || linea) && (
+          <nav aria-label="Línea de negocio" className="flex flex-wrap gap-1.5">
+            <Filtro href={hrefFiltro(estado)} activo={!linea}>
+              Todas las líneas
+            </Filtro>
+            {lineas.map((valor) => (
+              <Filtro key={valor} href={hrefFiltro(estado, valor)} activo={linea === valor}>
+                {LINEAS[valor]}
+              </Filtro>
+            ))}
+          </nav>
+        )}
+      </div>
+
       {lista.length === 0 ? (
-        <Vacio>No hay fichas de cliente.</Vacio>
+        <Vacio>{todos.length ? 'Ningún cliente con estos filtros.' : 'No hay fichas de cliente.'}</Vacio>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lista.map((cliente) => {
@@ -61,13 +135,21 @@ export default async function PaginaClientes() {
                       </Link>
                     </h2>
                     <p className="mt-0.5 truncate text-sm text-tenue">{cliente.sector ?? 'Sin sector'}</p>
+                    <Estado nivel={NIVEL[cliente.estado]}>
+                      <span className="text-xs text-tenue">
+                        {ESTADOS_CLIENTE[cliente.estado]}
+                        {cliente.linea !== 'desarrollo' && ` · ${LINEAS[cliente.linea]}`}
+                      </span>
+                    </Estado>
                   </div>
                 </div>
 
                 <dl className="grid grid-cols-3 border-y border-borde text-center">
                   <div className="px-2 py-3">
                     <dt className="text-xs text-apagado">Te queda</dt>
-                    <dd className="mt-0.5 text-sm font-semibold">{plan ? `${euros(plan.netoMensual)}/mes` : '—'}</dd>
+                    <dd className="mt-0.5 text-sm font-semibold" title={plan?.estimado ? 'Media de lo cobrado en los meses cerrados' : undefined}>
+                      {plan ? `${plan.estimado ? '≈ ' : ''}${euros(plan.netoMensual)}/mes` : '—'}
+                    </dd>
                   </div>
                   <div className="border-x border-borde px-2 py-3">
                     <dt className="text-xs text-apagado">Proyectos</dt>
@@ -94,8 +176,10 @@ export default async function PaginaClientes() {
                         </span>
                       </Estado>
                       <span className="text-tenue">
-                        Te paga {euros(plan.cuotaMensual)}/mes
-                        {dinero.netoMensual > 0 && ` · ${porcentaje((plan.netoMensual / dinero.netoMensual) * 100)} de lo tuyo`}
+                        {plan.estimado
+                          ? `Tarifa ${plan.tarifas.map((t) => `${euros(t.importe)}/${t.cada === 'hora' ? 'hora' : 'sesión'}`).join(' · ')}`
+                          : `Te paga ${euros(plan.cuotaMensual)}/mes`}
+                        {dinero.netoMensual > 0 && plan.netoMensual > 0 && ` · ${porcentaje((plan.netoMensual / dinero.netoMensual) * 100)} de lo tuyo`}
                       </span>
                     </Link>
                   ) : null}

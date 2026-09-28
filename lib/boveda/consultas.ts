@@ -43,6 +43,45 @@ function diccionario(pares: [string, string][]): Record<string, string> {
   return Object.assign(Object.create(null) as Record<string, string>, Object.fromEntries(pares));
 }
 
+// ── Clientes: línea de negocio y estado ──────────────────────────────────────
+
+/** A qué se dedica Facundo con ese cliente. Sin `linea`, desarrollo, que es lo que eran todos al principio */
+export const LINEAS = {
+  desarrollo: 'Desarrollo',
+  'consultoria-financiera': 'Consultoría financiera',
+  otro: 'Otro',
+} as const;
+export type Linea = keyof typeof LINEAS;
+
+/** Por dónde va la relación: con esto sale el embudo. Sin `estado`, activo */
+export const ESTADOS_CLIENTE = {
+  potencial: 'Potencial',
+  activo: 'Activo',
+  pausado: 'Pausado',
+  perdido: 'Perdido',
+} as const;
+export type EstadoCliente = keyof typeof ESTADOS_CLIENTE;
+
+export function esLinea(valor: unknown): valor is Linea {
+  return typeof valor === 'string' && Object.hasOwn(LINEAS, valor);
+}
+
+export function esEstadoCliente(valor: unknown): valor is EstadoCliente {
+  return typeof valor === 'string' && Object.hasOwn(ESTADOS_CLIENTE, valor);
+}
+
+export function lineaDe(ficha: Nota): Linea {
+  const valor = texto(ficha.propiedades.linea)?.toLowerCase();
+  return esLinea(valor) ? valor : 'desarrollo';
+}
+
+export function estadoClienteDe(ficha: Nota): EstadoCliente {
+  const valor = texto(ficha.propiedades.estado)?.toLowerCase();
+  // `inactivo` es como lo decía la plantilla antes de que hubiera embudo
+  if (valor === 'inactivo') return 'pausado';
+  return esEstadoCliente(valor) ? valor : 'activo';
+}
+
 // ── Propiedades ──────────────────────────────────────────────────────────────
 
 export function texto(valor: unknown): string | undefined {
@@ -245,6 +284,8 @@ export interface ResumenCliente {
   proximaReunion?: ResumenReunion;
   tareasAbiertas: number;
   ideas: { texto: string; origen: Nota }[];
+  linea: Linea;
+  estado: EstadoCliente;
 }
 
 export function clientes(boveda: Boveda, hoy: string): ResumenCliente[] {
@@ -287,6 +328,8 @@ export function clientes(boveda: Boveda, hoy: string): ResumenCliente[] {
         proximaReunion: proximas.find((r) => r.cliente === nota.nombre),
         tareasAbiertas: suyos.reduce((total, p) => total + p.abiertas.length, 0),
         ideas,
+        linea: lineaDe(nota),
+        estado: estadoClienteDe(nota),
       };
     })
     .sort((a, b) => a.nota.titulo.localeCompare(b.nota.titulo, 'es'));

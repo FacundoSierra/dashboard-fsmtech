@@ -49,7 +49,7 @@ plan:
 | Campo | Qué es |
 |---|---|
 | `concepto`, `importe` | Obligatorios. El importe en euros; vale `50`, `58,50` o `1.200` |
-| `cada` | `mes` (por defecto) o `año` |
+| `cada` | `mes` (por defecto) o `año`, que son cuotas; `sesion` u `hora`, que son tarifas (ver abajo) |
 | `paga` | Quién paga al proveedor. **Sin este campo, la línea es trabajo tuyo** (mantenimiento, desarrollo) y se le cobra al cliente |
 | `cobro` | Solo con `paga: yo`: `aparte` si se lo cobras además (por defecto), `incluido` si sale de tu cuota |
 | `renueva` | Fecha de renovación: sale en la lista de renovaciones y avisa antes |
@@ -64,6 +64,41 @@ plan:
 
 Las líneas anuales se reparten entre doce para calcular lo que queda al mes; lo que el
 cliente paga cada mes solo incluye las mensuales, y las anuales se enseñan aparte.
+
+### Tarifas: por sesión o por hora
+
+La consultoría no se cobra con cuota fija. La tarifa va en el plan con `cada: sesion` o
+`cada: hora`, y **lo que entra se apunta en los cobros de cada mes**, como siempre:
+
+```yaml
+plan:
+  - concepto: Sesión de consultoría
+    importe: 60
+    cada: sesion
+```
+
+```markdown
+- [x] 2026-10 — Dos sesiones — 120 € — cobrado 2026-10-28
+```
+
+Una tarifa no suma nada fijo al mes. En un plan **solo de tarifas**, lo que queda al mes es
+la **media de lo cobrado en los meses del plan que ya han terminado** (el de hoy aún puede
+cambiar), y el panel lo marca como media. Si el plan tiene también cuota, las sesiones son
+extras: cuentan en lo cobrado, no en lo que queda al mes.
+
+## Línea de negocio y estado del cliente
+
+Van en la ficha del cliente (`templates/cliente.md`):
+
+| Propiedad | Valores | Sin ella |
+|---|---|---|
+| `linea` | `desarrollo`, `consultoria-financiera`, `otro` | `desarrollo` |
+| `estado` | `potencial`, `activo`, `pausado`, `perdido` (el antiguo `inactivo` cuenta como `pausado`) | `activo` |
+
+Economía se filtra por línea (`/economia?linea=consultoria-financiera`), y todas sus cifras
+salen solo de los clientes de esa línea. En Clientes, el estado hace de embudo: cuántos
+potenciales, activos, pausados y perdidos, y se filtra por cada uno. Los filtros de línea
+solo aparecen cuando hay clientes de más de una.
 
 ## Los cobros: lo cobrado
 
@@ -141,6 +176,7 @@ por Obsidian Sync, y se arregla a mano.
 | **Pagas a proveedores** | Lo que pagas tú al mes, con lo anual repartido |
 | **Evolución** | Lo que queda cada mes desde el primer plan, hasta 24 meses |
 | **Reparto** | Lo que queda de cada cliente, y si uno pasa de la mitad del total |
+| **Lo que te ha dejado cada cliente** | Últimos doce meses, este incluido: lo cobrado de verdad (casillas marcadas) menos lo que pagas tú por él según el plan de cada mes (dominios, hosting…). No cuenta tus horas |
 
 ## Renovaciones
 

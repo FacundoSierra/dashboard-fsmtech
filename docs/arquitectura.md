@@ -117,7 +117,7 @@ Resto del texto
 | Hoy: urgente | Tareas abiertas de proyectos activos con 🚨, "urgente" o `#prioridad/alta` |
 | Semana | Para cada día: objetivos y "Completado" de su daily, reuniones con esa `fecha` y tareas marcadas en otras notas que empiezan por `YYYY-MM-DD —` |
 | Semana: racha | Días seguidos con daily hasta hoy, o hasta ayer si hoy aún no hay |
-| Clientes | Notas con `tipo: cliente` |
+| Clientes | Notas con `tipo: cliente`; `estado` (potencial, activo, pausado, perdido) y `linea` (desarrollo, consultoria-financiera, otro). Ver `docs/economia.md` |
 | Clientes: proyectos | Propiedad `cliente` de los proyectos |
 | Clientes: contactos | Propiedad `empresa` de las personas o enlaces en la sección "Contactos" |
 | Clientes: ideas | "Oportunidades / ideas" de sus contactos, y las ideas de las dailies que enlazan al cliente o a sus proyectos |

@@ -1,5 +1,5 @@
 import 'server-only';
-import { destinoEnlace, lista } from '@/lib/boveda/consultas';
+import { destinoEnlace, estadoClienteDe, lineaDe, lista, type EstadoCliente, type Linea } from '@/lib/boveda/consultas';
 import { contenidoSeccion, vinetasDe } from '@/lib/boveda/parser';
 import type { Boveda, Nota } from '@/lib/boveda/tipos';
 import { esFechaValida } from '@/lib/fechas';
@@ -30,7 +30,11 @@ import { esFechaValida } from '@/lib/fechas';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
-export type Periodicidad = 'mes' | 'año';
+/**
+ * `mes` y `año` son cuotas: salen en lo que queda cada mes. `sesion` y `hora` son tarifas (la
+ * consultoría): no suman nada fijo, lo que entra es lo que se apunta en los cobros de cada mes
+ */
+export type Periodicidad = 'mes' | 'año' | 'sesion' | 'hora';
 
 export interface LineaPlan {
   concepto: string;
@@ -70,15 +74,34 @@ export interface PlanAnual {
   cuotaMensual: number;
   /** Lo que se le cobra una vez al año */
   cobrosAnuales: LineaPlan[];
+  /** Lo que se le cobra por sesión o por hora, sin cuota fija */
+  tarifas: LineaPlan[];
   /** Lo que Facundo paga a proveedores, repartido por meses */
   gastoMensual: number;
-  /** Lo que le queda cada mes, con los cobros anuales repartidos */
+  /**
+   * Lo que le queda cada mes, con los cobros anuales repartidos. En un plan solo de tarifas
+   * (sesiones, horas), la media de lo cobrado en los meses ya cerrados del plan: ver `estimado`
+   */
   netoMensual: number;
+  /** El neto sale de la media de lo cobrado, no de una cuota fija */
+  estimado: boolean;
   cobros: Cobro[];
+}
+
+/** Lo que ha dejado un cliente en los últimos doce meses, este incluido */
+export interface Rentabilidad {
+  /** Casillas marcadas: dinero que ha entrado de verdad */
+  cobrado: number;
+  /** Lo que Facundo ha pagado a proveedores por él (dominios, hosting…), según el plan de cada mes */
+  coste: number;
+  margen: number;
 }
 
 export interface EconomiaCliente {
   nota: Nota;
+  linea: Linea;
+  estado: EstadoCliente;
+  rentabilidad: Rentabilidad;
   /** El plan en vigor este mes */
   plan?: PlanAnual;
   /** Si no hay plan en vigor, el siguiente que va a empezar */
@@ -174,7 +197,11 @@ function textoPlano(valor: unknown): string | undefined {
 }
 
 function periodicidad(valor: unknown): Periodicidad {
-  return /^(año|ano|anual|year)/.test(textoPlano(valor) ?? '') ? 'año' : 'mes';
+  const cada = textoPlano(valor) ?? '';
+  if (/^(año|ano|anual|year)/.test(cada)) return 'año';
+  if (/^(sesi[oó]n|sesiones|visita)/.test(cada)) return 'sesion';
+  if (/^(hora|horas|h)$/.test(cada)) return 'hora';
+  return 'mes';
 }
 
 function lineaDePlan(valor: unknown): LineaPlan | null {
@@ -200,7 +227,9 @@ function lineaDePlan(valor: unknown): LineaPlan | null {
 /** Lo que se le cobra al cliente: el trabajo propio y lo que se le repercute */
 const seCobra = (l: LineaPlan) => l.paga === undefined || (l.paga === 'yo' && l.cobro === 'aparte');
 const loPagoYo = (l: LineaPlan) => l.paga === 'yo';
-const alMes = (l: LineaPlan) => (l.cada === 'mes' ? l.importe : l.importe / 12);
+/** Lo que supone cada mes: las tarifas no suman nada fijo */
+const alMes = (l: LineaPlan) => (l.cada === 'mes' ? l.importe : l.cada === 'año' ? l.importe / 12 : 0);
+const esTarifa = (l: LineaPlan) => l.cada === 'sesion' || l.cada === 'hora';
 
 // ── Lectura de los cobros ────────────────────────────────────────────────────
 
@@ -247,8 +276,19 @@ function planDe(nota: Nota, mesActual: string): PlanAnual | null {
   const mensuales = lineas.filter((l) => l.cada === 'mes');
   const cuotaMensual = mensuales.filter(seCobra).reduce((t, l) => t + l.importe, 0);
   const cobrosAnuales = lineas.filter((l) => l.cada === 'año' && seCobra(l));
-  const ingreso = lineas.filter(seCobra).reduce((t, l) => t + alMes(l), 0);
+  const tarifas = lineas.filter((l) => esTarifa(l) && seCobra(l));
   const gastoMensual = lineas.filter(loPagoYo).reduce((t, l) => t + alMes(l), 0);
+  const cobros = cobrosDe(nota, mesActual);
+
+  // Solo tarifas, sin cuota: lo que entra cada mes no se sabe de antemano. Se toma la media de
+  // lo cobrado en los meses del plan que ya han terminado (el de hoy aún puede cambiar)
+  const estimado = tarifas.length > 0 && cuotaMensual === 0 && cobrosAnuales.length === 0;
+  const cerrados = mesesEntre(desde, [hasta, sumarMeses(mesActual, -1)].sort()[0]);
+  const mediaTarifas =
+    estimado && cerrados.length
+      ? cobros.filter((c) => c.cobrado && c.mes >= desde && c.mes < mesActual).reduce((t, c) => t + c.importe, 0) / cerrados.length
+      : 0;
+  const ingreso = lineas.filter(seCobra).reduce((t, l) => t + alMes(l), 0) + mediaTarifas;
 
   return {
     nota,
@@ -259,9 +299,11 @@ function planDe(nota: Nota, mesActual: string): PlanAnual | null {
     lineas,
     cuotaMensual,
     cobrosAnuales,
+    tarifas,
     gastoMensual,
     netoMensual: ingreso - gastoMensual,
-    cobros: cobrosDe(nota, mesActual),
+    estimado,
+    cobros,
   };
 }
 
@@ -287,25 +329,35 @@ function renovacionesDe(nota: Nota): Renovacion[] {
 
 const MESES_SERIE = 24;
 
-export function economia(boveda: Boveda, hoy: string): Economia {
+/** `linea`: solo los clientes de esa línea de negocio, y todas las cifras sacadas de ellos */
+export function economia(boveda: Boveda, hoy: string, filtro: { linea?: Linea } = {}): Economia {
   const mesActual = mesDe(hoy);
   const anioActual = Number(hoy.slice(0, 4));
+  const ultimoAnio = mesesEntre(sumarMeses(mesActual, -11), mesActual);
+
+  const fichas = boveda.notas.filter(
+    (nota) => nota.propiedades.tipo === 'cliente' && (!filtro.linea || lineaDe(nota) === filtro.linea),
+  );
+  const deLaLinea = new Set(fichas.map((ficha) => ficha.nombre));
 
   const planes = boveda.notas
     .filter((nota) => nota.propiedades.tipo === 'cobros')
     .map((nota) => planDe(nota, mesActual))
-    .filter((p): p is PlanAnual => p !== null)
+    .filter((p): p is PlanAnual => p !== null && (!filtro.linea || deLaLinea.has(p.cliente)))
     .sort((a, b) => a.anio - b.anio);
-
-  const fichas = boveda.notas.filter((nota) => nota.propiedades.tipo === 'cliente');
 
   const clientes = fichas
     .map((nota): EconomiaCliente => {
       const suyos = planes.filter((p) => p.cliente === nota.nombre);
       const cobros = suyos.flatMap((p) => p.cobros);
       const debidos = cobros.filter((c) => c.estado === 'atrasado' || c.estado === 'pendiente');
+      const cobrado = cobros.filter((c) => c.cobrado && c.mes >= ultimoAnio[0] && c.mes <= mesActual).reduce((t, c) => t + c.importe, 0);
+      const coste = ultimoAnio.reduce((t, mes) => t + (planEnMes(suyos, mes)?.gastoMensual ?? 0), 0);
       return {
         nota,
+        linea: lineaDe(nota),
+        estado: estadoClienteDe(nota),
+        rentabilidad: { cobrado, coste, margen: cobrado - coste },
         plan: planEnMes(suyos, mesActual),
         proximo: [...suyos].sort((a, b) => a.desde.localeCompare(b.desde)).find((p) => p.desde > mesActual),
         planes: suyos,
