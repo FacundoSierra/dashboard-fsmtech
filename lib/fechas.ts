@@ -42,6 +42,14 @@ export function inicioSemana(fecha: string): string {
   return sumarDias(fecha, -((diaSemana + 6) % 7));
 }
 
+/** Semana ISO (de lunes a domingo; la 1 es la que tiene el primer jueves del año): `2026-09-21` → `2026-W39` */
+export function semanaIso(fecha: string): string {
+  const jueves = sumarDias(inicioSemana(fecha), 3);
+  const anio = Number(jueves.slice(0, 4));
+  const semana = Math.floor(diasEntre(`${anio}-01-01`, jueves) / 7) + 1;
+  return `${anio}-W${String(semana).padStart(2, '0')}`;
+}
+
 export function diasEntre(desde: string, hasta: string): number {
   return Math.round((aUTC(hasta) - aUTC(desde)) / MS_DIA);
 }

@@ -88,3 +88,43 @@ export function resumenSemana(boveda: Boveda, lunes: string, hoy: string): Resum
     },
   };
 }
+
+// ── Revisión semanal ─────────────────────────────────────────────────────────
+
+/** `daily-notes/semanal/2026-W39.md`: la escribe el domingo por la noche la skill `obsidian-weekly-review` */
+const RE_REVISION = /^daily-notes\/semanal\/(\d{4}-W\d{2})\.md$/;
+/** Las preguntas de la reflexión van en un callout: `> - ¿Qué funcionó bien?` */
+const RE_PREGUNTA = /^>\s*[-*+]\s+(.+?)\s*$/;
+/** Y cada respuesta, debajo: `- **¿Qué funcionó bien?** Lo de…` */
+const RE_RESPUESTA = /^[-*+]\s+\*\*(.+?)\*\*\s*(.*)$/;
+
+export interface RevisionSemanal {
+  nota: Nota;
+  /** `2026-W39` */
+  semana: string;
+  preguntas: { pregunta: string; respuesta?: string }[];
+  /** Markdown de la sección «Prioridades», si la tiene */
+  prioridades?: string;
+}
+
+/** La revisión de esa semana o, si aún no está hecha, la última anterior: la del domingo se responde el lunes */
+export function revisionHasta(boveda: Boveda, semana: string): RevisionSemanal | undefined {
+  const nota = boveda.notas
+    .filter((n) => RE_REVISION.test(n.ruta) && n.nombre <= semana)
+    .sort((a, b) => b.nombre.localeCompare(a.nombre))[0];
+  if (!nota) return undefined;
+
+  const reflexion = (contenidoSeccion(nota, 'reflexion') ?? '').split(/\r?\n/);
+  const respuestas = new Map(
+    reflexion.flatMap((linea) => {
+      const partes = linea.match(RE_RESPUESTA);
+      return partes ? [[partes[1].trim(), partes[2].trim()] as const] : [];
+    }),
+  );
+  const preguntas = reflexion
+    .map((linea) => linea.match(RE_PREGUNTA)?.[1])
+    .filter((p): p is string => Boolean(p))
+    .map((pregunta) => ({ pregunta, respuesta: respuestas.get(pregunta) || undefined }));
+
+  return { nota, semana: nota.nombre, preguntas, prioridades: contenidoSeccion(nota, 'prioridades')?.trim() || undefined };
+}

@@ -21,6 +21,7 @@ import { buscarLinea, finDeBloque, insertarAlFinal, rangoSeccion, sangriaDe, sal
  *  | `marcarCobro`      | Nota de cobros: «Cobros»                    | La casilla y la fecha de cobro    |
  *  | `anadirCobroExtra` | Nota de cobros: «Cobros»                    | Una línea nueva, ya cobrada       |
  *  | `anadirRenovacion` | Ficha de cliente: «Renovaciones»            | Una línea nueva                   |
+ *  | `responderReflexion` | Revisión semanal: «Reflexión»             | Una línea por respuesta nueva     |
  *  | `crearNotaDocumento` | `clientes/<cliente>/documentos/…`, nueva  | Crea la nota, nunca sobrescribe   |
  *  | `crearFichaCliente`  | `clientes/<cliente>/<cliente>.md`, nueva  | Crea la ficha, nunca sobrescribe  |
  *  | `crearNotaCobros`    | Nota de cobros del cliente, nueva         | Crea la nota, nunca sobrescribe   |
@@ -400,4 +401,43 @@ export async function crearRequerimiento(ruta: string, contenido: string): Promi
   const proyecto = ruta.match(RE_RUTA_REQUERIMIENTO)?.[1];
   if (!proyecto) throw new ErrorEscritura('El nombre del requerimiento no es válido.');
   await crearNota(ruta, contenido, `requerimientos: ${proyecto} ${ruta.split('/').at(-1)?.slice(0, 7)}`, 'Ya hay un requerimiento con ese nombre.');
+}
+
+// ── Revisión semanal ─────────────────────────────────────────────────────────
+
+const RE_RUTA_REVISION = /^daily-notes\/semanal\/\d{4}-W\d{2}\.md$/;
+
+/**
+ * Responde desde el panel las preguntas de la reflexión de una revisión semanal: una línea
+ * `- **¿Pregunta?** respuesta` por cada una, debajo del callout de preguntas. Solo preguntas
+ * que están en la nota y que aún no tienen respuesta: nunca reescribe una respuesta
+ */
+export async function responderReflexion(ruta: string, respuestas: { pregunta: string; respuesta: string }[]): Promise<void> {
+  if (!RE_RUTA_REVISION.test(ruta)) throw new ErrorEscritura('Esa nota no es una revisión semanal.');
+  const limpias = respuestas
+    .filter((r) => r.respuesta.trim())
+    .map((r) => ({ pregunta: r.pregunta.trim(), respuesta: lineaLimpia(r.respuesta, 1500, 'la respuesta') }));
+  if (!limpias.length) throw new ErrorEscritura('Escribe alguna respuesta.');
+
+  await modificarNota(
+    ruta,
+    (lineas) => {
+      const rango = seccion(lineas, 'reflexion', '🤔 Reflexión');
+      const dentro = lineas.slice(rango.titulo + 1, rango.fin);
+      const preguntas = new Set(dentro.map((l) => l.match(/^>\s*[-*+]\s+(.+?)\s*$/)?.[1]).filter(Boolean));
+      const respondidas = new Set(dentro.map((l) => l.match(/^[-*+]\s+\*\*(.+?)\*\*/)?.[1]).filter(Boolean));
+      const nuevas = limpias.filter((r) => {
+        if (!preguntas.has(r.pregunta)) throw new ErrorEscritura(MENSAJE_CAMBIADA);
+        return !respondidas.has(r.pregunta);
+      });
+      if (!nuevas.length) return;
+
+      // Una línea en blanco tras el callout: pegada a él, Obsidian la metería dentro
+      let ultima = rango.titulo;
+      for (let i = rango.titulo + 1; i < rango.fin; i++) if (lineas[i].trim()) ultima = i;
+      const hueco = lineas[ultima].startsWith('>') ? [''] : [];
+      lineas.splice(ultima + 1, 0, ...hueco, ...nuevas.map((r) => `- **${r.pregunta}** ${r.respuesta}`));
+    },
+    `revision: ${ruta.slice(-11, -3)} reflexion respondida`,
+  );
 }

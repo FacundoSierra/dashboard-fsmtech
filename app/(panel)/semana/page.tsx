@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { NotebookPen } from 'lucide-react';
 import { Markdown } from '@/components/markdown';
+import { ReflexionSemanal } from '@/components/reflexion-semanal';
 import { ListaTareas } from '@/components/tareas';
 import { Chip, Encabezado, Estado, Kpi, Tarjeta } from '@/components/ui';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
-import { resumenSemana, type DiaSemana } from '@/lib/boveda/semana';
-import { esFechaValida, fechaCorta, fechaLarga, hoyMadrid, inicioSemana, sumarDias } from '@/lib/fechas';
+import { resumenSemana, revisionHasta, type DiaSemana } from '@/lib/boveda/semana';
+import { esFechaValida, fechaCorta, fechaLarga, hoyMadrid, inicioSemana, semanaIso, sumarDias } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
 
 export const metadata: Metadata = { title: 'Semana' };
@@ -19,6 +21,8 @@ export default async function PaginaSemana({ searchParams }: PageProps<'/semana'
   const lunes = inicioSemana(esFechaValida(fecha) ? fecha : hoy);
   const semana = resumenSemana(boveda, lunes, hoy);
   const { totales } = semana;
+  const revision = revisionHasta(boveda, semanaIso(lunes));
+  const sinResponder = revision?.preguntas.filter((p) => !p.respuesta).map((p) => p.pregunta) ?? [];
 
   return (
     <>
@@ -50,6 +54,43 @@ export default async function PaginaSemana({ searchParams }: PageProps<'/semana'
         <Kpi etiqueta="Reuniones" valor={totales.reuniones} />
         <Kpi etiqueta="Dailies" valor={`${totales.dailies}/7`} />
       </div>
+
+      {revision && (
+        <Tarjeta
+          titulo={`Revisión de la semana ${Number(revision.semana.slice(-2))}${sinResponder.length ? ' · reflexión sin responder' : ''}`}
+          icono={NotebookPen}
+          accion={
+            <Link href={hrefNota(revision.nota.ruta)} className="text-sm text-acento hover:underline">
+              Abrir la revisión
+            </Link>
+          }
+          className="mb-6"
+        >
+          <div className="grid gap-6 lg:grid-cols-2">
+            {revision.prioridades && (
+              <div className="min-w-0 text-sm">
+                <p className="mb-2 font-medium">Prioridades de la semana</p>
+                <Markdown texto={revision.prioridades} rutas={boveda.rutas} />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="mb-2 text-sm font-medium">Reflexión</p>
+              {revision.preguntas
+                .filter((p) => p.respuesta)
+                .map((p) => (
+                  <p key={p.pregunta} className="mb-2 text-sm">
+                    <span className="font-medium">{p.pregunta}</span> <span className="text-tenue">{p.respuesta}</span>
+                  </p>
+                ))}
+              {sinResponder.length > 0 ? (
+                <ReflexionSemanal ruta={revision.nota.ruta} preguntas={sinResponder} />
+              ) : (
+                revision.preguntas.length === 0 && <p className="text-sm text-tenue">Esta revisión no trae preguntas.</p>
+              )}
+            </div>
+          </div>
+        </Tarjeta>
+      )}
 
       <div className="space-y-3">
         {semana.dias.map((dia) => (

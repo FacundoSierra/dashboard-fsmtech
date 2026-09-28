@@ -37,6 +37,7 @@ El panel solo escribe lo que está en esta tabla (`lib/boveda/escritura.ts`). Ca
 | `crearNotaCobros` | `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`, nueva | Crea la nota del trato con `templates/cobros.md` y una casilla por cobro previsto; nunca sobrescribe | Crear, con el cliente |
 | `crearReunion` | `clientes/<cliente>/reuniones/AAAA-MM-DD-<cliente>-<tema>.md`, nueva | Crea la nota con `templates/reunion.md`; nunca sobrescribe | Crear |
 | `crearRequerimiento` | `proyectos/<slug>/requerimientos/req-###-<titulo>.md`, nueva | Crea la nota con `templates/requerimiento.md` y el siguiente `REQ-###` del proyecto; nunca sobrescribe | Crear |
+| `responderReflexion` | Revisión semanal `daily-notes/semanal/AAAA-Www.md`, «🤔 Reflexión» | Una línea `- **¿Pregunta?** respuesta` por cada pregunta del callout que aún no tenga respuesta; nunca reescribe una | Semana |
 | `crearNotaDocumento` | `clientes/<cliente>/documentos/<AAAA-MM-DD>-<cliente>-<titulo>.md`, nueva | Crea la nota de un documento subido; nunca sobrescribe. El archivo va al almacén privado (`docs/documentos.md`) | Documentos |
 
 Garantías comunes:
@@ -129,6 +130,7 @@ Resto del texto
 | Hoy: completado | Tareas marcadas de la sección "Completado" de hoy |
 | Hoy: urgente | Tareas abiertas de proyectos activos con 🚨, "urgente" o `#prioridad/alta` |
 | Semana | Para cada día: objetivos y "Completado" de su daily, reuniones con esa `fecha` y tareas marcadas en otras notas que empiezan por `YYYY-MM-DD —` |
+| Semana: revisión | `daily-notes/semanal/AAAA-Www.md` de esa semana o, si aún no está, la última anterior: sección «Prioridades» y las preguntas del callout de «Reflexión» (`> - ¿…?`) con sus respuestas (`- **¿…?** respuesta`) |
 | Semana: racha | Días seguidos con daily hasta hoy, o hasta ayer si hoy aún no hay |
 | Clientes | Notas con `tipo: cliente`; `estado` (potencial, activo, pausado, perdido) y `linea` (desarrollo, consultoria-financiera, otro). Ver `docs/economia.md` |
 | Clientes: proyectos | Propiedad `cliente` de los proyectos |
