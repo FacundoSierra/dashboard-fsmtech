@@ -20,7 +20,15 @@ export default async function PaginaReuniones() {
 
   return (
     <>
-      <Encabezado titulo="Reuniones" subtitulo={`${proximas.length} próximas`} />
+      <Encabezado
+        titulo="Reuniones"
+        subtitulo={`${proximas.length} próximas`}
+        acciones={
+          <Link href="/crear?tipo=reunion" className="inline-flex items-center gap-1 rounded-lg border border-borde bg-superficie px-3 py-1.5 text-sm font-medium hover:border-borde-fuerte">
+            + Reunión
+          </Link>
+        }
+      />
       <div className="space-y-8">
         <Seccion titulo="Próximas">
           <ListaReuniones reuniones={proximas} hoy={hoy} titulos={boveda.titulos} vacio="No hay reuniones previstas." />

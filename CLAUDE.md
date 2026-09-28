@@ -23,7 +23,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
 - `lib/sesion.ts`: `verificarSesion()`, la comprobación fuerte
 - `lib/boveda/`:
   - Lectura: `fuente.ts` (carpeta local o API de GitHub) y `github.ts` (configuración y cabeceras)
-  - Escritura: `escritura.ts` (todas las escrituras, cada una acotada), `lineas.ts` (secciones y líneas del texto crudo), `diaria.ts` (monta la diaria igual que el script del PC) y `sincronizacion.ts` (cuándo subió el PC por última vez)
+  - Escritura: `escritura.ts` (todas las escrituras, cada una acotada), `lineas.ts` (secciones y líneas del texto crudo), `plantillas.ts` (notas nuevas con las plantillas de `templates/` de la bóveda), `diaria.ts` (monta la diaria igual que el script del PC) y `sincronizacion.ts` (cuándo subió el PC por última vez)
   - Análisis: `parser.ts` (frontmatter, secciones, tareas, enlaces y etiquetas)
   - Consultas: `consultas.ts` (`obtenerBoveda()`, hoy, clientes, proyectos, reuniones), `inbox.ts`, `busqueda.ts` y `semana.ts`
   - Formato de las capturas: `captura.ts`
@@ -43,7 +43,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
 - `app/(panel)/`: páginas del panel
   - Resúmenes: Hoy (`/`), `/semana`, `/clientes`, `/proyectos`, `/reuniones` e `/inbox`
   - Negocio: `/estado`, `/economia`, `/documentos`, `/informes` e `/informes/[cliente]`
-  - Herramientas: `/buscar`, `/capturar` y el lector `/nota/[...ruta]`
+  - Herramientas: `/buscar`, `/capturar`, `/crear` (cliente, reunión y requerimiento) y el lector `/nota/[...ruta]`
 - `app/manifest.ts`, `app/icon.tsx`, `app/apple-icon.tsx` y `app/iconos/[tamano]`: app instalable
 - `components/`: sistema de diseño (`ui.tsx`), navegación (menú lateral y barra inferior), gráficos, avisos, Markdown con `[[enlaces]]` de Obsidian, lista de tareas e icono
 
@@ -59,6 +59,7 @@ Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. 
 - Cada Server Action que toque notas llama a `verificarSesion()` al empezar. No basta con el proxy: son endpoints POST propios
 - El panel solo escribe lo que está en la tabla de `lib/boveda/escritura.ts` (y de `docs/arquitectura.md`): cada escritura acotada por ruta, sección y forma de línea, y solo si la línea que toca no ha cambiado. No añadir otras escrituras sin la misma acotación, ni ninguna que borre o reescriba una nota entera
 - Marcar un objetivo cambia la casilla en su sitio, no mueve la línea a «Completado»: dos líneas añadidas a la vez al final de la misma sección, en el PC y en GitHub, paran la sincronización del PC
+- Las notas nuevas se hacen siempre con su plantilla de la bóveda (`leerPlantilla()` + `rellenarPlantilla()`), nunca con un texto escrito en el código: si cambia la plantilla, el panel la sigue
 - Si cambia cómo se monta la diaria, cambiarlo en `lib/boveda/diaria.ts` y en `.scripts/nota-diaria.ps1` de la bóveda: tienen que salir iguales
 - Después de escribir, `updateTag('boveda')`. En Next 16, `revalidateTag` necesita un segundo argumento
 - Falla cerrado: sin `DASHBOARD_PASSWORD` y `DASHBOARD_SECRET` no se puede entrar. Sin `PASSKEYS`, la entrada con huella responde 404 y solo queda la contraseña

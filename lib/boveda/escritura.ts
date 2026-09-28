@@ -22,6 +22,10 @@ import { buscarLinea, finDeBloque, insertarAlFinal, rangoSeccion, sangriaDe, sal
  *  | `anadirCobroExtra` | Nota de cobros: «Cobros»                    | Una línea nueva, ya cobrada       |
  *  | `anadirRenovacion` | Ficha de cliente: «Renovaciones»            | Una línea nueva                   |
  *  | `crearNotaDocumento` | `clientes/<cliente>/documentos/…`, nueva  | Crea la nota, nunca sobrescribe   |
+ *  | `crearFichaCliente`  | `clientes/<cliente>/<cliente>.md`, nueva  | Crea la ficha, nunca sobrescribe  |
+ *  | `crearNotaCobros`    | Nota de cobros del cliente, nueva         | Crea la nota, nunca sobrescribe   |
+ *  | `crearReunion`       | `clientes/<cliente>/reuniones/…`, nueva   | Crea la nota, nunca sobrescribe   |
+ *  | `crearRequerimiento` | `proyectos/<slug>/requerimientos/…`, nueva| Crea la nota, nunca sobrescribe   |
  *
  * Si la línea que se quiere tocar ya no está igual que cuando se pintó la página (porque se ha
  * cambiado en Obsidian), no se toca nada. En producción se escribe además con el `sha` de lo
@@ -174,7 +178,7 @@ export function lineaLimpia(texto: string, maximo: number, que: string): string 
 }
 
 /** El texto crudo de una plantilla de `templates/`, para montar una nota igual que en el PC */
-export async function leerPlantilla(nombre: 'daily-note'): Promise<string> {
+export async function leerPlantilla(nombre: 'daily-note' | 'cliente' | 'cobros' | 'reunion' | 'requerimiento'): Promise<string> {
   const ruta = `templates/${nombre}.md`;
   const carpeta = process.env.BOVEDA_DIR;
   if (carpeta) return readFile(rutaEnDisco(carpeta, ruta), 'utf8');
@@ -367,4 +371,33 @@ export async function crearNotaDocumento(ruta: string, contenido: string): Promi
   const cliente = ruta.match(RE_RUTA_DOCUMENTO)?.[1];
   if (!cliente) throw new ErrorEscritura('El nombre del documento no es válido.');
   await crearNota(ruta, contenido, `documentos: ${cliente} ${ruta.split('/').at(-1)?.slice(0, 10)}`, 'Ya hay un documento con ese nombre y esa fecha: cambia el título.');
+}
+
+// ── Notas nuevas desde el panel ──────────────────────────────────────────────
+// Solo crean: si la nota ya existe, no la tocan. El contenido sale de la plantilla de la bóveda
+
+const RE_RUTA_REUNION = /^clientes\/([a-z0-9][a-z0-9-]*)\/reuniones\/\d{4}-\d{2}-\d{2}-\1-[a-z0-9][a-z0-9-]*\.md$/;
+const RE_RUTA_REQUERIMIENTO = /^proyectos\/([a-z0-9][a-z0-9-]*)\/requerimientos\/req-\d{3}-[a-z0-9][a-z0-9-]*\.md$/;
+
+export async function crearFichaCliente(ruta: string, contenido: string): Promise<void> {
+  const cliente = ruta.match(RE_RUTA_FICHA)?.[1];
+  if (!cliente) throw new ErrorEscritura('El nombre del cliente no es válido.');
+  await crearNota(ruta, contenido, `clientes: ficha nueva de ${cliente}`, 'Ya hay un cliente con ese nombre.');
+}
+
+export async function crearNotaCobros(ruta: string, contenido: string): Promise<void> {
+  const cliente = clienteDeCobros(ruta);
+  await crearNota(ruta, contenido, `cobros: nota nueva de ${cliente}`, 'Ese cliente ya tiene nota de cobros de ese año.');
+}
+
+export async function crearReunion(ruta: string, contenido: string): Promise<void> {
+  const cliente = ruta.match(RE_RUTA_REUNION)?.[1];
+  if (!cliente) throw new ErrorEscritura('El nombre de la reunión no es válido.');
+  await crearNota(ruta, contenido, `reuniones: ${cliente} ${ruta.split('/').at(-1)?.slice(0, 10)}`, 'Ya hay una reunión con ese tema ese día.');
+}
+
+export async function crearRequerimiento(ruta: string, contenido: string): Promise<void> {
+  const proyecto = ruta.match(RE_RUTA_REQUERIMIENTO)?.[1];
+  if (!proyecto) throw new ErrorEscritura('El nombre del requerimiento no es válido.');
+  await crearNota(ruta, contenido, `requerimientos: ${proyecto} ${ruta.split('/').at(-1)?.slice(0, 7)}`, 'Ya hay un requerimiento con ese nombre.');
 }

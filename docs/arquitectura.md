@@ -33,6 +33,10 @@ El panel solo escribe lo que está en esta tabla (`lib/boveda/escritura.ts`). Ca
 | `marcarCobro` | Nota de cobros, «Cobros» | La casilla y la fecha de cobro | Economía |
 | `anadirCobroExtra` | Nota de cobros, «Cobros» | Una línea nueva, ya cobrada | Economía |
 | `anadirRenovacion` | Ficha de cliente, «Renovaciones» | Una línea nueva | Economía |
+| `crearFichaCliente` | `clientes/<cliente>/<cliente>.md`, nueva | Crea la ficha con `templates/cliente.md`; nunca sobrescribe | Crear |
+| `crearNotaCobros` | `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`, nueva | Crea la nota del trato con `templates/cobros.md` y una casilla por cobro previsto; nunca sobrescribe | Crear, con el cliente |
+| `crearReunion` | `clientes/<cliente>/reuniones/AAAA-MM-DD-<cliente>-<tema>.md`, nueva | Crea la nota con `templates/reunion.md`; nunca sobrescribe | Crear |
+| `crearRequerimiento` | `proyectos/<slug>/requerimientos/req-###-<titulo>.md`, nueva | Crea la nota con `templates/requerimiento.md` y el siguiente `REQ-###` del proyecto; nunca sobrescribe | Crear |
 | `crearNotaDocumento` | `clientes/<cliente>/documentos/<AAAA-MM-DD>-<cliente>-<titulo>.md`, nueva | Crea la nota de un documento subido; nunca sobrescribe. El archivo va al almacén privado (`docs/documentos.md`) | Documentos |
 
 Garantías comunes:
@@ -55,6 +59,15 @@ La casilla cambia donde está en vez de mover la línea a «✅ Completado», a 
 Si se apunta un objetivo y la diaria de hoy aún no existe (el PC está apagado), el panel la crea **igual que `.scripts/nota-diaria.ps1`**: la plantilla con lo que quedó sin marcar en «Objetivos» y «A la espera» de la última diaria, los repos con commits sin subir, las reuniones del día y el enlace a la anterior, con saltos de Windows. Comprobado contra el script con la misma bóveda: sale idéntica. Si cambia cómo se monta, hay que cambiarlo en los dos sitios.
 
 Al revés, el script del PC mira antes en GitHub: si el panel ya creó la diaria de hoy, la trae con la sincronización en vez de crear otra, porque dos notas nuevas con el mismo nombre, una en cada lado, pararían la sincronización.
+
+### Notas nuevas desde el panel (`/crear`, `lib/boveda/plantillas.ts`)
+
+Cliente (con su nota de cobros si ya hay trato), reunión y requerimiento se crean con **las plantillas de verdad de la bóveda**, leídas de `templates/` en cada creación: una nota hecha en el panel es igual que una hecha en Obsidian o por Claude, y si cambia una plantilla, el panel la sigue sin tocar código. De la plantilla solo se cambia el título, las fechas (`{{date:…}}`), las propiedades que se piden y el contenido de las secciones que se piden; los comentarios de ayuda, el resto de secciones y las etiquetas se quedan.
+
+- **Los nombres de nota son únicos en toda la bóveda**: si ya hay una nota que se llama igual (un cliente `cni-web-crm` chocaría con el proyecto), no se crea
+- **`REQ-###`**: uno más que el mayor del proyecto, por nombre de archivo o por `id` (`siguienteRequerimiento()`), y el formulario enseña cuál va a ser
+- **Trato del cliente**: un concepto con su importe y `cada` (`mes`, `año`, `sesion`, `hora`) desde un mes. Doce casillas si es al mes, una si es al año, ninguna si son tarifas (se apuntan al cobrarlas). El trato se comprueba antes de crear la ficha, para no dejarla a medias por un importe mal escrito
+- Reunión con fecha y hora: la diaria de ese día la recoge sola
 
 ### Si la sincronización del PC choca
 

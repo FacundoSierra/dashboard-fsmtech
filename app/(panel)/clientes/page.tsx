@@ -81,6 +81,11 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
       <Encabezado
         titulo="Clientes"
         subtitulo={`${todos.length} clientes${dinero.conPlan ? ` · te quedan ${euros(dinero.netoMensual)} al mes entre todos` : ''}`}
+        acciones={
+          <Link href="/crear?tipo=cliente" className="inline-flex items-center gap-1 rounded-lg border border-borde bg-superficie px-3 py-1.5 text-sm font-medium hover:border-borde-fuerte">
+            + Cliente
+          </Link>
+        }
       />
 
       <div className="mb-5 space-y-2">

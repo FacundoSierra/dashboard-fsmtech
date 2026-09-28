@@ -23,7 +23,15 @@ export default async function PaginaProyectos() {
 
   return (
     <>
-      <Encabezado titulo="Proyectos" subtitulo={`${activos} activos de ${todos.length}`} />
+      <Encabezado
+        titulo="Proyectos"
+        subtitulo={`${activos} activos de ${todos.length}`}
+        acciones={
+          <Link href="/crear?tipo=requerimiento" className="inline-flex items-center gap-1 rounded-lg border border-borde bg-superficie px-3 py-1.5 text-sm font-medium hover:border-borde-fuerte">
+            + Requerimiento
+          </Link>
+        }
+      />
       {todos.length === 0 ? (
         <Vacio>No hay notas de proyecto.</Vacio>
       ) : (

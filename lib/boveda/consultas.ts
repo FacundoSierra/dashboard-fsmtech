@@ -175,6 +175,19 @@ export function resumenHoy(boveda: Boveda, hoy: string): ResumenHoy {
   return { daily, objetivos, espera, completado, anteriores };
 }
 
+// ── Requerimientos ───────────────────────────────────────────────────────────
+
+/** El siguiente `REQ-###` de un proyecto: uno más que el mayor que ya tenga, por nombre o por `id` */
+export function siguienteRequerimiento(boveda: Boveda, proyecto: string): string {
+  const carpeta = `proyectos/${proyecto}/requerimientos/`;
+  const numeros = boveda.notas
+    .filter((nota) => nota.ruta.startsWith(carpeta))
+    .flatMap((nota) => [nota.nombre.match(/^req-(\d+)/)?.[1], texto(nota.propiedades.id)?.match(/^REQ-(\d+)$/i)?.[1]])
+    .filter((n): n is string => n !== undefined)
+    .map(Number);
+  return `REQ-${String(Math.max(0, ...numeros) + 1).padStart(3, '0')}`;
+}
+
 // ── Proyectos ────────────────────────────────────────────────────────────────
 
 export interface ResumenProyecto {
