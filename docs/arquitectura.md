@@ -70,6 +70,19 @@ Cliente (con su nota de cobros si ya hay trato), reunión y requerimiento se cre
 - **Trato del cliente**: un concepto con su importe y `cada` (`mes`, `año`, `sesion`, `hora`) desde un mes. Doce casillas si es al mes, una si es al año, ninguna si son tarifas (se apuntan al cobrarlas). El trato se comprueba antes de crear la ficha, para no dejarla a medias por un importe mal escrito
 - Reunión con fecha y hora: la diaria de ese día la recoge sola
 
+### Barra de órdenes (`Ctrl+K`)
+
+En la cabecera, con `Ctrl+K` o su botón (también en el móvil). Salta a una sección o a una nota por su título, y hace lo de cada día escribiendo:
+
+| Se escribe | Hace |
+|---|---|
+| `objetivo …` o `+ …` | Lo añade a los objetivos de hoy (`apuntarObjetivo`, la misma acción que Hoy) |
+| `cobrado vm septiembre` | Lista los cobros de este mes y atrasados que encajan, y marca el elegido (`cambiarCobro`) |
+| `apuntar …` | Abre Capturar con el texto puesto |
+| Cualquier otra cosa | Secciones y notas que encajan, y buscar en todas las notas |
+
+Los datos (títulos de las notas y cobros pendientes) se piden con una Server Action cada vez que se abre, así nunca están desfasados. No escribe nada por su cuenta: usa las mismas Server Actions, con sus mismas comprobaciones, que los botones de cada página. Va en un portal a `body`: la cabecera tiene `backdrop-blur`, y con eso un `fixed` de dentro se mediría contra ella.
+
 ### Si la sincronización del PC choca
 
 Si la misma nota cambia a la vez en el PC y en GitHub, el `pull --rebase` de `.scripts/sincronizar-boveda.ps1` choca, se cancela y la sincronización se queda parada hasta que se arregle a mano. Para que no pase en silencio, el script deja un aviso en `inbox/sincronizacion-atascada.md` con las notas que chocan. GitHub no lo recibe (está parado), pero **Obsidian Sync lo lleva al móvil**. Cuando vuelve a funcionar, el aviso se borra solo.

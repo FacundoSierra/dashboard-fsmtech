@@ -45,6 +45,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
   - Negocio: `/estado`, `/economia`, `/documentos`, `/informes` e `/informes/[cliente]`
   - Herramientas: `/buscar`, `/capturar`, `/crear` (cliente, reunión y requerimiento) y el lector `/nota/[...ruta]`
 - `app/manifest.ts`, `app/icon.tsx`, `app/apple-icon.tsx` y `app/iconos/[tamano]`: app instalable
+- `components/barra-ordenes.tsx` y `app/(panel)/ordenes.ts`: la barra de órdenes (`Ctrl+K`): ir a una sección o nota, «objetivo …», «cobrado …» y «apuntar …». Sus datos se piden al abrirla y lo que escribe pasa por las mismas Server Actions que los botones
 - `components/`: sistema de diseño (`ui.tsx`), navegación (menú lateral y barra inferior), gráficos, avisos, Markdown con `[[enlaces]]` de Obsidian, lista de tareas e icono
 
 Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. Vigilancia, avisos e informes en `docs/vigilancia.md`; economía en `docs/economia.md`; documentos en `docs/documentos.md`.

@@ -2,6 +2,7 @@ import Form from 'next/form';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Plus, Search } from 'lucide-react';
+import { BarraOrdenes } from '@/components/barra-ordenes';
 import { BarraInferior, BarraLateral, Marca } from '@/components/navegacion';
 import { verificarSesion } from '@/lib/sesion';
 
@@ -30,13 +31,16 @@ export default async function LayoutPanel({ children }: { children: ReactNode })
               />
             </Form>
 
-            <Link
-              href="/capturar"
-              className="ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90"
-            >
-              <Plus className="size-4" aria-hidden />
-              <span className="hidden sm:inline">Apuntar</span>
-            </Link>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <BarraOrdenes />
+              <Link
+                href="/capturar"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90"
+              >
+                <Plus className="size-4" aria-hidden />
+                <span className="hidden sm:inline">Apuntar</span>
+              </Link>
+            </div>
           </div>
         </header>
 
