@@ -3,12 +3,15 @@
 import { obtenerBoveda } from '@/lib/boveda/consultas';
 import { economia, nombreMes } from '@/lib/economia';
 import { hoyMadrid } from '@/lib/fechas';
+import { portales } from '@/lib/portales';
 
 /** Lo que busca la barra de órdenes (`Ctrl+K`): se pide al abrirla, así nunca está desfasado */
 export interface DatosBarra {
   notas: { titulo: string; ruta: string; carpeta: string }[];
   /** Cobros de este mes y atrasados: los que se pueden marcar como cobrados */
   cobros: { ruta: string; linea: string; texto: string; busqueda: string }[];
+  /** Los paneles propios de `dashboards/portales.md`, para abrirlos por su nombre */
+  portales: { nombre: string; url: string; dominio: string }[];
 }
 
 export async function datosBarra(): Promise<DatosBarra> {
@@ -32,5 +35,6 @@ export async function datosBarra(): Promise<DatosBarra> {
   return {
     notas: boveda.notas.map((n) => ({ titulo: n.titulo, ruta: n.ruta, carpeta: n.carpeta })),
     cobros,
+    portales: portales(boveda).map(({ nombre, url, dominio }) => ({ nombre, url, dominio })),
   };
 }

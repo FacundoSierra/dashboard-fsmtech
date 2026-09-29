@@ -158,6 +158,7 @@ Resto del texto
 | Estado: qué se vigila | Proyectos con `estado: activo`: `web` (o la línea `Web:`), `supabase` (`https://<ref>.supabase.co`) y `remoto` (repo de GitHub) |
 | Economía | `tipo: cobros` en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`: propiedad `plan` y casillas de la sección «Cobros». Sección «Renovaciones» de las fichas de cliente. Y `tipo: gastos` (`negocio/gastos-fsmtech.md`): propiedad `suscripciones` y sección «Pagos sueltos». Ver `docs/economia.md` |
 | Repos del PC | `dashboards/repos-locales.md`, que escribe `.scripts/estado-repos.ps1` de la bóveda |
+| Hoy: tus paneles | `tipo: portales` (`dashboards/portales.md`): lista `portales` con `nombre`, `url` y `descripcion`. Solo direcciones `https`; se abren en otra pestaña. También salen en la barra de órdenes («Abrir …») |
 | Documentos | `tipo: documento` en `clientes/<cliente>/documentos/`: `categoria`, `cliente`, `fecha`, `importe`, `cobro` y `archivo` (en el almacén privado). Ver `docs/documentos.md` |
 
 ## App instalable (PWA)

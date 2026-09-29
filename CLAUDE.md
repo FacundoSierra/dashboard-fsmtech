@@ -36,6 +36,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
 - `lib/avisos.ts`: todo lo anterior convertido en avisos ordenados por gravedad
 - `lib/economia.ts`: planes y cobros de cada cliente por año (lo acordado, lo que queda y lo cobrado), los gastos del negocio (`negocio/gastos-fsmtech.md`), el balance del año, la evolución y las renovaciones
 - `lib/informes.ts`: informe mensual de un cliente
+- `lib/portales.ts`: los paneles propios (FSM-Finance, el de DF…) de `dashboards/portales.md`, arriba en Hoy y en la barra de órdenes
 - `app/api/documentos/`: el único camino a los archivos del almacén privado, con sesión
 - `app/api/vigilancia/`: lo que consulta la vigilancia horaria (`.github/workflows/vigilancia.yml` + `scripts/sincronizar-avisos.mjs`)
 - `app/login/`: formulario y Server Actions de sesión, con el botón de huella si hay dispositivos registrados

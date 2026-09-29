@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useEffect, useId, useRef, useState, useTransition, type ComponentType } from 'react';
-import { ArrowRight, Check, Command, FileText, Inbox, ListPlus, Loader2, Search } from 'lucide-react';
+import { ArrowRight, Check, Command, ExternalLink, FileText, Inbox, ListPlus, Loader2, Search } from 'lucide-react';
 import { apuntarObjetivo } from '@/app/(panel)/acciones';
 import { cambiarCobro } from '@/app/(panel)/economia/acciones';
 import { datosBarra, type DatosBarra } from '@/app/(panel)/ordenes';
@@ -128,6 +128,19 @@ export function BarraOrdenes() {
     const palabras = normal.split(/\s+/).filter(Boolean);
     for (const seccion of SECCIONES.filter((s) => contieneTodas(s.texto, palabras))) {
       ordenes.push({ id: `seccion-${seccion.href}`, texto: seccion.texto, detalle: 'Ir', icono: ArrowRight, hacer: ir(seccion.href) });
+    }
+    // Los paneles propios, en otra pestaña: «finance», «df»…
+    for (const portal of (datos?.portales ?? []).filter((p) => contieneTodas(`${p.nombre} ${p.dominio}`, palabras))) {
+      ordenes.push({
+        id: `portal-${portal.url}`,
+        texto: `Abrir ${portal.nombre}`,
+        detalle: portal.dominio,
+        icono: ExternalLink,
+        hacer: () => {
+          cerrar();
+          window.open(portal.url, '_blank', 'noopener,noreferrer');
+        },
+      });
     }
     if (q.length >= 2) {
       const notas = (datos?.notas ?? []).filter((n) => contieneTodas(`${n.titulo} ${n.ruta.split('/').at(-1)}`, palabras)).slice(0, 8);

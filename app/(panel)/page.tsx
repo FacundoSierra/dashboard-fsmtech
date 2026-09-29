@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { Bell, CalendarClock, CheckSquare, Flame, Hourglass, Inbox, History } from 'lucide-react';
+import { Bell, CalendarClock, CheckSquare, ExternalLink, Flame, Hourglass, Inbox, History } from 'lucide-react';
 import { ListaAvisos } from '@/components/avisos';
 import { NuevoObjetivo } from '@/components/tarea-editable';
 import { ListaTareas, ListaTareasEditable } from '@/components/tareas';
@@ -12,6 +12,7 @@ import { ultimaSubidaDelPc } from '@/lib/boveda/sincronizacion';
 import type { Boveda, Tarea } from '@/lib/boveda/tipos';
 import { economia } from '@/lib/economia';
 import { cuandoEs, diasEntre, esFechaValida, fechaHoraMadrid, fechaLarga, haceTiempo, hoyMadrid } from '@/lib/fechas';
+import { portales, type Portal } from '@/lib/portales';
 import { hrefNota } from '@/lib/rutas';
 import { estadoGeneral } from '@/lib/vigilancia/estado';
 import { reposLocales } from '@/lib/vigilancia/repos-locales';
@@ -21,6 +22,55 @@ const AVISOS_VISIBLES = 5;
 const MES_CORTO = new Intl.DateTimeFormat('es-ES', { month: 'short', timeZone: 'UTC' });
 /** La regla de la bóveda: lo que lleva más de una semana esperando se dice en voz alta */
 const DIAS_ESPERANDO_MUCHO = 7;
+
+/** «FSM-Finance» → FSM, «DF Tech» → DF: si empieza por unas siglas, las siglas; si no, las iniciales */
+function iniciales(nombre: string): string {
+  const palabras = nombre.split(/[\s-]+/).filter(Boolean);
+  if (/^[A-Z0-9]{2,4}$/.test(palabras[0] ?? '')) return palabras[0];
+  return palabras
+    .map((palabra) => palabra[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+/**
+ * Tus paneles (FSM-Finance, el de DF…), de `dashboards/portales.md`: se abren en otra pestaña.
+ * Sin portales apuntados, no ocupa sitio
+ */
+function Portales({ lista }: { lista: Portal[] }) {
+  if (lista.length === 0) return null;
+  return (
+    <nav aria-label="Tus paneles" className="mb-6">
+      <h2 className="mb-2 text-sm font-semibold text-tenue">Tus paneles</h2>
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {lista.map((portal) => (
+          <li key={portal.url}>
+            <a
+              href={portal.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex h-full items-center gap-3 rounded-xl border border-borde bg-superficie p-3 shadow-tarjeta transition-colors hover:border-borde-fuerte"
+            >
+              <span
+                aria-hidden
+                className="grid size-10 shrink-0 place-items-center rounded-lg bg-acento-suave text-sm font-semibold text-acento"
+              >
+                {iniciales(portal.nombre)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium group-hover:text-acento">{portal.nombre}</span>
+                <span className="block truncate text-xs text-tenue">{portal.descripcion ?? portal.dominio}</span>
+              </span>
+              <ExternalLink className="size-4 shrink-0 text-apagado" aria-hidden />
+              <span className="sr-only">(se abre en otra pestaña)</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
 
 function saludo(): string {
   const hora = Number(fechaHoraMadrid().hora.slice(0, 2));
@@ -53,6 +103,8 @@ export default async function PaginaHoy() {
         <h1 className="text-2xl font-semibold tracking-tight">{saludo()}, Facundo</h1>
         <p className="mt-1 text-sm text-tenue first-letter:uppercase">{fechaLarga(hoy)}</p>
       </header>
+
+      <Portales lista={portales(boveda)} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
@@ -87,7 +139,8 @@ export default async function PaginaHoy() {
         </Suspense>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+      {/* grid-cols-1 es minmax(0, 1fr): sin él, en el móvil la columna crece con lo más ancho que tenga dentro */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Suspense fallback={<div className="h-40 animate-pulse rounded-xl border border-borde bg-superficie" />}>
             <TarjetaAvisos boveda={boveda} hoy={hoy} />
