@@ -34,7 +34,7 @@ Panel privado de Facundo Sierra Morales en https://dashboard.facundosmtech.com. 
   - `repos-locales.ts`: lee `dashboards/repos-locales.md`, que escribe la sincronización de la bóveda
 - `lib/documentos/`: documentos de los clientes. `almacen.ts` (Vercel Blob privado, o `DOCUMENTOS_DIR` en local), `archivos.ts` (el tipo, por el contenido), `documentos.ts` (las notas `tipo: documento`) y `tipos.ts` (categorías y límites, también para el navegador)
 - `lib/avisos.ts`: todo lo anterior convertido en avisos ordenados por gravedad
-- `lib/economia.ts`: planes y cobros de cada cliente por año (lo acordado, lo que queda y lo cobrado), evolución y renovaciones
+- `lib/economia.ts`: planes y cobros de cada cliente por año (lo acordado, lo que queda y lo cobrado), los gastos del negocio (`negocio/gastos-fsmtech.md`), el balance del año, la evolución y las renovaciones
 - `lib/informes.ts`: informe mensual de un cliente
 - `app/api/documentos/`: el único camino a los archivos del almacén privado, con sesión
 - `app/api/vigilancia/`: lo que consulta la vigilancia horaria (`.github/workflows/vigilancia.yml` + `scripts/sincronizar-avisos.mjs`)

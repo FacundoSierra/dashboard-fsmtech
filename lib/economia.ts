@@ -1,5 +1,5 @@
 import 'server-only';
-import { destinoEnlace, estadoClienteDe, lineaDe, lista, type EstadoCliente, type Linea } from '@/lib/boveda/consultas';
+import { destinoEnlace, esLinea, estadoClienteDe, lineaDe, lista, type EstadoCliente, type Linea } from '@/lib/boveda/consultas';
 import { contenidoSeccion, vinetasDe } from '@/lib/boveda/parser';
 import type { Boveda, Nota } from '@/lib/boveda/tipos';
 import { esFechaValida } from '@/lib/fechas';
@@ -126,8 +126,58 @@ export interface Renovacion {
   automatica: boolean;
 }
 
+/** Algo que el negocio paga solo, cada mes o cada año: una herramienta, una suscripción */
+export interface Suscripcion {
+  concepto: string;
+  importe: number;
+  cada: 'mes' | 'año';
+  /** Día del primer cargo, `AAAA-MM-DD`. Los siguientes caen el mismo día de cada mes o año */
+  desde: string;
+  /** Día en que ya no se cobra, porque se da de baja: ese cargo no cuenta */
+  baja?: string;
+  linea?: Linea;
+  /** El siguiente cargo después de hoy. Sin él, ya no se cobra más */
+  proximo?: string;
+  /** Lo cargado este año hasta hoy */
+  pagadoAnio: number;
+  /** Lo que supone cada mes, con lo anual repartido. Cero si ya no se cobra */
+  alMes: number;
+}
+
+export interface PagoSuelto {
+  fecha: string;
+  concepto: string;
+  importe: number;
+}
+
+/** Los gastos del negocio que no son de ningún cliente (`negocio/gastos-fsmtech.md`) */
+export interface GastosNegocio {
+  /** La nota de gastos, si la hay */
+  nota?: Nota;
+  suscripciones: Suscripcion[];
+  /** Los pagos sueltos de este año, hasta hoy */
+  sueltos: PagoSuelto[];
+  /** Suscripciones y pagos sueltos de este año, hasta hoy */
+  pagadoAnio: number;
+  /** Lo que suponen al mes las suscripciones que siguen en vigor */
+  alMes: number;
+}
+
+/** Este año hasta hoy: lo cobrado menos todo lo pagado */
+export interface Balance {
+  /** Casillas marcadas */
+  cobrado: number;
+  /** Lo que pagas por tus clientes según sus planes (`paga: yo`), mes a mes hasta este */
+  porClientes: number;
+  /** Los gastos del negocio: suscripciones y pagos sueltos */
+  negocio: number;
+  resultado: number;
+}
+
 export interface Economia {
   clientes: EconomiaCliente[];
+  negocio: GastosNegocio;
+  balance: Balance;
   /** Lo que queda cada mes, sumando los planes en vigor */
   netoMensual: number;
   /** Lo que pagan los clientes al mes, con los cobros anuales repartidos */
@@ -325,6 +375,105 @@ function renovacionesDe(nota: Nota): Renovacion[] {
   });
 }
 
+// ── Gastos del negocio ───────────────────────────────────────────────────────
+
+/**
+ * El mismo día, `meses` después. Si ese mes no tiene ese día (un 31, un 29 de febrero), el
+ * último del mes: es lo que hacen los cargos de verdad
+ */
+function mismoDiaTras(fecha: string, meses: number): string {
+  const [anio, mes, dia] = fecha.split('-').map(Number);
+  const total = anio * 12 + (mes - 1) + meses;
+  const a = Math.floor(total / 12);
+  const m = (total % 12) + 1;
+  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  return `${a}-${String(m).padStart(2, '0')}-${String(Math.min(dia, ultimo)).padStart(2, '0')}`;
+}
+
+/** Los cargos de una suscripción desde el primero hasta `hasta` (incluido), sin los de después de la baja */
+function cargosHasta(s: Pick<Suscripcion, 'desde' | 'cada' | 'baja'>, hasta: string): string[] {
+  const paso = s.cada === 'año' ? 12 : 1;
+  const cargos: string[] = [];
+  // Tope de vueltas: cincuenta años de cargos mensuales, por si una fecha viniera rara
+  for (let i = 0; i < 600; i++) {
+    const fecha = mismoDiaTras(s.desde, i * paso);
+    if (fecha > hasta || (s.baja && fecha >= s.baja)) break;
+    cargos.push(fecha);
+  }
+  return cargos;
+}
+
+function suscripcionDe(valor: unknown): Pick<Suscripcion, 'concepto' | 'importe' | 'cada' | 'desde' | 'baja' | 'linea'> | null {
+  if (!valor || typeof valor !== 'object') return null;
+  const s = valor as Record<string, unknown>;
+  const concepto = typeof s.concepto === 'string' ? s.concepto.trim() : '';
+  const importe = numero(s.importe);
+  // Sin el día del primer cargo no se sabe cuándo se paga
+  if (!concepto || importe === undefined || !esFechaValida(s.desde)) return null;
+  const linea = textoPlano(s.linea);
+  return {
+    concepto,
+    importe,
+    cada: periodicidad(s.cada) === 'año' ? 'año' : 'mes',
+    desde: s.desde,
+    baja: esFechaValida(s.baja) ? s.baja : undefined,
+    linea: esLinea(linea) ? linea : undefined,
+  };
+}
+
+/** `- 2026-11-03 — Curso de Next — 49,90 €` */
+const RE_PAGO_SUELTO = /^(\d{4}-\d{2}-\d{2})\s*[—–-]\s*(.+?)\s*[—–-]\s*([\d.,]+)\s*€/;
+
+/**
+ * Lo que paga el negocio y no es de ningún cliente, de las notas `tipo: gastos`. Con `linea`,
+ * solo las suscripciones de esa línea: los gastos generales y los pagos sueltos no son de
+ * ninguna y salen en «Todas las líneas»
+ */
+function gastosNegocio(boveda: Boveda, hoy: string, linea?: Linea): GastosNegocio {
+  const notas = boveda.notas.filter((nota) => nota.propiedades.tipo === 'gastos');
+  const inicioAnio = `${hoy.slice(0, 4)}-01-01`;
+
+  const suscripciones = notas
+    .flatMap((nota) => (Array.isArray(nota.propiedades.suscripciones) ? nota.propiedades.suscripciones : []))
+    .map(suscripcionDe)
+    .filter((s): s is NonNullable<typeof s> => s !== null && (!linea || s.linea === linea))
+    .map((s): Suscripcion => {
+      const hastaHoy = cargosHasta(s, hoy);
+      // El siguiente al último cargado (o el primero, si aún no ha llegado), si no cae en la baja
+      const siguiente = mismoDiaTras(s.desde, hastaHoy.length * (s.cada === 'año' ? 12 : 1));
+      const proximo = s.baja && siguiente >= s.baja ? undefined : siguiente;
+      return {
+        ...s,
+        proximo,
+        pagadoAnio: hastaHoy.filter((fecha) => fecha >= inicioAnio).length * s.importe,
+        alMes: proximo ? (s.cada === 'año' ? s.importe / 12 : s.importe) : 0,
+      };
+    })
+    .sort((a, b) => b.alMes - a.alMes || a.concepto.localeCompare(b.concepto, 'es'));
+
+  const sueltos = linea
+    ? []
+    : notas
+        .flatMap((nota) => vinetasDe(contenidoSeccion(nota, 'pagos sueltos') ?? ''))
+        .flatMap((vineta): PagoSuelto[] => {
+          const partes = vineta.match(RE_PAGO_SUELTO);
+          const importe = partes ? numero(partes[3]) : undefined;
+          return partes && esFechaValida(partes[1]) && importe !== undefined
+            ? [{ fecha: partes[1], concepto: partes[2].trim(), importe }]
+            : [];
+        })
+        .filter((p) => p.fecha >= inicioAnio && p.fecha <= hoy)
+        .sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+  return {
+    nota: notas[0],
+    suscripciones,
+    sueltos,
+    pagadoAnio: suscripciones.reduce((t, s) => t + s.pagadoAnio, 0) + sueltos.reduce((t, p) => t + p.importe, 0),
+    alMes: suscripciones.reduce((t, s) => t + s.alMes, 0),
+  };
+}
+
 // ── Resumen ──────────────────────────────────────────────────────────────────
 
 const MESES_SERIE = 24;
@@ -385,7 +534,16 @@ export function economia(boveda: Boveda, hoy: string, filtro: { linea?: Linea } 
   const principalCliente = clientes[0];
   const netoPrincipal = principalCliente ? (planEnMes(principalCliente.planes, mesActual)?.netoMensual ?? 0) : 0;
 
-  // Renovaciones: las de las fichas y las de las líneas del plan con fecha de renovación
+  const negocio = gastosNegocio(boveda, hoy, filtro.linea);
+  const cobradoAnio = clientes.reduce((t, c) => t + c.cobradoAnio, 0);
+  // Lo pagado por los clientes este año: lo del plan en vigor cada mes, de enero a este
+  const porClientes = mesesEntre(`${anioActual}-01`, mesActual).reduce(
+    (total, mes) => total + clientes.reduce((t, c) => t + (planEnMes(c.planes, mes)?.gastoMensual ?? 0), 0),
+    0,
+  );
+
+  // Renovaciones: las de las fichas, las de las líneas del plan con fecha de renovación y las
+  // bajas pendientes de los gastos del negocio (lo que se renueva solo no avisa: no hay nada que hacer)
   const vistas = new Set<string>();
   const renovaciones = [
     ...fichas.flatMap(renovacionesDe),
@@ -394,6 +552,14 @@ export function economia(boveda: Boveda, hoy: string, filtro: { linea?: Linea } 
         .filter((l) => l.renueva)
         .map((l) => ({ fecha: l.renueva!, concepto: l.concepto, origen: p.cliente, automatica: false })),
     ),
+    ...negocio.suscripciones
+      .filter((s) => s.baja && s.baja >= hoy)
+      .map((s) => ({
+        fecha: s.baja!,
+        concepto: `Darse de baja de ${s.concepto} (si no, se renueva)`,
+        origen: negocio.nota?.nombre ?? 'gastos',
+        automatica: false,
+      })),
   ]
     .filter((r) => {
       const clave = `${r.origen}|${r.concepto.toLowerCase()}`;
@@ -405,10 +571,17 @@ export function economia(boveda: Boveda, hoy: string, filtro: { linea?: Linea } 
 
   return {
     clientes,
+    negocio,
+    balance: {
+      cobrado: cobradoAnio,
+      porClientes,
+      negocio: negocio.pagadoAnio,
+      resultado: cobradoAnio - porClientes - negocio.pagadoAnio,
+    },
     netoMensual,
     ingresoMensual: vigentes.reduce((t, p) => t + p.netoMensual + p.gastoMensual, 0),
     gastoMensual: vigentes.reduce((t, p) => t + p.gastoMensual, 0),
-    cobradoAnio: clientes.reduce((t, c) => t + c.cobradoAnio, 0),
+    cobradoAnio,
     pendiente: clientes.reduce((t, c) => t + c.pendiente, 0),
     atrasados: clientes.flatMap((cliente) => cliente.atrasados.map((cobro) => ({ cliente, cobro }))),
     conPlan: vigentes.length,

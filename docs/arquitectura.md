@@ -156,7 +156,7 @@ Resto del texto
 | Buscar | Todas las palabras de dos letras o más, sin distinguir tildes, en el título, las propiedades, las etiquetas o el texto; el título puntúa más |
 | Requerimientos pendientes | `tipo: requerimiento` con `estado` distinto de `hecho` y `descartado` |
 | Estado: qué se vigila | Proyectos con `estado: activo`: `web` (o la línea `Web:`), `supabase` (`https://<ref>.supabase.co`) y `remoto` (repo de GitHub) |
-| Economía | `tipo: cobros` en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`: propiedad `plan` y casillas de la sección «Cobros». Sección «Renovaciones» de las fichas de cliente. Ver `docs/economia.md` |
+| Economía | `tipo: cobros` en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`: propiedad `plan` y casillas de la sección «Cobros». Sección «Renovaciones» de las fichas de cliente. Y `tipo: gastos` (`negocio/gastos-fsmtech.md`): propiedad `suscripciones` y sección «Pagos sueltos». Ver `docs/economia.md` |
 | Repos del PC | `dashboards/repos-locales.md`, que escribe `.scripts/estado-repos.ps1` de la bóveda |
 | Documentos | `tipo: documento` en `clientes/<cliente>/documentos/`: `categoria`, `cliente`, `fecha`, `importe`, `cobro` y `archivo` (en el almacén privado). Ver `docs/documentos.md` |
 

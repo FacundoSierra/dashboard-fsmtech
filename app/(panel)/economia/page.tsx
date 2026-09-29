@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { CalendarClock, FileText, HandCoins, Paperclip, PieChart, TrendingUp } from 'lucide-react';
+import { CalendarClock, FileText, HandCoins, Paperclip, PieChart, Receipt, Scale, TrendingUp } from 'lucide-react';
 import { BotonCobro } from '@/components/boton-cobro';
 import { CobroExtra, NuevaRenovacion } from '@/components/formularios-economia';
 import { GraficoIngresos } from '@/components/grafico-ingresos';
@@ -29,8 +29,10 @@ import {
   mesesDelPlan,
   nombreMes,
   planVigente,
+  type Balance,
   type Cobro,
   type EconomiaCliente,
+  type GastosNegocio,
   type LineaPlan,
   type PlanAnual,
   type Renovacion,
@@ -78,6 +80,7 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
       )}
 
       {!hayPlanes ? (
+        <div className="space-y-6">
         <Tarjeta>
           <Pendiente titulo="Todavía no hay planes de cobro">
             <p>
@@ -87,6 +90,8 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
             </p>
           </Pendiente>
         </Tarjeta>
+          <GastosDelNegocio negocio={datos.negocio} anio={anio} hoy={hoy} linea={linea} />
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -120,6 +125,12 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
               detalle={`Al mes. Te pagan ${euros(datos.ingresoMensual)}`}
             />
           </div>
+
+          <TarjetaBalance
+            balance={datos.balance}
+            anio={anio}
+            alMes={{ tePagan: datos.ingresoMensual, porClientes: datos.gastoMensual, negocio: datos.negocio.alMes, clientes: datos.netoMensual }}
+          />
 
           {/* grid-cols-1 es minmax(0, 1fr): sin él, la columna del móvil crece con su contenido */}
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -205,6 +216,8 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
             )}
           </Tarjeta>
 
+          <GastosDelNegocio negocio={datos.negocio} anio={anio} hoy={hoy} linea={linea} />
+
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-tenue">Clientes</h2>
             <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
@@ -228,6 +241,131 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
         </Suspense>
       </div>
     </>
+  );
+}
+
+// ── Balance y gastos del negocio ─────────────────────────────────────────────
+
+/** Lo cobrado este año menos todo lo pagado, y la misma cuenta al mes con lo de hoy */
+function TarjetaBalance({
+  balance,
+  anio,
+  alMes,
+}: {
+  balance: Balance;
+  anio: number;
+  alMes: { tePagan: number; porClientes: number; negocio: number; clientes: number };
+}) {
+  const filas = [
+    { etiqueta: 'Cobrado', detalle: 'Casillas marcadas', valor: balance.cobrado, signo: '+' },
+    { etiqueta: 'Pagado por tus clientes', detalle: 'Hosting, dominios, bases de datos… según sus planes', valor: balance.porClientes, signo: '−' },
+    { etiqueta: 'Gastos del negocio', detalle: 'Tus herramientas y suscripciones, y los pagos sueltos', valor: balance.negocio, signo: '−' },
+  ];
+  const queda = alMes.clientes - alMes.negocio;
+
+  return (
+    <Tarjeta titulo={`Balance de ${anio}, hasta hoy`} icono={Scale}>
+      <dl className="divide-y divide-borde text-sm">
+        {filas.map((f) => (
+          <div key={f.etiqueta} className="flex items-baseline justify-between gap-4 py-2 first:pt-0">
+            <dt className="min-w-0">
+              {f.etiqueta}
+              <span className="block text-xs text-tenue">{f.detalle}</span>
+            </dt>
+            <dd className="cifras shrink-0">
+              {f.valor ? f.signo : ''}
+              {euros(f.valor, true)}
+            </dd>
+          </div>
+        ))}
+        <div className="flex items-baseline justify-between gap-4 pt-2.5">
+          <dt className="font-semibold">Resultado</dt>
+          <dd className="cifras text-lg font-semibold">
+            {balance.resultado > 0 ? '+' : balance.resultado < 0 ? '−' : ''}
+            {euros(Math.abs(balance.resultado), true)}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-xs text-tenue">
+        Al mes, con los planes y las suscripciones de hoy: te pagan {euros(alMes.tePagan, true)}, pagas{' '}
+        {euros(alMes.porClientes, true)} por tus clientes y {euros(alMes.negocio, true)} del negocio.{' '}
+        {queda >= 0 ? `Te quedan ${euros(queda, true)}` : `Pierdes ${euros(-queda, true)}`}.
+      </p>
+    </Tarjeta>
+  );
+}
+
+/** Lo que paga el negocio y no es de ningún cliente: de `negocio/gastos-fsmtech.md` */
+function GastosDelNegocio({ negocio, anio, hoy, linea }: { negocio: GastosNegocio; anio: number; hoy: string; linea?: Linea }) {
+  const hay = negocio.suscripciones.length > 0 || negocio.sueltos.length > 0;
+  return (
+    <Tarjeta
+      titulo="Gastos del negocio"
+      icono={Receipt}
+      sinRelleno
+      accion={
+        negocio.nota && (
+          <Link href={hrefNota(negocio.nota.ruta)} className="text-xs text-tenue hover:text-acento">
+            Ver la nota
+          </Link>
+        )
+      }
+    >
+      {!hay ? (
+        <div className="p-4">
+          <Vacio>
+            {linea
+              ? 'No hay gastos del negocio de esta línea. Los generales salen en «Todas las líneas».'
+              : 'Tus herramientas y suscripciones van en negocio/gastos-fsmtech.md (plantilla templates/gastos.md). O díselas a Claude y las apunta.'}
+          </Vacio>
+        </div>
+      ) : (
+        <>
+          <ul className="divide-y divide-borde">
+            {negocio.suscripciones.map((s) => (
+              <li key={`${s.concepto}-${s.desde}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">
+                    {s.concepto}
+                    {s.baja && (
+                      <span className="ml-2">
+                        <Chip>{s.baja > hoy ? 'no se renueva' : 'de baja'}</Chip>
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-tenue">
+                    {euros(s.importe, true)} al {s.cada === 'año' ? 'año' : 'mes'} ·{' '}
+                    {s.proximo
+                      ? `próximo cargo el ${fechaCorta(s.proximo)} ${s.proximo.slice(0, 4)}`
+                      : s.baja! > hoy
+                        ? `darse de baja antes del ${fechaCorta(s.baja!)} ${s.baja!.slice(0, 4)}`
+                        : `de baja desde el ${fechaCorta(s.baja!)} ${s.baja!.slice(0, 4)}`}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="cifras text-sm">{euros(s.pagadoAnio, true)}</p>
+                  <p className="text-xs text-tenue">en {anio}</p>
+                </div>
+              </li>
+            ))}
+            {negocio.sueltos.map((p) => (
+              <li key={`${p.fecha}-${p.concepto}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{p.concepto}</p>
+                  <p className="text-xs text-tenue">Pago suelto · {fechaCorta(p.fecha)}</p>
+                </div>
+                <p className="cifras shrink-0 text-sm">{euros(p.importe, true)}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="border-t border-borde px-4 py-2.5 text-xs text-tenue">
+            En {anio}, {euros(negocio.pagadoAnio, true)}. Al mes, lo que sigue cobrándose: {euros(negocio.alMes, true)}.
+            {linea ? ' Solo las de esta línea: las generales salen en «Todas las líneas».' : ''} Lo que pagas por un cliente va en
+            su nota de cobros.
+          </p>
+        </>
+      )}
+    </Tarjeta>
   );
 }
 

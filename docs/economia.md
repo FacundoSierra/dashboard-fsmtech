@@ -19,6 +19,9 @@ clientes/<cliente>/
 El nombre lleva el cliente delante porque en la bóveda los nombres de nota son únicos: cinco
 notas llamadas `2026` chocarían entre sí. La plantilla es `templates/cobros.md`.
 
+Lo que paga el negocio y no es de ningún cliente (herramientas, suscripciones) va aparte, en
+una sola nota: `negocio/gastos-fsmtech.md` (ver [Gastos del negocio](#gastos-del-negocio)).
+
 ## El plan: lo acordado
 
 Va en las propiedades de la nota. Una línea por concepto:
@@ -85,6 +88,42 @@ Una tarifa no suma nada fijo al mes. En un plan **solo de tarifas**, lo que qued
 la **media de lo cobrado en los meses del plan que ya han terminado** (el de hoy aún puede
 cambiar), y el panel lo marca como media. Si el plan tiene también cuota, las sesiones son
 extras: cuentan en lo cobrado, no en lo que queda al mes.
+
+## Gastos del negocio
+
+Lo que paga FSMTECH y no es de ningún cliente: Claude Code, Obsidian, una plataforma de
+inversión… Va en `negocio/gastos-fsmtech.md` (`tipo: gastos`, plantilla `templates/gastos.md`).
+**Lo que se paga por un cliente** (su hosting, su base de datos) **no va aquí**: va en su plan
+de cobros con `paga: yo`, que es lo que alimenta «Lo que te ha dejado cada cliente».
+
+```yaml
+tipo: gastos
+suscripciones:
+  - concepto: Claude Code
+    importe: 217,80
+    cada: año
+    desde: 2026-03-25     # el día del primer cargo
+  - concepto: Investing Pro
+    importe: 80
+    cada: año
+    desde: 2026-08-26
+    baja: 2027-08-26      # no se renueva: ese cargo ya no cuenta
+    linea: consultoria-financiera
+```
+
+| Campo | Qué es |
+|---|---|
+| `concepto`, `importe` | Obligatorios. El importe, como en los planes (`52,66`, `1.200`) |
+| `cada` | `mes` (por defecto) o `año` |
+| `desde` | Obligatorio. El día del primer cargo; los siguientes caen el mismo día de cada mes o de cada año (el 31, el último día de los meses más cortos) |
+| `baja` | Opcional. El día en que ya no se cobraría porque se da de baja: ese cargo y los siguientes no cuentan, y hasta ese día sale en Renovaciones como «Darse de baja de…», con su aviso |
+| `linea` | Opcional. Con ella, sale al filtrar Economía por esa línea. Sin ella es un gasto general, y solo sale en «Todas las líneas» |
+
+Lo que se paga una vez va en la sección «Pagos sueltos»: `- 2026-11-03 — Curso de Next — 49,90 €`.
+
+Los cargos no se marcan: una suscripción se cobra sola, así que el panel los calcula desde
+`desde`. Lo que se renueva solo no sale en Renovaciones (no hay nada que hacer); el próximo
+cargo de cada suscripción se ve en la tarjeta «Gastos del negocio».
 
 ## Línea de negocio y estado del cliente
 
@@ -177,11 +216,14 @@ por Obsidian Sync, y se arregla a mano.
 | **Evolución** | Lo que queda cada mes desde el primer plan, hasta 24 meses |
 | **Reparto** | Lo que queda de cada cliente, y si uno pasa de la mitad del total |
 | **Lo que te ha dejado cada cliente** | Últimos doce meses, este incluido: lo cobrado de verdad (casillas marcadas) menos lo que pagas tú por él según el plan de cada mes (dominios, hosting…). No cuenta tus horas |
+| **Balance del año, hasta hoy** | Lo cobrado (casillas marcadas) menos lo pagado por los clientes (el `gastoMensual` del plan en vigor, de enero a este mes) menos los gastos del negocio (los cargos de las suscripciones hasta hoy y los pagos sueltos). Debajo, la misma cuenta al mes con lo de hoy: lo que pagan los clientes, lo que pagas por ellos y lo que suponen al mes las suscripciones que siguen cobrándose |
+| **Gastos del negocio** | Cada suscripción con lo cargado este año y su próximo cargo, y los pagos sueltos del año |
 
 ## Renovaciones
 
-Salen de tres sitios y se juntan en una lista, contando cada dominio una sola vez:
+Salen de cuatro sitios y se juntan en una lista, contando cada dominio una sola vez:
 
 - Líneas del plan con `renueva`
+- Las bajas pendientes de los gastos del negocio (`baja`), mientras no hayan pasado
 - La sección «Renovaciones» de la ficha del cliente: `- 2026-10-06 — Certificado SSL de ejemplo.es`. Se puede apuntar desde el panel, al pie de la lista de renovaciones
 - Los dominios `.com` y `.net` de las webs, por RDAP. Los `.es` no publican la caducidad
