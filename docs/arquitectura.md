@@ -14,6 +14,8 @@ Este panel en Vercel → dashboard.facundosmtech.com
 
 En desarrollo, `BOVEDA_DIR` apunta a la carpeta de la bóveda: las notas se leen y se escriben en el disco.
 
+**La consultoría (REQ-001) no pasa por aquí**: ni por la bóveda ni por GitHub. Lleva nombres de clientes, así que vive en la base de datos del panel (sección «Base de datos: la consultoría»). De ella a las notas solo va, a mano y sin nombres, la casilla de OVB de los cobros.
+
 ## Lectura de notas (`lib/boveda/fuente.ts`)
 - **Árbol del repo:** `GET /repos/{repo}/git/trees/{rama}?recursive=1`, en caché 60 segundos con la etiqueta `boveda`. Un cambio subido aparece en el panel como mucho un minuto después.
 - **Contenido:** `GET /repos/{repo}/git/blobs/{sha}`, en caché sin caducidad. Un SHA siempre tiene el mismo contenido, así que solo se descargan las notas que han cambiado.
@@ -160,6 +162,7 @@ Resto del texto
 | Repos del PC | `dashboards/repos-locales.md`, que escribe `.scripts/estado-repos.ps1` de la bóveda |
 | Hoy: tus paneles | `tipo: portales` (`dashboards/portales.md`): lista `portales` con `nombre`, `url` y `descripcion`. Solo direcciones `https`; se abren en otra pestaña. También salen en la barra de órdenes («Abrir …») |
 | Documentos | `tipo: documento` en `clientes/<cliente>/documentos/`: `categoria`, `cliente`, `fecha`, `importe`, `cobro` y `archivo` (en el almacén privado). Ver `docs/documentos.md` |
+| Consultoría | **No sale de las notas**: de la base de datos del panel (sección «Base de datos: la consultoría»). Economía sigue leyendo de las notas las casillas de OVB (`linea: consultoria-financiera`), así que nada cuenta dos veces |
 
 ## App instalable (PWA)
 - **Manifest (`app/manifest.ts`):**
@@ -178,7 +181,7 @@ abre incidencias en GitHub y los informes mensuales.
 
 WebAuthn con `@simplewebauthn`: Touch ID en el Mac, Windows Hello en el PC y Face ID en el móvil. La llave privada no sale del dispositivo; el panel solo guarda la parte pública, que no sirve para entrar por sí sola.
 
-Como el panel no tiene base de datos, los dispositivos viven en la variable `PASSKEYS` de Vercel (un JSON con `id`, `llave`, `nombre` y `creado`). Al registrar uno en **Ajustes**, el panel devuelve el valor entero para pegar allí; hasta que no se pega y se vuelve a desplegar, ese dispositivo no entra.
+Los dispositivos viven en la variable `PASSKEYS` de Vercel, un JSON con `id`, `llave`, `nombre` y `creado`. Se hizo así cuando el panel no tenía base de datos, y sigue así: la base de la consultoría no los guarda. Al registrar uno en **Ajustes**, el panel devuelve el valor entero para pegar allí; hasta que no se pega y se vuelve a desplegar, ese dispositivo no entra.
 
 | Paso | Ruta | Sesión |
 |---|---|---|
@@ -190,6 +193,19 @@ Como el panel no tiene base de datos, los dispositivos viven en la variable `PAS
 Las dos rutas de entrada son las únicas, junto a `/api/vigilancia`, que el proxy deja pasar sin sesión: fallan cerradas (404 si no hay dispositivos) y solo abren sesión si la firma del dispositivo cuadra con el reto, el dominio y la dirección esperados. El reto viaja en una cookie `httpOnly` de cinco minutos limitada a `/api/passkeys`. No se guarda contador de uso: las passkeys que se sincronizan entre dispositivos no lo incrementan.
 
 Para quitar un dispositivo, se borra de `PASSKEYS` y se vuelve a desplegar. La contraseña sigue siendo el respaldo.
+
+## Base de datos: la consultoría (REQ-001)
+
+El diseño completo está en `docs/specs/req-001-consultoria-en-el-panel.md` y en los ADR 001 a 003; las tablas, en `docs/base-de-datos.md`, con en qué punto está cada paso.
+
+- **Una base propia**, `fsmtech` (Supabase, `eu-west-1`), solo con datos del negocio de Facundo. Las notas siguen siendo la verdad de todo lo demás: la base guarda solo lo que no puede ir a GitHub, hoy la consultoría, y nada se guarda en los dos sitios (ADR-001)
+- **Una sola puerta**: `baseDeDatos()` de `lib/base/cliente.ts` (`server-only`) llama a `verificarSesion()` y después devuelve el cliente con la clave secreta, que entra como `service_role` y se salta el RLS: uno por proceso, sin sesión de Supabase Auth, con `fetch` sin caché y solo con una URL `https`. Es el único archivo que lee la clave. `/api/vigilancia`, `lib/avisos.ts`, `lib/informes.ts` y `lib/boveda/` no lo importan (ADR-002)
+- **Cerrada a todo lo demás**: RLS activo en las once tablas y ninguna política; permisos solo para `service_role`, y nada para `anon` ni `authenticated`; las dos funciones («Ha llegado» y «Deshacer»), solo `service_role`, y reciben el consultor en `p_consultor`, porque con la clave secreta no hay `auth.uid()`. En `consultoria_consultores`, `service_role` no puede cambiar `fuente_desde`. Si se filtrara la clave publicable, no leería nada
+- **La sección `/consultoria`** (`app/(panel)/consultoria/`, en el grupo Negocio de la navegación): el layout y cada página empiezan con `exigirConsultoria()` (`lib/consultoria/sesion.ts`). Sin sesión, a `/login`; sin las variables, sin la `0001` o sin la copia, `FaltaMigracion` dice qué falta. Si Supabase no responde, lo recoge el `error.tsx` de la sección y el resto del panel sigue igual. Lee con `lib/consultoria/consultas.ts`, memorizado con `cache()` de React por petición, y escribe con `lib/consultoria/acciones.ts`, que llama a `verificarSesion()` fuera de su `try` y empieza el `catch` con `unstable_rethrow`
+- **Hasta el cambio no escribe**: mientras `fuente_desde` sea nulo, la fuente sigue siendo FSM-Finance. La sección lleva arriba «Copia de FSM-Finance: aquí todavía no se guarda nada», cada acción devuelve «La consultoría aún se lleva en FSM-Finance: el cambio no está hecho» y los scripts con `--guardar` paran. «Nueva firma» calcula en el navegador y enseña lo que saldría, sin escribir. El cambio (spec 6.4) son dos pasos de Facundo: la `0017` de FSM-Finance (solo lectura) y `fuente_desde` puesto como `postgres`
+- **Sin nombres fuera de la base** (spec, sección 10): la consultoría no pasa por `lib/boveda/escritura.ts`, ni por los avisos, los informes o la búsqueda; la barra de órdenes solo tiene el enlace a la sección; el log, solo `code` y `message`; nada de `'use cache'`, `unstable_cache` ni `fetch` en caché
+- **Los scripts** (`scripts/consultoria-*.mjs`, comandos en `CLAUDE.md`) se ejecutan desde el PC con la clave `pc` del `.env.local`. Su salida lleva nombres y no se copia a notas. `consultoria:copiar` lee FSM-Finance (solo `select`) y compara las dos bases sin nombres
+- **Se vigila** como las bases de los clientes, sin clave (`GET /auth/v1/health`), cuando la nota del proyecto lleve su `supabase`
 
 ## Seguridad
 - **Proxy (`proxy.ts`):** comprobación optimista. Sin cookie válida, todo redirige a `/login` salvo lo público y sin datos: estáticos de Next, `robots.txt`, `manifest.webmanifest` e iconos. El navegador pide el manifest y los iconos sin cookies.
@@ -205,4 +221,5 @@ Para quitar un dispositivo, se borra de `PASSKEYS` y se vuelve a desplegar. La c
 - **Sin indexar:** cabecera `X-Robots-Tag`, metadatos `robots` y `robots.txt` con `Disallow: /`.
 - **`/api/vigilancia`:** el proxy la deja pasar sin cookie. Se autentica dentro con `Authorization: Bearer <VIGILANCIA_SECRET>` comparado en tiempo constante, falla cerrado (sin secreto de 32 caracteres, nadie entra) y responde 404 sin él. Solo devuelve los avisos a notificar.
 - **Token de lectura:** `GITHUB_TOKEN_LECTURA` es solo lectura y distinto de `GITHUB_TOKEN`: si se filtra, no puede tocar las notas.
+- **Clave de la base (`SUPABASE_SECRET_KEY`):** una clave secreta de Supabase (`sb_secret_…`), que entra como `service_role`. Solo en el servidor, sin `NEXT_PUBLIC_`, y una por sitio para poder quitar una sin tocar la otra: `panel-vercel` en Vercel (solo Production) y `pc` en el `.env.local` del PC. Nunca en GitHub ni en los secretos de Actions. Supabase no la acepta desde un navegador. Si se filtra: se crea otra, se cambia la variable, se redespliega y se borra la vieja (ADR-002).
 - **Llamadas a webs:** las URLs salen de las notas; `urlVigilable()` solo deja pasar `http(s)` con dominio, nunca `localhost`, `.local`, `.internal` ni IPs.
