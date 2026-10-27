@@ -6,11 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/**/*.test.mjs\"",
+    "consultoria:cierres": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/consultoria-cierres.mjs",
+    "consultoria:importar": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/consultoria-importar.mjs",
+    "consultoria:firma": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/consultoria-firma.mjs",
+    "consultoria:copiar": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/consultoria-copiar.mjs"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^14.0.2",
+    "@supabase/supabase-js": "^2.117.2",
     "@vercel/blob": "^2.8.0",
     "lucide-react": "^1.47.0",
     "next": "^16.3.5",
