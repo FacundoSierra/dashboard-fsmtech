@@ -29,6 +29,8 @@ const SECCIONES: { texto: string; href: string }[] = [
   { texto: 'Reuniones', href: '/reuniones' },
   { texto: 'Estado', href: '/estado' },
   { texto: 'Economía', href: '/economia' },
+  // Solo el enlace: ni clientes ni herramientas de la consultoría en la barra (llevan nombres)
+  { texto: 'Consultoría', href: '/consultoria' },
   { texto: 'Documentos', href: '/documentos' },
   { texto: 'Informes', href: '/informes' },
   { texto: 'Crear cliente', href: '/crear?tipo=cliente' },

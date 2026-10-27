@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
   Activity,
+  Briefcase,
   Building2,
   CalendarClock,
   CalendarDays,
@@ -46,6 +47,7 @@ const GRUPOS: { titulo: string; secciones: Seccion[] }[] = [
     secciones: [
       { href: '/estado', texto: 'Estado', icono: Activity },
       { href: '/economia', texto: 'Economía', icono: Wallet },
+      { href: '/consultoria', texto: 'Consultoría', icono: Briefcase },
       { href: '/documentos', texto: 'Documentos', icono: FolderLock },
       { href: '/informes', texto: 'Informes', icono: FileText },
     ],
