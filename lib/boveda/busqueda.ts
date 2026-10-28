@@ -2,15 +2,36 @@ import 'server-only';
 import { normalizar } from './parser';
 import type { Boveda, Nota } from './tipos';
 
+/** Por dónde se filtran los resultados: la carpeta de la nota, y las reuniones aparte de su cliente */
+export const GRUPOS_BUSQUEDA = {
+  clientes: 'Clientes',
+  proyectos: 'Proyectos',
+  reuniones: 'Reuniones',
+  dailies: 'Dailies',
+  personas: 'Personas',
+  desarrollo: 'Desarrollo',
+  otras: 'Otras',
+} as const;
+export type GrupoBusqueda = keyof typeof GRUPOS_BUSQUEDA;
+
+export function esGrupoBusqueda(valor: unknown): valor is GrupoBusqueda {
+  return typeof valor === 'string' && Object.hasOwn(GRUPOS_BUSQUEDA, valor);
+}
+
+function grupoDe(nota: Nota): GrupoBusqueda {
+  if (nota.propiedades.tipo === 'reunion' || nota.ruta.includes('/reuniones/')) return 'reuniones';
+  if (nota.carpeta === 'daily-notes') return 'dailies';
+  return esGrupoBusqueda(nota.carpeta) ? nota.carpeta : 'otras';
+}
+
 export interface ResultadoBusqueda {
   nota: Nota;
+  grupo: GrupoBusqueda;
   puntos: number;
   /** Primera línea del texto que contiene alguno de los términos */
   fragmento?: string;
   terminos: string[];
 }
-
-const MAX_RESULTADOS = 50;
 
 /** Minúsculas y sin tildes. En texto en NFC conserva la longitud, lo que permite resaltar */
 export function sinTildes(valor: string): string {
@@ -30,13 +51,14 @@ function contar(textoNormalizado: string, termino: string): number {
   return veces;
 }
 
-function fragmento(cuerpo: string, terminos: string[]): string | undefined {
+/** La primera línea con alguno de los términos, sin contar la del título, que ya sale encima */
+function fragmento(cuerpo: string, terminos: string[], titulo: string): string | undefined {
   for (const linea of cuerpo.split(/\r?\n/)) {
     const limpia = linea
       .replace(/^\s*(?:#{1,6}\s+|>\s*|[-*+]\s+(?:\[[ xX]\]\s+)?)/, '')
       .replace(/\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\\?\|([^\]]*))?\]\]/g, (_, destino: string, alias?: string) => alias || destino)
       .trim();
-    if (!limpia) continue;
+    if (!limpia || limpia === titulo) continue;
 
     const posiciones = terminos.map((t) => sinTildes(limpia).indexOf(t)).filter((i) => i >= 0);
     if (posiciones.length === 0) continue;
@@ -48,7 +70,10 @@ function fragmento(cuerpo: string, terminos: string[]): string | undefined {
   return undefined;
 }
 
-/** Todas las palabras de la consulta deben aparecer; el título puntúa más que las propiedades y el texto */
+/**
+ * Todas las palabras de la consulta deben aparecer; el título puntúa más que las propiedades y el
+ * texto. Devuelve todos los que encajan: la página enseña unos pocos y el resto con «Ver más»
+ */
 export function buscar(boveda: Boveda, consulta: string): ResultadoBusqueda[] {
   const terminos = [...new Set(normalizar(consulta).split(' ').filter((t) => t.length >= 2))];
   if (terminos.length === 0) return [];
@@ -71,10 +96,8 @@ export function buscar(boveda: Boveda, consulta: string): ResultadoBusqueda[] {
       puntos += puntosTermino;
     }
 
-    if (coinciden) resultados.push({ nota, puntos, fragmento: fragmento(nota.cuerpo, terminos), terminos });
+    if (coinciden) resultados.push({ nota, grupo: grupoDe(nota), puntos, fragmento: fragmento(nota.cuerpo, terminos, nota.titulo), terminos });
   }
 
-  return resultados
-    .sort((a, b) => b.puntos - a.puntos || a.nota.titulo.localeCompare(b.nota.titulo, 'es'))
-    .slice(0, MAX_RESULTADOS);
+  return resultados.sort((a, b) => b.puntos - a.puntos || a.nota.titulo.localeCompare(b.nota.titulo, 'es'));
 }

@@ -333,11 +333,7 @@ function planDe(nota: Nota, mesActual: string): PlanAnual | null {
   // Solo tarifas, sin cuota: lo que entra cada mes no se sabe de antemano. Se toma la media de
   // lo cobrado en los meses del plan que ya han terminado (el de hoy aún puede cambiar)
   const estimado = tarifas.length > 0 && cuotaMensual === 0 && cobrosAnuales.length === 0;
-  const cerrados = mesesEntre(desde, [hasta, sumarMeses(mesActual, -1)].sort()[0]);
-  const mediaTarifas =
-    estimado && cerrados.length
-      ? cobros.filter((c) => c.cobrado && c.mes >= desde && c.mes < mesActual).reduce((t, c) => t + c.importe, 0) / cerrados.length
-      : 0;
+  const mediaTarifas = estimado ? mediaDeLoCobrado(desde, hasta, cobros, mesActual) : 0;
   const ingreso = lineas.filter(seCobra).reduce((t, l) => t + alMes(l), 0) + mediaTarifas;
 
   return {
@@ -355,6 +351,28 @@ function planDe(nota: Nota, mesActual: string): PlanAnual | null {
     estimado,
     cobros,
   };
+}
+
+/** Lo cobrado de media al mes en los meses del plan que ya han terminado; el de hoy aún puede cambiar */
+function mediaDeLoCobrado(desde: string, hasta: string, cobros: Cobro[], mesActual: string): number {
+  const cerrados = mesesEntre(desde, [hasta, sumarMeses(mesActual, -1)].sort()[0]);
+  if (cerrados.length === 0) return 0;
+  return cobros.filter((c) => c.cobrado && c.mes >= desde && c.mes < mesActual).reduce((t, c) => t + c.importe, 0) / cerrados.length;
+}
+
+/** Sin cuota al mes, al año ni tarifa: OVB, que liquida comisiones, o un cliente que no paga */
+export function sinCuotaFija(plan: PlanAnual): boolean {
+  return plan.cuotaMensual === 0 && plan.cobrosAnuales.length === 0 && plan.tarifas.length === 0;
+}
+
+/**
+ * Lo que ha dejado de media al mes un plan sin cuota fija, con lo que se ha ido apuntando en sus
+ * cobros. Solo se enseña: no suma en lo que queda al mes, como no suma el plan. Sin nada cobrado
+ * en los meses ya cerrados, nada
+ */
+export function mediaSinCuota(plan: PlanAnual, hoy: string): number | undefined {
+  const media = mediaDeLoCobrado(plan.desde, plan.hasta, plan.cobros, mesDe(hoy));
+  return media > 0 ? media : undefined;
 }
 
 /** El plan que rige en un mes: el de ese año, si el mes cae dentro */
@@ -593,6 +611,39 @@ export function economia(boveda: Boveda, hoy: string, filtro: { linea?: Linea } 
     variacion: serie.length >= 2 ? serie[serie.length - 1].importe - serie[serie.length - 2].importe : 0,
     renovaciones,
   };
+}
+
+export interface CobroDebido {
+  cliente: EconomiaCliente;
+  plan: PlanAnual;
+  cobro: Cobro;
+}
+
+/**
+ * Lo que hay que cobrar ya: los atrasados y los de este mes, de todos los planes de cada cliente
+ * (un atrasado puede ser del trato del año pasado). Con los marcados hoy, para que la fila siga a
+ * la vista con su «Deshacer» después de marcarla. Por mes y cliente, no por estado: así una fila
+ * no cambia de sitio al marcarla
+ */
+export function cobrosPorCobrar(datos: Economia, hoy: string): CobroDebido[] {
+  const mesActual = mesDe(hoy);
+  return datos.clientes
+    .flatMap((cliente) =>
+      cliente.planes.flatMap((plan) =>
+        plan.cobros
+          .filter(
+            (cobro) =>
+              cobro.estado === 'atrasado' || cobro.estado === 'pendiente' || (cobro.cobrado && cobro.fechaCobro === hoy && cobro.mes <= mesActual),
+          )
+          .map((cobro) => ({ cliente, plan, cobro })),
+      ),
+    )
+    .sort(
+      (a, b) =>
+        a.cobro.mes.localeCompare(b.cobro.mes) ||
+        a.cliente.nota.titulo.localeCompare(b.cliente.nota.titulo, 'es') ||
+        a.cobro.concepto.localeCompare(b.cobro.concepto, 'es'),
+    );
 }
 
 /** Plan de un cliente en vigor este mes, para las tarjetas */

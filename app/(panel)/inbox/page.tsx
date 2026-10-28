@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Markdown } from '@/components/markdown';
-import { Chip, Encabezado, Estado, Tarjeta, Vacio, type Tono } from '@/components/ui';
+import { Plus } from 'lucide-react';
+import { Chip, EnlaceBoton, Encabezado, Estado, Tarjeta, Vacio, type Tono } from '@/components/ui';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
 import { capturas } from '@/lib/boveda/inbox';
 import { cuandoEs, fechaLarga, hoyMadrid } from '@/lib/fechas';
@@ -22,9 +23,9 @@ export default async function PaginaInbox({ searchParams }: PageProps<'/inbox'>)
       <Encabezado titulo="Inbox" subtitulo={`${lista.length} ${lista.length === 1 ? 'nota pendiente' : 'notas pendientes'} de procesar`} />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <Link href="/capturar" className="rounded-lg bg-acento-fuerte px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-          + Apuntar
-        </Link>
+        <EnlaceBoton href="/capturar" icono={Plus} principal>
+          Apuntar
+        </EnlaceBoton>
         <p className="text-sm text-tenue">Procésalas en Obsidian: muévelas a su sitio o conviértelas en tareas.</p>
       </div>
 
@@ -64,7 +65,7 @@ export default async function PaginaInbox({ searchParams }: PageProps<'/inbox'>)
                 </p>
                 {captura.resumen && (
                   <div className="mt-2 text-sm">
-                    <Markdown texto={captura.resumen} rutas={boveda.rutas} />
+                    <Markdown texto={captura.resumen} rutas={boveda.rutas} titulos={boveda.titulos} />
                   </div>
                 )}
               </Tarjeta>

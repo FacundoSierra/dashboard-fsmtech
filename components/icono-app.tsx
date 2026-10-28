@@ -1,4 +1,4 @@
-/** Icono de la app para `ImageResponse`: solo estilos en línea y flexbox */
+/** Icono de la app para `ImageResponse`: solo estilos en línea y flexbox. El azul es el de la marca (`--acento-fuerte`) */
 export function IconoApp({ tamano }: { tamano: number }) {
   return (
     <div
@@ -8,7 +8,7 @@ export function IconoApp({ tamano }: { tamano: number }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#2563eb',
+        background: '#1c5cab',
         color: '#ffffff',
         fontSize: Math.round(tamano * 0.4),
         fontWeight: 700,

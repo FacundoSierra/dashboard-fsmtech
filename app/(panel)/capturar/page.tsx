@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Apuntar' };
 
 export default async function PaginaCapturar({ searchParams }: PageProps<'/capturar'>) {
   const boveda = await obtenerBoveda();
-  const { titulo, texto, url } = await searchParams;
+  const { titulo, texto, url, tipo } = await searchParams;
 
   // Lo que llega al compartir desde otra app del móvil (`share_target` del manifest)
   const compartido = [titulo, texto, url]
@@ -20,7 +20,8 @@ export default async function PaginaCapturar({ searchParams }: PageProps<'/captu
     <div className="mx-auto max-w-2xl">
       <Encabezado titulo="Apuntar" subtitulo="Se guarda como nota en el inbox de la bóveda" />
       <Tarjeta>
-        <FormularioCaptura textoInicial={compartido} proyectos={proyectos} clientes={clientes} />
+        {/* `tipo`: la barra de órdenes abre Capturar con «apuntar tarea …» ya elegido */}
+        <FormularioCaptura textoInicial={compartido} tipoInicial={typeof tipo === 'string' ? tipo : undefined} proyectos={proyectos} clientes={clientes} />
       </Tarjeta>
     </div>
   );

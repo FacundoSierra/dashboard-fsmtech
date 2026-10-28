@@ -20,10 +20,13 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: 'FSMTECH', statusBarStyle: 'default' },
 };
 
+// La barra del navegador y la de la app, del color del fondo de cada modo (`--fondo`). `colorScheme`:
+// el navegador pinta en oscuro desde el primer momento, antes de que llegue el CSS
 export const viewport: Viewport = {
+  colorScheme: 'light dark',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f6f6f3' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f0f0e' },
+    { media: '(prefers-color-scheme: light)', color: '#f5f5f3' },
+    { media: '(prefers-color-scheme: dark)', color: '#0e0e0d' },
   ],
 };
 

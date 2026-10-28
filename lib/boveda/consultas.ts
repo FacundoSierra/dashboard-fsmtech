@@ -137,7 +137,8 @@ export function dailies(boveda: Boveda): Nota[] {
     .sort((a, b) => b.nombre.localeCompare(a.nombre));
 }
 
-function claveTarea(textoTarea: string): string {
+/** Para reconocer la misma tarea en dos diarias: el script del PC arrastra lo que no se marcó */
+export function claveTarea(textoTarea: string): string {
   return textoTarea.toLowerCase().replace(/\[\[|\]\]/g, '').replace(/\s+/g, ' ').trim();
 }
 

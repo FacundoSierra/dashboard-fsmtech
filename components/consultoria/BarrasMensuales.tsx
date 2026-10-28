@@ -141,15 +141,20 @@ function BarrasMensuales({
               onFocus={() => setActivo(i)}
               onBlur={() => setActivo(null)}
               tabIndex={0}
-              className="outline-none"
+              className="group outline-none"
             >
-              {/* Zona de acierto: más ancha que la barra, para que sea fácil apuntar */}
+              {/* Zona de acierto: más ancha que la barra, para que sea fácil apuntar. Con el
+                  teclado lleva el anillo de foco: el globo no siempre cabe, y sin él no se sabía
+                  en qué mes estaba */}
               <rect
-                x={barra.inicioBanda}
+                x={barra.inicioBanda + 1}
                 y={MARGEN.arriba}
-                width={dibujo.banda}
+                width={Math.max(0, dibujo.banda - 2)}
                 height={dibujo.areaAlto}
+                rx={6}
                 fill="transparent"
+                strokeWidth={2}
+                className="stroke-transparent group-focus-visible:stroke-acento"
               />
               {/* Con algo previsto encima, lo pagado va recto: la punta redondeada es la de lo previsto */}
               <path

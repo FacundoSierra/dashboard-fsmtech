@@ -156,7 +156,7 @@ export function FranjaCobros({ meses, cobros, nombre }: { meses: string[]; cobro
           />
         ))}
       </div>
-      <div className="mt-1 flex gap-[3px] text-center text-[10px] leading-tight text-apagado" aria-hidden>
+      <div className="mt-1 flex gap-[3px] text-center text-[11px] leading-tight text-apagado" aria-hidden>
         {celdas.map((c) => (
           <span key={c.mes} className="flex-1">
             {c.inicial}

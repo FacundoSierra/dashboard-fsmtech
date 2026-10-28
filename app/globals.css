@@ -12,17 +12,22 @@
  *     cambian también de altura
  */
 :root {
+  /* Calendarios, relojes, desplegables y barras de desplazamiento nativos, en el modo que toca */
+  color-scheme: light;
+
   /* Superficies */
   --fondo: #f5f5f3;
   --superficie: #ffffff;
   --superficie-2: #f9f9f7;
   --borde: #e6e5e0;
   --borde-fuerte: #d4d3cc;
+  /* El borde de lo que se pulsa y no tiene relleno (la casilla sin marcar): 3:1 o más sobre las superficies */
+  --borde-control: #84827c;
 
-  /* Tinta */
+  /* Tinta. `apagado` también es texto (pies, cabeceras de tabla): 4,5:1 sobre el fondo y la tarjeta */
   --texto: #0f0f0e;
   --tenue: #57564f;
-  --apagado: #898781;
+  --apagado: #6f6d67;
 
   /* Acento de la interfaz: enlaces y selección */
   --acento: #256abf;
@@ -36,11 +41,14 @@
   --eje: #c3c2b7;
   --sin-datos: #e2e1db;
 
-  /* Estados */
+  /* Estados. `aviso` y `grave` son para rellenos (franjas, cajas); sus iconos, un paso más
+     oscuros (`-icono`), para que se lean a 3:1 sobre el fondo, la tarjeta y el acento suave */
   --bien: #0ca30c;
   --bien-texto: #006300;
   --aviso: #fab219;
+  --aviso-icono: #a87c0c;
   --grave: #ec835a;
+  --grave-icono: #d4693f;
   --critico: #d03b3b;
   --critico-texto: #b42323;
 
@@ -52,15 +60,19 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
+
     --fondo: #0e0e0d;
     --superficie: #1a1a19;
     --superficie-2: #20201e;
     --borde: #2c2c2a;
     --borde-fuerte: #3a3a37;
+    --borde-control: #7a7871;
 
     --texto: #f5f5f2;
     --tenue: #c3c2b7;
-    --apagado: #8f8d86;
+    /* 4,5:1 también sobre el acento suave (la opción elegida de la barra de órdenes) */
+    --apagado: #9a988f;
 
     --acento: #6da7ec;
     --acento-fuerte: #256abf;
@@ -74,6 +86,9 @@
 
     --bien: #0ca30c;
     --bien-texto: #34c534;
+    /* Sobre el oscuro, los tonos de relleno ya se leen de sobra */
+    --aviso-icono: #fab219;
+    --grave-icono: #ec835a;
     --critico: #d03b3b;
     --critico-texto: #f07474;
 
@@ -87,6 +102,7 @@
   --color-superficie-2: var(--superficie-2);
   --color-borde: var(--borde);
   --color-borde-fuerte: var(--borde-fuerte);
+  --color-borde-control: var(--borde-control);
   --color-texto: var(--texto);
   --color-tenue: var(--tenue);
   --color-apagado: var(--apagado);
@@ -101,7 +117,9 @@
   --color-bien: var(--bien);
   --color-bien-texto: var(--bien-texto);
   --color-aviso: var(--aviso);
+  --color-aviso-icono: var(--aviso-icono);
   --color-grave: var(--grave);
+  --color-grave-icono: var(--grave-icono);
   --color-critico: var(--critico);
   --color-critico-texto: var(--critico-texto);
   --color-ok: var(--ok);
@@ -115,6 +133,18 @@ body {
   color: var(--texto);
 }
 
+/*
+ * El foco del teclado, igual en todo el panel: 2 px de acento separados 2 px, para que se vea
+ * también alrededor del botón azul. En la capa base, para que un `outline-none` con su propio
+ * anillo (los campos) pueda quitarlo
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--acento);
+    outline-offset: 2px;
+  }
+}
+
 /* Números que se alinean en columna: tablas y ejes. Las cifras grandes van proporcionales */
 .cifras {
   font-variant-numeric: tabular-nums;
@@ -124,11 +154,13 @@ body {
 @media print {
   /* Siempre en claro: en modo oscuro el texto claro saldría invisible sobre el papel */
   :root {
+    color-scheme: light;
     --fondo: #ffffff; --superficie: #ffffff; --superficie-2: #f9f9f7;
-    --borde: #e6e5e0; --borde-fuerte: #d4d3cc;
+    --borde: #e6e5e0; --borde-fuerte: #d4d3cc; --borde-control: #84827c;
     --texto: #0f0f0e; --tenue: #57564f; --apagado: #6f6d67;
     --acento: #256abf; --acento-fuerte: #1c5cab; --acento-suave: #e8f0fb;
     --bien-texto: #006300; --critico-texto: #b42323;
+    --aviso-icono: #a87c0c; --grave-icono: #d4693f;
   }
   body { background: #fff; color: #000; }
   .no-imprimir { display: none !important; }

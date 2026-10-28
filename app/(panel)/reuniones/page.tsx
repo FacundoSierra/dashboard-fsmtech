@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Chip, Encabezado, Estado, Seccion, Vacio } from '@/components/ui';
+import { Plus } from 'lucide-react';
+import { ZONA_TOQUE } from '@/components/estilos';
+import { Chip, EnlaceBoton, Encabezado, Estado, Seccion, Vacio } from '@/components/ui';
 import {
   obtenerBoveda,
   reunionesAnteriores,
@@ -22,11 +24,11 @@ export default async function PaginaReuniones() {
     <>
       <Encabezado
         titulo="Reuniones"
-        subtitulo={`${proximas.length} próximas`}
+        subtitulo={`${proximas.length} ${proximas.length === 1 ? 'próxima' : 'próximas'}`}
         acciones={
-          <Link href="/crear?tipo=reunion" className="inline-flex items-center gap-1 rounded-lg border border-borde bg-superficie px-3 py-1.5 text-sm font-medium hover:border-borde-fuerte">
-            + Reunión
-          </Link>
+          <EnlaceBoton href="/crear?tipo=reunion" icono={Plus}>
+            Reunión
+          </EnlaceBoton>
         }
       />
       <div className="space-y-8">
@@ -66,7 +68,7 @@ function ListaReuniones({
         return (
           <li key={reunion.nota.ruta} className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div className="min-w-0">
-              <Link href={hrefNota(reunion.nota.ruta)} className="font-medium hover:text-acento">
+              <Link href={hrefNota(reunion.nota.ruta)} className={`${ZONA_TOQUE} font-medium hover:text-acento`}>
                 {reunion.nota.titulo}
               </Link>
               <p className="text-sm text-tenue first-letter:uppercase">{detalles.join(' · ')}</p>
@@ -77,7 +79,7 @@ function ListaReuniones({
               )}
               {reunion.abiertas.length > 0 && (
                 <Estado nivel="aviso">
-                  <span className="text-xs">{reunion.abiertas.length} tareas</span>
+                  <span className="text-xs">{reunion.abiertas.length} {reunion.abiertas.length === 1 ? 'tarea' : 'tareas'}</span>
                 </Estado>
               )}
             </div>

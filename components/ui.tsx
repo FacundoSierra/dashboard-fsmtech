@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ComponentType, ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, CircleDashed, CircleMinus, OctagonAlert, XCircle } from 'lucide-react';
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, ZONA_TOQUE } from './estilos';
 
 export type Icono = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
 
@@ -72,9 +73,51 @@ export function Tarjeta({
   );
 }
 
+/** «Abrir la daily», «Todas»: el enlace de una tarjeta, con su zona de 44 px sin agrandar la cabecera */
 export function EnlaceAccion({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="font-medium text-acento hover:underline">
+    <Link href={href} className={`${ZONA_TOQUE} font-medium text-acento hover:underline`}>
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * Un enlace con forma de botón: «Apuntar», «Cliente», «Reunión»… Con `icono`, delante del texto
+ * (el «+» va como icono, nunca escrito)
+ */
+export function EnlaceBoton({
+  href,
+  icono: IconoBoton,
+  principal = false,
+  children,
+}: {
+  href: string;
+  icono?: Icono;
+  principal?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Link href={href} className={principal ? BOTON_PRINCIPAL : BOTON_SECUNDARIO}>
+      {IconoBoton && <IconoBoton className="size-4" aria-hidden />}
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * Un filtro de una lista, que es un enlace a la misma página con otro parámetro. Se ve de 36 px y
+ * se toca en 44: entre una fila y la siguiente, `gap-2` como mínimo para que no se pisen
+ */
+export function Filtro({ href, activo, children }: { href: string; activo: boolean; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-current={activo ? 'true' : undefined}
+      className={`${ZONA_TOQUE} inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-sm ${
+        activo ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
+      }`}
+    >
       {children}
     </Link>
   );
@@ -147,10 +190,11 @@ export function Medidor({ valor, max = 100, etiqueta }: { valor: number; max?: n
 
 export type NivelEstado = 'bien' | 'aviso' | 'grave' | 'critico' | 'neutro' | 'sin-datos';
 
+// El icono de aviso y el de grave, en su tono `-icono`: el de relleno no llega a 3:1 sobre blanco
 const ESTADOS: Record<NivelEstado, { icono: Icono; color: string }> = {
   bien: { icono: CheckCircle2, color: 'text-bien' },
-  aviso: { icono: AlertTriangle, color: 'text-aviso' },
-  grave: { icono: OctagonAlert, color: 'text-grave' },
+  aviso: { icono: AlertTriangle, color: 'text-aviso-icono' },
+  grave: { icono: OctagonAlert, color: 'text-grave-icono' },
   critico: { icono: XCircle, color: 'text-critico' },
   neutro: { icono: CircleMinus, color: 'text-apagado' },
   'sin-datos': { icono: CircleDashed, color: 'text-apagado' },

@@ -10,10 +10,7 @@ import {
   type ResultadoCreacion,
 } from '@/app/(panel)/crear/acciones';
 import { hrefNota } from '@/lib/rutas';
-
-const CAMPO =
-  'w-full min-w-0 rounded-lg border border-borde bg-fondo px-3 py-2 text-sm outline-none focus:border-acento focus:ring-2 focus:ring-acento/30';
-const ETIQUETA = 'mb-1 block text-xs font-medium text-tenue';
+import { BOTON_SECUNDARIO, CAMPO, ETIQUETA } from './estilos';
 
 /** `Centro de Negocios Inmobiliarios` → `centro-de-negocios-inmobiliarios`: la propuesta del nombre corto */
 function aSlug(valor: string): string {
@@ -60,11 +57,12 @@ function Pie({ resultado, creando, texto }: { resultado: ResultadoCreacion; crea
       {resultado.error && (
         <p role="alert" className="text-sm text-critico-texto">
           {resultado.error}
-          {resultado.ruta && (
+          {/* La que ya se llama así (un cliente repetido, o un proyecto con ese nombre), o la ficha que sí se creó */}
+          {(resultado.existente ?? resultado.ruta) && (
             <>
               {' '}
-              <Link href={hrefNota(resultado.ruta)} className="underline">
-                Abrir la ficha
+              <Link href={hrefNota(resultado.existente ?? resultado.ruta ?? '')} className="inline-flex min-h-11 items-center font-medium underline">
+                {resultado.existente ? 'Abrir esa nota' : 'Abrir la ficha'}
               </Link>
             </>
           )}
@@ -82,9 +80,9 @@ function Pie({ resultado, creando, texto }: { resultado: ResultadoCreacion; crea
       <button
         type="submit"
         disabled={creando}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60 sm:w-auto"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60 sm:w-auto"
       >
-        {creando && <Loader2 className="size-4 animate-spin" aria-hidden />}
+        {creando && <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />}
         {texto}
       </button>
     </div>
@@ -141,7 +139,7 @@ export function FormCliente({
   );
 
   return (
-    <form onSubmit={enviar} className="grid gap-3 sm:grid-cols-2">
+    <form onSubmit={enviar} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <Campo etiqueta="Nombre">
         <input value={nombre} onChange={(e) => setNombre(e.target.value)} required maxLength={80} placeholder="Restaurante La Plaza" className={CAMPO} />
       </Campo>
@@ -180,7 +178,7 @@ export function FormCliente({
         <input value={sector} onChange={(e) => setSector(e.target.value)} maxLength={80} placeholder="Hostelería (Madrid)" className={CAMPO} />
       </Campo>
       <Campo etiqueta="Web" opcional>
-        <input value={web} onChange={(e) => setWeb(e.target.value)} type="url" placeholder="https://" className={CAMPO} />
+        <input value={web} onChange={(e) => setWeb(e.target.value)} type="url" autoComplete="url" placeholder="https://" className={CAMPO} />
       </Campo>
       <Campo etiqueta="Contexto del negocio" opcional ancho>
         <textarea
@@ -193,12 +191,23 @@ export function FormCliente({
         />
       </Campo>
 
-      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+      <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
         <input type="checkbox" checked={conTrato} onChange={(e) => setConTrato(e.target.checked)} className="size-4 accent-acento-fuerte" />
         Ya hay trato: crear también su nota de cobros
       </label>
+      {/* Con trato, el cliente ya cuenta en lo que te queda al mes: lo normal es que sea activo. Se propone, no se cambia solo */}
+      {conTrato && estado === 'potencial' && (
+        <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-tenue sm:col-span-2">
+          Con trato, lo normal es que ya sea un cliente activo.
+          {'activo' in estados && (
+            <button type="button" onClick={() => setEstado('activo')} className={BOTON_SECUNDARIO}>
+              Pasarlo a activo
+            </button>
+          )}
+        </p>
+      )}
       {conTrato && (
-        <div className="grid gap-3 rounded-lg border border-borde bg-superficie-2 p-3 sm:col-span-2 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-borde bg-superficie-2 p-3 sm:col-span-2 sm:grid-cols-4">
           <label className="sm:col-span-2">
             <span className={ETIQUETA}>Concepto</span>
             <input value={concepto} onChange={(e) => setConcepto(e.target.value)} required maxLength={80} className={CAMPO} />
@@ -263,7 +272,7 @@ export function FormReunion({
   );
 
   return (
-    <form onSubmit={enviar} className="grid gap-3 sm:grid-cols-2">
+    <form onSubmit={enviar} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <Campo etiqueta="Cliente">
         <select value={cliente} onChange={(e) => setCliente(e.target.value)} className={CAMPO}>
           {clientes.map((c) => (
@@ -285,9 +294,9 @@ export function FormReunion({
       {suyos.length > 0 && (
         <fieldset className="sm:col-span-2">
           <legend className={ETIQUETA}>Proyectos</legend>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-x-4">
             {suyos.map((p) => (
-              <label key={p.nombre} className="flex items-center gap-2 text-sm">
+              <label key={p.nombre} className="flex min-h-11 items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={marcados.includes(p.nombre)}
@@ -341,7 +350,7 @@ export function FormRequerimiento({
   );
 
   return (
-    <form onSubmit={enviar} className="grid gap-3 sm:grid-cols-2">
+    <form onSubmit={enviar} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <Campo etiqueta="Proyecto">
         <select value={proyecto} onChange={(e) => setProyecto(e.target.value)} className={CAMPO}>
           {proyectos.map((p) => (

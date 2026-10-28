@@ -60,8 +60,8 @@ export default async function PaginaAjustes() {
             sirve para entrar por sí sola.
           </li>
           <li>
-            La lista de dispositivos vive en la variable <code>PASSKEYS</code> de Vercel, porque el panel no tiene base de datos.
-            Al registrar uno, aquí sale el valor para pegar allí.
+            La lista de dispositivos vive en la variable <code>PASSKEYS</code> de Vercel: se hizo así cuando el panel no tenía base
+            de datos, y la que tiene ahora es solo para la consultoría. Al registrar uno, aquí sale el valor para pegar allí.
           </li>
           <li>
             La contraseña sigue funcionando como respaldo, por si pierdes el dispositivo. Para quitar uno, bórralo de esa

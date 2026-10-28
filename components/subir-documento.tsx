@@ -4,10 +4,7 @@ import { useRef, useState, useTransition, type DragEvent, type FormEvent } from 
 import { CheckCircle2, FileUp, Loader2, X } from 'lucide-react';
 import { subirDocumento } from '@/app/(panel)/documentos/acciones';
 import { ACEPTADOS, CATEGORIAS, TAMANO_MAXIMO, type Categoria } from '@/lib/documentos/tipos';
-
-const CAMPO =
-  'w-full min-w-0 rounded-lg border border-borde bg-fondo px-3 py-2 text-sm outline-none focus:border-acento focus:ring-2 focus:ring-acento/30';
-const ETIQUETA = 'mb-1 block text-xs font-medium text-tenue';
+import { CAMPO, ETIQUETA } from './estilos';
 
 /** `2026-09 Factura_VM.pdf` → `2026 09 Factura VM`: un título de partida que se puede cambiar */
 function tituloDeArchivo(nombre: string): string {
@@ -137,7 +134,7 @@ export function SubirDocumento({
         />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label>
           <span className={ETIQUETA}>Cliente</span>
           <select value={cliente} onChange={(e) => setCliente(e.target.value)} className={CAMPO}>
@@ -201,7 +198,7 @@ export function SubirDocumento({
         disabled={subiendo || !archivo}
         className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60 sm:w-auto"
       >
-        {subiendo && <Loader2 className="size-4 animate-spin" aria-hidden />}
+        {subiendo && <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />}
         {subiendo ? 'Subiendo…' : 'Subir documento'}
       </button>
     </form>

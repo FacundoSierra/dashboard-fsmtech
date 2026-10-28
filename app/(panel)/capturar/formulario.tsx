@@ -12,19 +12,22 @@ const TIPOS = [
 ];
 
 const CAMPO =
-  'w-full rounded-lg border border-borde bg-fondo px-3 py-2 outline-none focus:border-acento focus:ring-2 focus:ring-acento/30';
+  'min-h-11 w-full rounded-lg border border-borde bg-fondo px-3 py-2 outline-none focus:border-acento focus:ring-2 focus:ring-acento/30';
 
 export function FormularioCaptura({
   textoInicial,
+  tipoInicial,
   proyectos,
   clientes,
 }: {
   textoInicial: string;
+  /** `idea`, `tarea` o `nota`, desde la barra de órdenes; otro valor no cuenta y se queda en idea */
+  tipoInicial?: string;
   proyectos: Opcion[];
   clientes: Opcion[];
 }) {
   const [estado, accion, guardando] = useActionState<EstadoCaptura, FormData>(guardarCaptura, {});
-  const tipoMarcado = estado.tipo || 'idea';
+  const tipoMarcado = estado.tipo || TIPOS.find((t) => t.valor === tipoInicial)?.valor || 'idea';
 
   return (
     <form action={accion} className="space-y-5">
@@ -34,7 +37,7 @@ export function FormularioCaptura({
           {TIPOS.map(({ valor, texto }) => (
             <label
               key={valor}
-              className="cursor-pointer rounded-lg px-4 py-1.5 text-sm font-medium text-tenue has-[:checked]:bg-superficie has-[:checked]:text-texto has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-acento/40"
+              className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-4 text-sm font-medium text-tenue has-[:checked]:bg-superficie has-[:checked]:text-texto has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-acento/40"
             >
               <input type="radio" name="tipo" value={valor} defaultChecked={valor === tipoMarcado} className="sr-only" />
               {texto}
@@ -93,7 +96,7 @@ export function FormularioCaptura({
       <button
         type="submit"
         disabled={guardando}
-        className="w-full rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white disabled:opacity-60 sm:w-auto"
+        className="min-h-11 w-full rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white disabled:opacity-60 sm:w-auto"
       >
         {guardando ? 'Guardando…' : 'Guardar en el inbox'}
       </button>

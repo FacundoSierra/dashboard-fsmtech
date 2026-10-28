@@ -25,6 +25,8 @@ import { verificarSesion } from '@/lib/sesion';
 export interface ResultadoCreacion extends ResultadoEscritura {
   /** La nota creada, para enlazarla */
   ruta?: string;
+  /** La que ya se llama así, cuando no se ha creado por eso: para abrirla desde el aviso */
+  existente?: string;
   /** Algo que salió a medias y hay que contar aunque lo principal se hiciera */
   aviso?: string;
 }
@@ -34,9 +36,14 @@ const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 const esTexto = (valor: unknown, maximo = 2000): valor is string => typeof valor === 'string' && valor.length <= maximo;
 const NO_VALIDOS: ResultadoCreacion = { error: 'Datos no válidos.' };
 
-/** Los nombres de nota son únicos en toda la bóveda: `[[cni]]` tiene que llevar a una sola */
-function comprobarNombreLibre(boveda: Boveda, nombre: string): void {
-  if (Object.hasOwn(boveda.rutas, nombre)) throw new ErrorEscritura(`Ya hay una nota que se llama «${nombre}».`);
+/**
+ * Los nombres de nota son únicos en toda la bóveda: `[[cni]]` tiene que llevar a una sola. Si ya
+ * hay una, `alChocar` recibe su ruta (para enlazarla en el aviso) y no se crea nada
+ */
+function comprobarNombreLibre(boveda: Boveda, nombre: string, alChocar: (ruta: string) => void): void {
+  if (!Object.hasOwn(boveda.rutas, nombre)) return;
+  alChocar(boveda.rutas[nombre]);
+  throw new ErrorEscritura(`Ya hay una nota que se llama «${nombre}».`);
 }
 
 function esFicha(boveda: Boveda, cliente: string): boolean {
@@ -75,12 +82,13 @@ export async function crearCliente(datos: DatosCliente): Promise<ResultadoCreaci
   const ruta = `clientes/${cliente}/${cliente}.md`;
   let rutaCobros: string | undefined;
   let fichaCreada = false;
+  let existente: string | undefined;
 
   const resultado = await guardar('crear el cliente', async () => {
     const boveda = await obtenerBoveda();
     const titulo = lineaLimpia(nombre, 80, 'el nombre');
     if (!RE_NOMBRE.test(cliente)) throw new ErrorEscritura('El nombre corto solo puede llevar letras sin tilde, números y guiones.');
-    comprobarNombreLibre(boveda, cliente);
+    comprobarNombreLibre(boveda, cliente, (otra) => (existente = otra));
 
     // El trato se comprueba antes de crear nada, para no dejar una ficha a medias por un importe mal escrito
     let notaCobros: string | undefined;
@@ -142,7 +150,7 @@ export async function crearCliente(datos: DatosCliente): Promise<ResultadoCreaci
   });
 
   // Si la ficha se creó y lo que falló fue la nota de cobros, se enlaza la ficha igualmente
-  return resultado.error ? { ...resultado, ruta: fichaCreada ? ruta : undefined } : { ruta };
+  return resultado.error ? { ...resultado, ruta: fichaCreada ? ruta : undefined, existente } : { ruta };
 }
 
 // ── Reunión ──────────────────────────────────────────────────────────────────
@@ -165,6 +173,7 @@ export async function crearReunionNueva(datos: DatosReunion): Promise<ResultadoC
   if (hora && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(hora)) return { error: 'La hora tiene que ser como 10:30.' };
 
   let ruta = '';
+  let existente: string | undefined;
   const resultado = await guardar('crear la reunión', async () => {
     const boveda = await obtenerBoveda();
     if (!esFicha(boveda, cliente)) throw new ErrorEscritura('Ese cliente no tiene ficha.');
@@ -172,7 +181,7 @@ export async function crearReunionNueva(datos: DatosReunion): Promise<ResultadoC
 
     const asunto = lineaLimpia(tema, 80, 'el tema');
     const nombre = `${fecha}-${cliente}-${slug(asunto, 40) || 'reunion'}`;
-    comprobarNombreLibre(boveda, nombre);
+    comprobarNombreLibre(boveda, nombre, (otra) => (existente = otra));
     ruta = `clientes/${cliente}/reuniones/${nombre}.md`;
 
     const tituloCliente = boveda.porRuta.get(`clientes/${cliente}/${cliente}.md`)?.titulo ?? cliente;
@@ -194,7 +203,7 @@ export async function crearReunionNueva(datos: DatosReunion): Promise<ResultadoC
       }),
     );
   });
-  return resultado.error ? resultado : { ruta };
+  return resultado.error ? { ...resultado, existente } : { ruta };
 }
 
 // ── Requerimiento ────────────────────────────────────────────────────────────
@@ -218,6 +227,7 @@ export async function crearRequerimientoNuevo(datos: DatosRequerimiento): Promis
   if (horas.trim() && !(estimacion !== undefined && estimacion > 0 && estimacion < 1000)) return { error: 'Las horas tienen que ser un número, como 8.' };
 
   let ruta = '';
+  let existente: string | undefined;
   const resultado = await guardar('crear el requerimiento', async () => {
     const boveda = await obtenerBoveda();
     if (!esProyecto(boveda, proyecto)) throw new ErrorEscritura('Ese proyecto no existe.');
@@ -228,7 +238,7 @@ export async function crearRequerimientoNuevo(datos: DatosRequerimiento): Promis
     const asunto = lineaLimpia(titulo, 100, 'el título');
     const numeroReq = siguienteRequerimiento(boveda, proyecto).slice(4);
     const nombre = `req-${numeroReq}-${slug(asunto, 40) || 'peticion'}`;
-    comprobarNombreLibre(boveda, nombre);
+    comprobarNombreLibre(boveda, nombre, (otra) => (existente = otra));
     ruta = `proyectos/${proyecto}/requerimientos/${nombre}.md`;
 
     const contenido = rellenarPlantilla(await leerPlantilla('requerimiento'), {
@@ -249,5 +259,5 @@ export async function crearRequerimientoNuevo(datos: DatosRequerimiento): Promis
     }).replace('#prioridad/media', `#prioridad/${prioridad}`);
     await crearRequerimiento(ruta, contenido);
   });
-  return resultado.error ? resultado : { ruta };
+  return resultado.error ? { ...resultado, existente } : { ruta };
 }

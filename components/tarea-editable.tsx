@@ -1,16 +1,22 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useOptimistic, useState, useTransition, type FormEvent, type ReactNode } from 'react';
-import { CornerUpLeft, Hourglass, Loader2, Plus } from 'lucide-react';
+import { Check, CornerUpLeft, Hourglass, Loader2, Plus, RotateCw } from 'lucide-react';
 import { apuntarObjetivo, cambiarTarea, devolverAObjetivos, pasarAEspera } from '@/app/(panel)/acciones';
-
-const CAMPO =
-  'w-full min-w-0 rounded-lg border border-borde bg-fondo px-3 py-1.5 text-sm outline-none focus:border-acento focus:ring-2 focus:ring-acento/30';
+import { BOTON_PRINCIPAL, BOTON_TEXTO, CAMPO } from './estilos';
 
 /**
  * Una tarea de la diaria que se marca, se pasa a «A la espera» o vuelve a «Objetivos» desde el
  * panel. La casilla cambia al instante y la nota se guarda por detrás; si no se puede (porque
  * esa línea ha cambiado en Obsidian), vuelve como estaba y lo dice.
+ *
+ * `linea` es la línea tal cual está en la nota, y es lo único que viaja a la escritura: el texto
+ * que se ve (`children`) va limpio de emojis y etiquetas y no sirve para encontrarla.
+ *
+ * La casilla y el botón de mover se tocan en 44 × 44 px con padding y margen negativo, sin
+ * agrandar la fila. Cada fila mide 36 px como mínimo y van a 10 px: 46 entre una casilla y la
+ * siguiente, para que sus zonas no se pisen.
  */
 export function TareaEditable({
   ruta,
@@ -28,6 +34,7 @@ export function TareaEditable({
   mover?: 'espera' | 'objetivos';
   children: ReactNode;
 }) {
+  const router = useRouter();
   const [marcada, marcarAlMomento] = useOptimistic(hecha);
   const [movida, moverAlMomento] = useOptimistic(false);
   const [guardando, empezar] = useTransition();
@@ -61,7 +68,7 @@ export function TareaEditable({
   const textoMover = mover === 'espera' ? 'Pasar a «A la espera»' : 'Ya ha contestado: devolver a objetivos';
 
   return (
-    <li className={`text-[15px] leading-snug ${guardando ? 'opacity-70' : ''}`} style={{ marginLeft: `${nivel * 1.25}rem` }}>
+    <li className={`min-h-9 text-[15px] leading-snug ${guardando ? 'opacity-70' : ''}`} style={{ marginLeft: `${nivel * 1.25}rem` }}>
       <div className="flex items-start gap-2.5">
         <button
           type="button"
@@ -69,14 +76,14 @@ export function TareaEditable({
           aria-checked={marcada}
           disabled={guardando}
           onClick={alternar}
-          className="group -m-1.5 shrink-0 rounded-md p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-acento/40 disabled:cursor-wait"
+          className="group -my-3.5 -ml-3.5 -mr-2.5 shrink-0 rounded-lg p-3.5 outline-none focus-visible:ring-2 focus-visible:ring-acento disabled:cursor-wait"
         >
           <span
-            className={`mt-0.5 flex size-4 items-center justify-center rounded border text-[10px] ${
-              marcada ? 'border-bien bg-bien text-white' : 'border-borde-fuerte group-hover:border-acento'
+            className={`mt-0.5 flex size-4 items-center justify-center rounded border ${
+              marcada ? 'border-bien bg-bien text-white' : 'border-borde-control group-hover:border-acento'
             }`}
           >
-            {marcada ? '✓' : null}
+            {marcada && <Check className="size-3" strokeWidth={3} aria-hidden />}
           </span>
           <span className="sr-only">{marcada ? 'Hecha. Desmarcar' : 'Marcar como hecha'}</span>
         </button>
@@ -87,7 +94,8 @@ export function TareaEditable({
             disabled={guardando}
             onClick={() => (mover === 'espera' ? setPreguntando((antes) => !antes) : mandar())}
             title={textoMover}
-            className="-my-1 shrink-0 rounded-md p-1.5 text-apagado hover:bg-superficie-2 hover:text-texto disabled:opacity-60"
+            aria-expanded={mover === 'espera' ? preguntando : undefined}
+            className="-my-3.5 -mr-3 shrink-0 rounded-lg p-3.5 text-apagado hover:bg-superficie-2 hover:text-texto disabled:opacity-60"
           >
             {mover === 'espera' ? <Hourglass className="size-4" aria-hidden /> : <CornerUpLeft className="size-4" aria-hidden />}
             <span className="sr-only">{textoMover}</span>
@@ -96,7 +104,7 @@ export function TareaEditable({
       </div>
 
       {preguntando && (
-        <form onSubmit={mandar} className="mt-2 flex flex-wrap items-center gap-2 pl-[1.625rem]">
+        <form onSubmit={mandar} className="mt-3 flex flex-wrap items-center gap-2 pl-[1.625rem]">
           <input
             autoFocus
             value={quien}
@@ -106,23 +114,31 @@ export function TareaEditable({
             aria-label="Quién lo tiene"
             className={`${CAMPO} flex-1 basis-40`}
           />
-          <button
-            type="submit"
-            disabled={guardando || !quien.trim()}
-            className="rounded-lg bg-acento-fuerte px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-          >
+          <button type="submit" disabled={guardando || !quien.trim()} className={BOTON_PRINCIPAL}>
             A la espera
           </button>
-          <button type="button" onClick={() => setPreguntando(false)} className="px-1 text-sm text-tenue hover:text-texto">
+          <button type="button" onClick={() => setPreguntando(false)} className={BOTON_TEXTO}>
             Cancelar
           </button>
         </form>
       )}
 
       {error && (
-        <p role="alert" className="mt-1 pl-[1.625rem] text-xs text-critico-texto">
-          {error}
-        </p>
+        <div role="alert" className="mt-1 flex flex-wrap items-center gap-x-3 pl-[1.625rem] text-xs text-critico-texto">
+          <span>{error}</span>
+          {/* En la app instalada no hay botón de recargar: este trae la nota como está ahora */}
+          <button
+            type="button"
+            onClick={() => {
+              setError(undefined);
+              router.refresh();
+            }}
+            className="inline-flex min-h-11 items-center gap-1 font-medium text-acento hover:underline"
+          >
+            <RotateCw className="size-3.5" aria-hidden />
+            Recargar
+          </button>
+        </div>
       )}
     </li>
   );
@@ -156,7 +172,7 @@ export function NuevoObjetivo({ creaDiaria }: { creaDiaria: boolean }) {
     <div>
       {enCamino && (
         <p className="mb-2 flex items-start gap-2.5 text-[15px] leading-snug text-tenue">
-          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" aria-hidden />
+          <Loader2 className="mt-0.5 size-4 shrink-0 motion-safe:animate-spin" aria-hidden />
           <span className="min-w-0 break-words">{enCamino}</span>
         </p>
       )}
@@ -169,11 +185,7 @@ export function NuevoObjetivo({ creaDiaria }: { creaDiaria: boolean }) {
           aria-label="Objetivo nuevo"
           className={`${CAMPO} flex-1`}
         />
-        <button
-          type="submit"
-          disabled={guardando || !texto.trim()}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-acento-fuerte px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-        >
+        <button type="submit" disabled={guardando || !texto.trim()} className={BOTON_PRINCIPAL}>
           <Plus className="size-4" aria-hidden />
           Añadir
         </button>

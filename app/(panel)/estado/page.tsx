@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { Bell, Database, GitBranch, Globe, HardDrive, Rocket, Settings, ShieldCheck } from 'lucide-react';
 import { ListaAvisos } from '@/components/avisos';
+import { ZONA_TOQUE } from '@/components/estilos';
 import { FranjaDisponibilidad } from '@/components/graficos';
 import {
   Encabezado,
@@ -45,10 +46,10 @@ function Cargando() {
     <div className="space-y-4" aria-busy="true" aria-label="Comprobando las webs">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="h-[104px] animate-pulse rounded-xl border border-borde bg-superficie" />
+          <div key={i} className="h-[104px] motion-safe:animate-pulse rounded-xl border border-borde bg-superficie" />
         ))}
       </div>
-      <div className="h-64 animate-pulse rounded-xl border border-borde bg-superficie" />
+      <div className="h-64 motion-safe:animate-pulse rounded-xl border border-borde bg-superficie" />
     </div>
   );
 }
@@ -125,28 +126,37 @@ async function Contenido() {
             <Vacio>Ningún proyecto activo tiene web. Se añade con la propiedad `web` de la nota del proyecto.</Vacio>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className={TABLA}>
-              <thead>
-                <tr>
-                  <th className={TH}>Proyecto</th>
-                  <th className={TH}>Estado</th>
-                  <th className={`${TH} text-right`}>Respuesta</th>
-                  <th className={TH}>Certificado</th>
-                  <th className={TH}>Dominio</th>
-                  <th className={`${TH} min-w-44`}>Últimos 30 días</th>
-                </tr>
-              </thead>
-              <tbody>
-                {conWeb.map((p) => (
-                  <FilaWeb key={p.proyecto.nota.ruta} p={p} estado={estado} inicioMes={inicioMes} ahora={ahora.getTime()} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* En el móvil, una lista: la tabla se cortaba y lo que más avisa (certificado, dominio) quedaba fuera */}
+            <ul className="divide-y divide-borde sm:hidden">
+              {conWeb.map((p) => (
+                <ItemWeb key={p.proyecto.nota.ruta} p={p} estado={estado} inicioMes={inicioMes} ahora={ahora.getTime()} />
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className={TABLA}>
+                <thead>
+                  <tr>
+                    <th className={TH}>Proyecto</th>
+                    <th className={TH}>Estado</th>
+                    <th className={`${TH} text-right`}>Respuesta</th>
+                    <th className={TH}>Certificado</th>
+                    <th className={TH}>Dominio</th>
+                    <th className={`${TH} min-w-44`}>Últimos 30 días</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conWeb.map((p) => (
+                    <FilaWeb key={p.proyecto.nota.ruta} p={p} estado={estado} inicioMes={inicioMes} ahora={ahora.getTime()} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         {!estado.vigilanciaDesde && (
-          <p className="border-t border-borde px-4 py-2.5 text-xs text-tenue">
+          // En el móvil no se pinta la franja sin vigilancia (serían 30 días grises): la nota, tampoco
+          <p className="hidden border-t border-borde px-4 py-2.5 text-xs text-tenue sm:block">
             La franja de 30 días se rellena con la vigilancia horaria, que todavía no está en marcha. Ver{' '}
             <a href="#configuracion" className="text-acento hover:underline">
               configuración
@@ -156,14 +166,31 @@ async function Contenido() {
         )}
       </Tarjeta>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      {/* `items-start`: cada tarjeta de su alto; estiradas, la de bases dejaba un hueco grande */}
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
         <Tarjeta titulo="Bases de datos" icono={Database} sinRelleno>
           {conBase.length === 0 ? (
             <div className="p-4">
               <Vacio>Se vigilan con la propiedad `supabase` de la nota del proyecto.</Vacio>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <ul className="divide-y divide-borde sm:hidden">
+              {conBase.map(({ proyecto, supabase }) => (
+                <li key={proyecto.nota.ruta} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Link href={hrefNota(proyecto.nota.ruta)} className={`${ZONA_TOQUE} min-w-0 font-medium hover:text-acento`}>
+                      <span className="block truncate">{nombreCorto(proyecto.nota.titulo)}</span>
+                    </Link>
+                    {supabase?.activa ? <Estado nivel="bien">Activa</Estado> : <Estado nivel="critico">No responde</Estado>}
+                  </div>
+                  <p className="mt-0.5 text-xs text-tenue">
+                    {supabase?.activa ? (supabase.ms !== undefined ? `Responde en ${supabase.ms} ms` : 'Responde') : (supabase?.error ?? 'Sin respuesta')}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto sm:block">
             <table className={TABLA}>
               <thead>
                 <tr>
@@ -189,6 +216,7 @@ async function Contenido() {
               </tbody>
             </table>
             </div>
+            </>
           )}
         </Tarjeta>
 
@@ -203,7 +231,27 @@ async function Contenido() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <ul className="divide-y divide-borde sm:hidden">
+                {locales.repos.map((repo) => (
+                  <li key={`${repo.grupo}/${repo.nombre}`} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate font-medium">{repo.nombre}</span>
+                      {repo.sinSubir === undefined ? (
+                        <span className="shrink-0 text-xs text-apagado">sin remoto</span>
+                      ) : repo.sinSubir ? (
+                        <Estado nivel="aviso">{`${repo.sinSubir} sin subir`}</Estado>
+                      ) : (
+                        <span className="shrink-0 text-xs text-apagado">nada sin subir</span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-tenue">
+                      <span className="font-mono">{repo.rama ?? 'sin rama'}</span> ·{' '}
+                      {repo.sinCommit ? `${repo.sinCommit} ${repo.sinCommit === 1 ? 'archivo' : 'archivos'} sin guardar` : 'nada sin guardar'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden overflow-x-auto sm:block">
               <table className={TABLA}>
                 <thead>
                   <tr>
@@ -310,23 +358,81 @@ function nombreCorto(titulo: string): string {
   return titulo.split(' — ')[0];
 }
 
-function FilaWeb({
-  p,
-  estado,
-  inicioMes,
-  ahora,
-}: {
+type PropsWeb = {
   p: EstadoProyecto;
   estado: Awaited<ReturnType<typeof estadoGeneral>>;
   inicioMes: number;
   ahora: number;
-}) {
-  const { proyecto, web, certificado, dominio } = p;
-  const diasCertificado = diasHasta(certificado?.validoHasta, ahora);
-  const diasDominio = diasHasta(dominio?.caduca, ahora);
-  const nombre = nombreCorto(proyecto.nota.titulo);
+};
+
+/** Lo de una web que comparten la fila de la tabla y la del móvil */
+function datosWeb({ p, estado, inicioMes, ahora }: PropsWeb) {
+  const { proyecto, certificado, dominio } = p;
   const incidencias = estado.incidencias ?? [];
-  const mes = disponibilidad(proyecto.nota.nombre, incidencias, estado.vigilanciaDesde, inicioMes, ahora, ahora);
+  return {
+    nombre: nombreCorto(proyecto.nota.titulo),
+    diasCertificado: diasHasta(certificado?.validoHasta, ahora),
+    diasDominio: diasHasta(dominio?.caduca, ahora),
+    mes: disponibilidad(proyecto.nota.nombre, incidencias, estado.vigilanciaDesde, inicioMes, ahora, ahora),
+    dias: franjaDias(proyecto.nota.nombre, incidencias, estado.vigilanciaDesde, 30, ahora),
+  };
+}
+
+function EstadoDeLaWeb({ web }: { web: NonNullable<EstadoProyecto['web']> }) {
+  if (!web.responde) return <Estado nivel="critico">{web.error ?? 'Caída'}</Estado>;
+  return web.ms && web.ms > LENTA_MS ? <Estado nivel="aviso">Lenta</Estado> : <Estado nivel="bien">En línea</Estado>;
+}
+
+/** En el móvil: nombre y estado arriba; debajo, la respuesta, el certificado y el dominio, que es lo que avisa */
+function ItemWeb(props: PropsWeb) {
+  const { proyecto, web, certificado, dominio } = props.p;
+  const { nombre, diasCertificado, diasDominio, mes, dias } = datosWeb(props);
+
+  return (
+    <li className="px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <Link href={hrefNota(proyecto.nota.ruta)} className={`${ZONA_TOQUE} min-w-0 font-medium hover:text-acento`}>
+          <span className="block truncate">{nombre}</span>
+        </Link>
+        <EstadoDeLaWeb web={web!} />
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-tenue">
+        <span className="cifras">
+          {web!.ms !== undefined ? `${web!.ms} ms` : 'Sin respuesta'}
+          {web!.arranqueEnFrio ? ` · en frío ${(web!.arranqueEnFrio / 1000).toFixed(1)} s` : ''}
+        </span>
+        {certificado && (
+          <Estado nivel={nivelPlazo(diasCertificado, certificado.valido, 14, 30)}>
+            <span className="text-xs">
+              Certificado {diasCertificado !== undefined ? `${diasCertificado} días` : (certificado.error ?? 'sin datos')}
+            </span>
+          </Estado>
+        )}
+        {dominio?.caduca ? (
+          <Estado nivel={nivelPlazo(diasDominio, true, 30, 60)}>
+            <span className="text-xs">Dominio {diasDominio} días</span>
+          </Estado>
+        ) : (
+          dominio && <span title={dominio.error}>Dominio a mano</span>
+        )}
+      </div>
+      {props.estado.vigilanciaDesde && (
+        <div className="mt-2 flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <FranjaDisponibilidad dias={dias} nombre={nombre} />
+          </div>
+          <span className="cifras w-14 shrink-0 text-right text-xs text-tenue">
+            {mes ? `${mes.porcentaje.toFixed(mes.porcentaje === 100 ? 0 : 2)} %` : '—'}
+          </span>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function FilaWeb(props: PropsWeb) {
+  const { proyecto, web, certificado, dominio } = props.p;
+  const { nombre, diasCertificado, diasDominio, mes, dias } = datosWeb(props);
 
   return (
     <tr className={FILA}>
@@ -339,15 +445,7 @@ function FilaWeb({
         </a>
       </td>
       <td className={TD}>
-        {web!.responde ? (
-          web!.ms && web!.ms > LENTA_MS ? (
-            <Estado nivel="aviso">Lenta</Estado>
-          ) : (
-            <Estado nivel="bien">En línea</Estado>
-          )
-        ) : (
-          <Estado nivel="critico">{web!.error ?? 'Caída'}</Estado>
-        )}
+        <EstadoDeLaWeb web={web!} />
       </td>
       <td className={`${TD} cifras text-right text-tenue`}>
         {web!.ms !== undefined ? `${web!.ms} ms` : '—'}
@@ -380,7 +478,7 @@ function FilaWeb({
       <td className={TD}>
         <div className="flex items-center gap-3">
           <div className="min-w-32 flex-1">
-            <FranjaDisponibilidad dias={franjaDias(proyecto.nota.nombre, incidencias, estado.vigilanciaDesde, 30, ahora)} nombre={nombre} />
+            <FranjaDisponibilidad dias={dias} nombre={nombre} />
           </div>
           <span className="cifras w-14 shrink-0 text-right text-xs text-tenue">
             {mes ? `${mes.porcentaje.toFixed(mes.porcentaje === 100 ? 0 : 2)} %` : '—'}

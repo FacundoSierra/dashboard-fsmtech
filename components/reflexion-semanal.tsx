@@ -50,7 +50,7 @@ export function ReflexionSemanal({ ruta, preguntas }: { ruta: string; preguntas:
         disabled={guardando || !Object.values(respuestas).some((r) => r.trim())}
         className="inline-flex items-center gap-2 rounded-lg bg-acento-fuerte px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
       >
-        {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
+        {guardando && <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />}
         Guardar en la revisión
       </button>
       <p className="text-xs text-apagado">Se puede responder una sola y dejar las demás para luego.</p>

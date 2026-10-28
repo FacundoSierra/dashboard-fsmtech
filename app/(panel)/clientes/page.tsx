@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import type { Nota, Tarea } from '@/lib/boveda/tipos';
-import { CalendarClock, ExternalLink, FileText, FolderLock, Hourglass, Lightbulb, MessagesSquare, Route } from 'lucide-react';
+import { CalendarClock, ExternalLink, FileText, FolderLock, Hourglass, Lightbulb, MessagesSquare, Plus, Route } from 'lucide-react';
+import { ZONA_TOQUE } from '@/components/estilos';
 import { Markdown } from '@/components/markdown';
-import { Encabezado, Estado, Vacio, euros, nivelEstadoProyecto, porcentaje, type NivelEstado } from '@/components/ui';
+import { EnlaceBoton, Encabezado, Estado, Filtro, Vacio, euros, nivelEstadoProyecto, porcentaje, type NivelEstado } from '@/components/ui';
 import {
   ESTADOS_CLIENTE,
   LINEAS,
@@ -16,7 +16,7 @@ import {
   type Linea,
 } from '@/lib/boveda/consultas';
 import { documentos } from '@/lib/documentos/documentos';
-import { economia, planVigente } from '@/lib/economia';
+import { economia, mediaSinCuota, planVigente, sinCuotaFija, type PlanAnual } from '@/lib/economia';
 import { cuandoEs, diasEntre, hoyMadrid } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
 
@@ -49,20 +49,6 @@ function hrefFiltro(estado?: EstadoCliente, linea?: Linea): string {
   return consulta ? `/clientes?${consulta}` : '/clientes';
 }
 
-function Filtro({ href, activo, children }: { href: string; activo: boolean; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      aria-current={activo ? 'true' : undefined}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${
-        activo ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}
-
 export default async function PaginaClientes({ searchParams }: PageProps<'/clientes'>) {
   const parametros = await searchParams;
   const boveda = await obtenerBoveda();
@@ -83,30 +69,28 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
     <>
       <Encabezado
         titulo="Clientes"
-        subtitulo={`${todos.length} clientes${dinero.conPlan ? ` · te quedan ${euros(dinero.netoMensual)} al mes entre todos` : ''}`}
+        subtitulo={`${todos.length} clientes${dinero.conPlan ? ` · un margen de ${euros(dinero.netoMensual)} al mes entre todos` : ''}`}
         acciones={
-          <Link href="/crear?tipo=cliente" className="inline-flex items-center gap-1 rounded-lg border border-borde bg-superficie px-3 py-1.5 text-sm font-medium hover:border-borde-fuerte">
-            + Cliente
-          </Link>
+          <EnlaceBoton href="/crear?tipo=cliente" icono={Plus}>
+            Cliente
+          </EnlaceBoton>
         }
       />
 
       <div className="mb-5 space-y-2">
-        <nav aria-label="Por dónde va cada cliente" className="flex flex-wrap items-center gap-1.5">
+        {/* En el orden del embudo, de potencial a perdido: el orden ya lo dice, sin flechas */}
+        <nav aria-label="Por dónde va cada cliente" className="flex flex-wrap items-center gap-2">
           <Filtro href={hrefFiltro(undefined, linea)} activo={!estado}>
             Todos · {deLaLinea.length}
           </Filtro>
-          {ORDEN.map((valor, i) => (
-            <span key={valor} className="inline-flex items-center gap-1.5">
-              {i === 1 && <span aria-hidden className="text-apagado">→</span>}
-              <Filtro href={hrefFiltro(valor, linea)} activo={estado === valor}>
-                {PLURAL[valor]} · {deLaLinea.filter((c) => c.estado === valor).length}
-              </Filtro>
-            </span>
+          {ORDEN.map((valor) => (
+            <Filtro key={valor} href={hrefFiltro(valor, linea)} activo={estado === valor}>
+              {PLURAL[valor]} · {deLaLinea.filter((c) => c.estado === valor).length}
+            </Filtro>
           ))}
         </nav>
         {(lineas.length > 1 || linea) && (
-          <nav aria-label="Línea de negocio" className="flex flex-wrap gap-1.5">
+          <nav aria-label="Línea de negocio" className="flex flex-wrap gap-2">
             <Filtro href={hrefFiltro(estado)} activo={!linea}>
               Todas las líneas
             </Filtro>
@@ -122,11 +106,13 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
       {lista.length === 0 ? (
         <Vacio>{todos.length ? 'Ningún cliente con estos filtros.' : 'No hay fichas de cliente.'}</Vacio>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        // `items-start`: cada tarjeta, de su alto; estiradas a la de la vecina dejaban huecos de hasta 170 px
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lista.map((cliente) => {
             const reunion = cliente.proximaReunion;
             const cuenta = cuotaDe.get(cliente.nota.nombre);
             const plan = cuenta ? planVigente(cuenta, hoy) : undefined;
+            const media = plan && sinCuotaFija(plan) ? mediaSinCuota(plan, hoy) : undefined;
             return (
               <article key={cliente.nota.ruta} className="flex flex-col rounded-xl border border-borde bg-superficie shadow-tarjeta">
                 <div className="flex items-start gap-3 p-4">
@@ -138,7 +124,7 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                   </span>
                   <div className="min-w-0 flex-1">
                     <h2 className="font-semibold leading-tight">
-                      <Link href={hrefNota(cliente.nota.ruta)} className="hover:text-acento">
+                      <Link href={hrefNota(cliente.nota.ruta)} className={`${ZONA_TOQUE} hover:text-acento`}>
                         {cliente.nota.titulo}
                       </Link>
                     </h2>
@@ -154,9 +140,12 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
 
                 <dl className="grid grid-cols-3 border-y border-borde text-center">
                   <div className="px-2 py-3">
-                    <dt className="text-xs text-apagado">Te queda</dt>
-                    <dd className="mt-0.5 text-sm font-semibold" title={plan?.estimado ? 'Media de lo cobrado en los meses cerrados' : undefined}>
-                      {plan ? `${plan.estimado ? '≈ ' : ''}${euros(plan.netoMensual)}/mes` : '—'}
+                    <dt className="text-xs text-apagado">{media !== undefined ? 'De media' : 'Margen'}</dt>
+                    <dd
+                      className="mt-0.5 text-sm font-semibold"
+                      title={plan?.estimado || media !== undefined ? 'Media de lo cobrado en los meses cerrados' : undefined}
+                    >
+                      {!plan ? '—' : media !== undefined ? `≈ ${euros(media)}/mes` : `${plan.estimado ? '≈ ' : ''}${euros(plan.netoMensual)}/mes`}
                     </dd>
                   </div>
                   <div className="border-x border-borde px-2 py-3">
@@ -177,9 +166,10 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                     esperando={cliente.esperando}
                     hoy={hoy}
                     rutas={boveda.rutas}
+                    titulos={boveda.titulos}
                   />
                   {plan && cuenta ? (
-                    <Link href={`/economia#cliente-${cliente.nota.nombre}`} className="flex items-center justify-between gap-2 text-xs">
+                    <Link href={`/economia#cliente-${cliente.nota.nombre}`} className="flex min-h-11 items-center justify-between gap-2 text-xs">
                       <Estado
                         nivel={cuenta.atrasados.length ? 'grave' : cuenta.pendiente ? 'aviso' : 'bien'}
                       >
@@ -192,9 +182,7 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                         </span>
                       </Estado>
                       <span className="text-tenue">
-                        {plan.estimado
-                          ? `Tarifa ${plan.tarifas.map((t) => `${euros(t.importe)}/${t.cada === 'hora' ? 'hora' : 'sesión'}`).join(' · ')}`
-                          : `Te paga ${euros(plan.cuotaMensual)}/mes`}
+                        {loQuePaga(plan)}
                         {dinero.netoMensual > 0 && plan.netoMensual > 0 && ` · ${porcentaje((plan.netoMensual / dinero.netoMensual) * 100)} de lo tuyo`}
                       </span>
                     </Link>
@@ -203,7 +191,7 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                   {reunion?.fecha && (
                     <Link
                       href={hrefNota(reunion.nota.ruta)}
-                      className="flex items-center gap-2 rounded-lg bg-acento-suave px-3 py-2 text-acento"
+                      className="flex min-h-11 items-center gap-2 rounded-lg bg-acento-suave px-3 py-2 text-acento"
                     >
                       <CalendarClock className="size-4 shrink-0" aria-hidden />
                       <span className="min-w-0 truncate">
@@ -214,11 +202,12 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                   )}
 
                   {cliente.proyectos.length > 0 && (
-                    <ul className="space-y-1.5">
+                    // Una fila de 44 px por proyecto: a 26 px, en el móvil se tocaba el de al lado
+                    <ul>
                       {cliente.proyectos.map((proyecto) => (
                         <li key={proyecto.nota.ruta} className="flex items-center justify-between gap-2">
-                          <Link href={hrefNota(proyecto.nota.ruta)} className="min-w-0 truncate hover:text-acento">
-                            {proyecto.nota.titulo.split(' — ')[0]}
+                          <Link href={hrefNota(proyecto.nota.ruta)} className="flex min-h-11 min-w-0 flex-1 items-center hover:text-acento">
+                            <span className="truncate">{proyecto.nota.titulo.split(' — ')[0]}</span>
                           </Link>
                           <Estado nivel={nivelEstadoProyecto(proyecto.estado)}>
                             <span className="text-xs capitalize text-tenue">{proyecto.estado}</span>
@@ -229,17 +218,18 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                   )}
 
                   {cliente.contactos.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    // 36 px visibles y 44 de toque, con 8 entre filas para que las zonas no se pisen
+                    <div className="flex flex-wrap gap-2">
                       {cliente.contactos.map((persona) => (
                         <Link
                           key={persona.ruta}
                           href={hrefNota(persona.ruta)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-borde py-0.5 pl-0.5 pr-2 text-xs hover:border-borde-fuerte"
+                          className={`${ZONA_TOQUE} inline-flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border border-borde py-1 pl-1 pr-3 text-xs hover:border-borde-fuerte`}
                         >
-                          <span aria-hidden className="flex size-5 items-center justify-center rounded-full bg-superficie-2 text-[10px] font-semibold">
+                          <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-superficie-2 text-[11px] font-semibold">
                             {iniciales(persona.titulo)}
                           </span>
-                          {persona.titulo}
+                          <span className="truncate">{persona.titulo}</span>
                         </Link>
                       ))}
                     </div>
@@ -247,14 +237,14 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
 
                   {cliente.ideas.length > 0 && (
                     <details>
-                      <summary className="flex cursor-pointer items-center gap-1.5 text-xs text-tenue">
+                      <summary className={`${ZONA_TOQUE} flex cursor-pointer items-center gap-1.5 text-xs text-tenue hover:text-texto`}>
                         <Lightbulb className="size-3.5" aria-hidden />
                         {cliente.ideas.length} {cliente.ideas.length === 1 ? 'idea u oportunidad' : 'ideas y oportunidades'}
                       </summary>
                       <ul className="mt-2 space-y-1.5">
                         {cliente.ideas.map((idea, i) => (
                           <li key={i}>
-                            <Markdown texto={idea.texto} rutas={boveda.rutas} enLinea />{' '}
+                            <Markdown texto={idea.texto} rutas={boveda.rutas} titulos={boveda.titulos} enLinea />{' '}
                             <Link href={hrefNota(idea.origen.ruta)} className="text-tenue hover:text-acento">
                               · {idea.origen.titulo}
                             </Link>
@@ -266,19 +256,19 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                 </div>
 
                 <div className="flex gap-4 border-t border-borde px-4 py-3 text-xs">
-                  <Link href={`/informes/${encodeURIComponent(cliente.nota.nombre)}`} className="inline-flex items-center gap-1 text-tenue hover:text-acento">
+                  <Link href={`/informes/${encodeURIComponent(cliente.nota.nombre)}`} className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-tenue hover:text-acento`}>
                     <FileText className="size-3.5" aria-hidden />
                     Informe del mes
                   </Link>
                   <Link
                     href={`/documentos?cliente=${encodeURIComponent(cliente.nota.nombre)}`}
-                    className="inline-flex items-center gap-1 text-tenue hover:text-acento"
+                    className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-tenue hover:text-acento`}
                   >
                     <FolderLock className="size-3.5" aria-hidden />
                     Documentos{docsDe.get(cliente.nota.nombre)?.length ? ` · ${docsDe.get(cliente.nota.nombre)!.length}` : ''}
                   </Link>
                   {cliente.web && (
-                    <a href={cliente.web} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-tenue hover:text-acento">
+                    <a href={cliente.web} target="_blank" rel="noreferrer" className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-tenue hover:text-acento`}>
                       <ExternalLink className="size-3.5" aria-hidden />
                       Web
                     </a>
@@ -293,6 +283,14 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
   );
 }
 
+/** «Te paga 50 €/mes», la tarifa o, sin cuota (OVB, CNI), que no la tiene: un «0 €/mes» se leía como que no paga */
+function loQuePaga(plan: PlanAnual): string {
+  if (plan.estimado) return `Tarifa ${plan.tarifas.map((t) => `${euros(t.importe)}/${t.cada === 'hora' ? 'hora' : 'sesión'}`).join(' · ')}`;
+  if (sinCuotaFija(plan)) return 'Sin cuota fija';
+  if (plan.cuotaMensual === 0) return `Te paga ${euros(plan.cobrosAnuales.reduce((t, l) => t + l.importe, 0))}/año`;
+  return `Te paga ${euros(plan.cuotaMensual)}/mes`;
+}
+
 /** Cuándo se habló por última vez, qué toca hacer y qué se le está esperando */
 function SeguimientoCliente({
   ultimo,
@@ -301,6 +299,7 @@ function SeguimientoCliente({
   esperando,
   hoy,
   rutas,
+  titulos,
 }: {
   ultimo?: string;
   limite?: number;
@@ -308,6 +307,7 @@ function SeguimientoCliente({
   esperando: Tarea[];
   hoy: string;
   rutas: Record<string, string>;
+  titulos: Record<string, string>;
 }) {
   const dias = ultimo ? diasEntre(ultimo, hoy) : undefined;
   const frio = limite !== undefined && (dias === undefined || dias > limite);
@@ -328,7 +328,7 @@ function SeguimientoCliente({
           <Route className="mt-0.5 size-3.5 shrink-0 text-apagado" aria-hidden />
           <span className="line-clamp-2 min-w-0">
             <span className="text-apagado">Próximo paso: </span>
-            <Markdown texto={proximoPaso.tarea.texto} rutas={rutas} enLinea />
+            <Markdown texto={proximoPaso.tarea.texto} rutas={rutas} titulos={titulos} enLinea />
           </span>
         </p>
       )}
@@ -337,7 +337,7 @@ function SeguimientoCliente({
           <Hourglass className="mt-0.5 size-3.5 shrink-0 text-apagado" aria-hidden />
           <span className="line-clamp-2 min-w-0">
             <span className="text-apagado">Esperando: </span>
-            <Markdown texto={tarea.texto} rutas={rutas} enLinea />
+            <Markdown texto={tarea.texto} rutas={rutas} titulos={titulos} enLinea />
           </span>
         </p>
       ))}

@@ -1,8 +1,9 @@
-import Form from 'next/form';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { BarraOrdenes } from '@/components/barra-ordenes';
+import { BuscadorCabecera } from '@/components/buscador-cabecera';
+import { ZONA_TOQUE } from '@/components/estilos';
 import { BarraInferior, BarraLateral, Marca } from '@/components/navegacion';
 import { verificarSesion } from '@/lib/sesion';
 
@@ -11,40 +12,44 @@ export default async function LayoutPanel({ children }: { children: ReactNode })
 
   return (
     <div className="min-h-screen">
+      {/* Lo primero que alcanza el Tab: sin él, hay que pasar por todo el menú antes de llegar a la página */}
+      {/* Fuera de la pantalla, por arriba, hasta que llega el foco (con `sr-only` perdía el relleno al verse) */}
+      <a
+        href="#contenido"
+        className="no-imprimir fixed left-3 top-3 z-50 -translate-y-[200%] rounded-lg bg-acento-fuerte px-4 py-3 text-sm font-medium text-white focus:translate-y-0"
+      >
+        Saltar al contenido
+      </a>
+
       <BarraLateral />
 
       <div className="lg:pl-60 print:pl-0">
         <header className="no-imprimir sticky top-0 z-20 border-b border-borde bg-fondo/85 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:px-6">
-            <Link href="/" className="flex items-center gap-2 lg:hidden" aria-label="Inicio">
+            <Link href="/" className={`${ZONA_TOQUE} flex items-center gap-2 rounded-lg lg:hidden`} aria-label="Inicio">
               <Marca />
             </Link>
 
-            <Form action="/buscar" className="relative min-w-0 flex-1 sm:max-w-sm">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-apagado" aria-hidden />
-              <input
-                type="search"
-                name="q"
-                placeholder="Buscar en las notas"
-                aria-label="Buscar en las notas"
-                className="h-9 w-full rounded-lg border border-borde bg-superficie pl-8 pr-3 text-sm outline-none placeholder:text-apagado focus:border-acento focus:ring-2 focus:ring-acento/25"
-              />
-            </Form>
+            <BuscadorCabecera />
 
             <div className="ml-auto flex shrink-0 items-center gap-2">
               <BarraOrdenes />
               <Link
                 href="/capturar"
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90"
+                className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90"
               >
                 <Plus className="size-4" aria-hidden />
                 <span className="hidden sm:inline">Apuntar</span>
+                <span className="sr-only sm:hidden">Apuntar</span>
               </Link>
             </div>
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:pb-12 print:p-0">{children}</main>
+        {/* `tabIndex={-1}`: el salto lleva el foco aquí, y el siguiente Tab sigue por la página */}
+        <main id="contenido" tabIndex={-1} className="mx-auto max-w-7xl px-4 pb-28 pt-6 outline-none sm:px-6 lg:pb-12 print:p-0">
+          {children}
+        </main>
       </div>
 
       <BarraInferior />

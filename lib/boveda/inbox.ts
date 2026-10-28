@@ -17,23 +17,36 @@ export interface Opcion {
   titulo: string;
 }
 
+/**
+ * El resumen sin su primera línea si repite el título: una captura lleva el texto debajo de un
+ * `# Título` que es su primera línea (y en las tareas, `- [ ] ` delante). Si el título se cortó
+ * con «…», basta con que la línea empiece igual
+ */
+function sinRepetirTitulo(resumen: string, titulo: string): string {
+  const [primera = '', ...resto] = resumen.split('\n');
+  const limpia = primera.replace(/^\s*(?:[-*+]\s+(?:\[[ xX]\]\s+)?|>\s*|#+\s+)?/, '').trim();
+  const repite = limpia === titulo || (titulo.endsWith('…') && limpia.startsWith(titulo.slice(0, -1).trimEnd()));
+  return repite ? resto.join('\n').trim() : resumen;
+}
+
 export function capturas(boveda: Boveda): Captura[] {
   return boveda.notas
     .filter((nota) => nota.carpeta === 'inbox')
     .map((nota) => {
       const p = nota.propiedades;
       const principal = nota.secciones.find((s) => s.nivel === 1)?.contenido ?? nota.secciones[0]?.contenido ?? '';
+      const resumen = principal
+        .split('\n')
+        .filter((linea) => !/^\s*#[A-Za-z]/.test(linea))
+        .join('\n')
+        .trim();
       return {
         nota,
         categoria: texto(p.categoria),
         fecha: texto(p.fecha) ?? nota.nombre.match(/^\d{4}-\d{2}-\d{2}/)?.[0],
         hora: texto(p.hora),
         relacionada: lista(p.relacionado).map(destinoEnlace)[0],
-        resumen: principal
-          .split('\n')
-          .filter((linea) => !/^\s*#[A-Za-z]/.test(linea))
-          .join('\n')
-          .trim(),
+        resumen: sinRepetirTitulo(resumen, nota.titulo),
       };
     })
     .sort((a, b) =>

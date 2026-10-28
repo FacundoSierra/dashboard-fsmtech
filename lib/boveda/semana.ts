@@ -1,6 +1,6 @@
 import 'server-only';
-import { sumarDias } from '@/lib/fechas';
-import { dailies, reuniones, type ResumenReunion } from './consultas';
+import { semanaIso, sumarDias } from '@/lib/fechas';
+import { claveTarea, dailies, reuniones, type ResumenReunion } from './consultas';
 import { contenidoSeccion, tareasDe } from './parser';
 import type { Boveda, Nota, Tarea } from './tipos';
 
@@ -26,6 +26,10 @@ export interface ResumenSemana {
   /** Días seguidos con daily hasta hoy; si hoy aún no hay, hasta ayer */
   racha: number;
   totales: {
+    /**
+     * Objetivos distintos de la semana: el que se arrastra de un día a otro cuenta una vez, y está
+     * hecho si se marcó cualquier día
+     */
     objetivosHechos: number;
     objetivosTotales: number;
     completado: number;
@@ -49,10 +53,16 @@ export function resumenSemana(boveda: Boveda, lunes: string, hoy: string): Resum
     }
   }
 
+  // Cada objetivo de la semana, una vez: la diaria nueva arrastra lo que quedó sin marcar en la anterior
+  const objetivosSemana = new Map<string, boolean>();
   const dias: DiaSemana[] = Array.from({ length: 7 }, (_, i) => {
     const fecha = sumarDias(lunes, i);
     const daily = dailyPorFecha.get(fecha);
     const objetivos = daily ? tareasDe(contenidoSeccion(daily, 'objetivos') ?? '').filter((t) => t.nivel === 0) : [];
+    for (const objetivo of objetivos) {
+      const clave = claveTarea(objetivo.texto);
+      objetivosSemana.set(clave, objetivosSemana.get(clave) === true || objetivo.hecha);
+    }
     return {
       fecha,
       daily,
@@ -79,8 +89,8 @@ export function resumenSemana(boveda: Boveda, lunes: string, hoy: string): Resum
     dias,
     racha,
     totales: {
-      objetivosHechos: suma((d) => d.objetivosHechos),
-      objetivosTotales: suma((d) => d.objetivosTotales),
+      objetivosHechos: [...objetivosSemana.values()].filter(Boolean).length,
+      objetivosTotales: objetivosSemana.size,
       completado: suma((d) => d.completado.length),
       enNotas: suma((d) => d.enNotas.length),
       reuniones: suma((d) => d.reuniones.length),
@@ -105,6 +115,17 @@ export interface RevisionSemanal {
   preguntas: { pregunta: string; respuesta?: string }[];
   /** Markdown de la sección «Prioridades», si la tiene */
   prioridades?: string;
+}
+
+/**
+ * Cuántas semanas van de la semana de una revisión (`2026-W41`) a la que empieza en `lunes`: 0 si
+ * es la misma. Se cuenta hacia atrás de lunes en lunes, como mucho dos años
+ */
+export function semanasDesde(semana: string, lunes: string): number | undefined {
+  for (let n = 0, fecha = lunes; n <= 104; n++, fecha = sumarDias(fecha, -7)) {
+    if (semanaIso(fecha) === semana) return n;
+  }
+  return undefined;
 }
 
 /** La revisión de esa semana o, si aún no está hecha, la última anterior: la del domingo se responde el lunes */

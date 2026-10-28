@@ -3,11 +3,17 @@ import Link from 'next/link';
 import { ChevronRight, FileText } from 'lucide-react';
 import { Encabezado, Tarjeta, Vacio, euros } from '@/components/ui';
 import { obtenerBoveda, proyectos } from '@/lib/boveda/consultas';
-import { economia, nombreMes, planVigente } from '@/lib/economia';
+import { economia, nombreMes, planVigente, sinCuotaFija, type PlanAnual } from '@/lib/economia';
 import { hoyMadrid } from '@/lib/fechas';
 import { mesAnterior } from '@/lib/informes';
 
 export const metadata: Metadata = { title: 'Informes' };
+
+/** Sin cuota fija (OVB, CNI) se dice: «Te paga 0 € al mes» se leía como que no paga */
+function cuota(plan: PlanAnual | undefined): string {
+  if (!plan) return 'Sin plan de cobros';
+  return sinCuotaFija(plan) ? 'Sin cuota fija' : `Te paga ${euros(plan.cuotaMensual)} al mes`;
+}
 
 export default async function PaginaInformes() {
   const boveda = await obtenerBoveda();
@@ -39,7 +45,7 @@ export default async function PaginaInformes() {
                   <span className="min-w-0">
                     <span className="block text-sm font-medium">{c.nota.titulo}</span>
                     <span className="text-xs text-tenue">
-                      {planVigente(c, hoy) ? `Te paga ${euros(planVigente(c, hoy)!.cuotaMensual)} al mes` : 'Sin plan de cobros'}
+                      {cuota(planVigente(c, hoy))}
                     </span>
                   </span>
                   <ChevronRight className="size-4 shrink-0 text-apagado" aria-hidden />

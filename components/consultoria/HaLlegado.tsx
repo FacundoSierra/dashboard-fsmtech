@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { X } from 'lucide-react';
+import { useDialogo } from '@/components/dialogo';
 import { marcarLiquidacion } from '@/lib/consultoria/acciones';
 import { calcularLiquidacion, cuentaDeComisiones } from '@/lib/consultoria/reglas';
 import type { LineaLiquidacion, MesLiquidacion, MovimientoDeCuenta } from '@/lib/consultoria/tipos';
@@ -51,12 +52,9 @@ export default function HaLlegado({
   const [error, setError] = useState<string | null>(null);
   const [guardando, empezar] = useTransition();
 
-  useEffect(() => {
-    hoja.current?.focus();
-    const tecla = (evento: KeyboardEvent) => evento.key === 'Escape' && alCerrar();
-    document.addEventListener('keydown', tecla);
-    return () => document.removeEventListener('keydown', tecla);
-  }, [alCerrar]);
+  // Al abrirse, el foco va a la hoja; Esc la cierra, el Tab no se sale y, al cerrarse, el foco
+  // vuelve al botón «Ha llegado»
+  useDialogo({ abierto: true, caja: hoja, alCerrar });
 
   const conmutar = <T,>(conjunto: Set<T>, valor: T) => {
     const nuevo = new Set(conjunto);

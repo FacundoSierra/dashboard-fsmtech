@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import {
   Activity,
   Briefcase,
@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { cerrarSesion } from '@/app/login/acciones';
+import { useDialogo } from './dialogo';
 
 type Seccion = { href: string; texto: string; icono: typeof LayoutDashboard };
 
@@ -75,6 +76,9 @@ function esActiva(href: string, ruta: string): boolean {
   return href === '/' ? ruta === '/' : ruta === href || ruta.startsWith(`${href}/`);
 }
 
+// En la hoja del móvil, cada fila de 44 px; en el menú lateral, que se usa con ratón, más juntas
+const FILA_HOJA = 'min-h-11';
+
 function EnlaceSeccion({ seccion, ruta, alPulsar }: { seccion: Seccion; ruta: string; alPulsar?: () => void }) {
   const activa = esActiva(seccion.href, ruta);
   const IconoSeccion = seccion.icono;
@@ -83,7 +87,7 @@ function EnlaceSeccion({ seccion, ruta, alPulsar }: { seccion: Seccion; ruta: st
       href={seccion.href}
       onClick={alPulsar}
       aria-current={activa ? 'page' : undefined}
-      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
+      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${alPulsar ? FILA_HOJA : ''} ${
         activa ? 'bg-acento-suave text-acento' : 'text-tenue hover:bg-superficie-2 hover:text-texto'
       }`}
     >
@@ -117,7 +121,7 @@ function EnlaceAjustes({ ruta, alPulsar }: { ruta: string; alPulsar?: () => void
       href="/ajustes"
       onClick={alPulsar}
       aria-current={activa ? 'page' : undefined}
-      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium ${
+      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium ${alPulsar ? FILA_HOJA : ''} ${
         activa ? 'bg-acento-suave text-acento' : 'text-tenue hover:bg-superficie-2 hover:text-texto'
       }`}
     >
@@ -127,12 +131,12 @@ function EnlaceAjustes({ ruta, alPulsar }: { ruta: string; alPulsar?: () => void
   );
 }
 
-function BotonSalir() {
+function BotonSalir({ enHoja = false }: { enHoja?: boolean }) {
   return (
     <form action={cerrarSesion}>
       <button
         type="submit"
-        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-tenue hover:bg-superficie-2 hover:text-texto"
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-tenue hover:bg-superficie-2 hover:text-texto ${enHoja ? FILA_HOJA : ''}`}
       >
         <LogOut className="size-4" aria-hidden />
         Salir
@@ -161,42 +165,66 @@ export function BarraLateral() {
   );
 }
 
+/**
+ * La hoja «Más» del móvil, con todas las secciones. Al abrirse se lleva el foco, Esc la cierra, el
+ * Tab no se sale de ella y, al cerrarse, el foco vuelve a «Más»
+ */
+function HojaSecciones({ ruta, alCerrar, vuelta }: { ruta: string; alCerrar: () => void; vuelta: RefObject<HTMLButtonElement | null> }) {
+  const hoja = useRef<HTMLDivElement>(null);
+  useDialogo({ abierto: true, caja: hoja, alCerrar, vuelta });
+
+  return (
+    <div className="no-imprimir fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-labelledby="hoja-secciones">
+      {/* Solo para el dedo y el ratón: con el teclado está la X y Esc */}
+      <button type="button" tabIndex={-1} aria-label="Cerrar" className="absolute inset-0 bg-black/40" onClick={alCerrar} />
+      <div
+        ref={hoja}
+        tabIndex={-1}
+        className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-borde bg-superficie p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none"
+      >
+        <div className="mb-2 flex items-center justify-between">
+          <p id="hoja-secciones" className="text-sm font-semibold">
+            Secciones
+          </p>
+          <button
+            type="button"
+            onClick={alCerrar}
+            aria-label="Cerrar"
+            className="-mr-2 grid size-11 place-items-center rounded-lg text-tenue hover:bg-superficie-2 hover:text-texto"
+          >
+            <X className="size-5" aria-hidden />
+          </button>
+        </div>
+        <ListaGrupos ruta={ruta} alPulsar={alCerrar} />
+        <div className="mt-5 border-t border-borde pt-3">
+          <Link
+            href="/buscar"
+            onClick={alCerrar}
+            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-tenue hover:bg-superficie-2 hover:text-texto ${FILA_HOJA}`}
+          >
+            <Search className="size-4" aria-hidden />
+            Buscar
+          </Link>
+          <EnlaceAjustes ruta={ruta} alPulsar={alCerrar} />
+          <BotonSalir enHoja />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Barra de pestañas del móvil, con «Más» para el resto de secciones */
 export function BarraInferior() {
   const ruta = usePathname();
   const [abierto, setAbierto] = useState(false);
+  const mas = useRef<HTMLButtonElement>(null);
 
   const principales = TODAS.filter((seccion) => EN_BARRA_INFERIOR.includes(seccion.href));
   const enMas = !principales.some((seccion) => esActiva(seccion.href, ruta));
 
   return (
     <>
-      {abierto && (
-        <div className="no-imprimir fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Todas las secciones">
-          <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/40" onClick={() => setAbierto(false)} />
-          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-borde bg-superficie p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold">Secciones</p>
-              <button type="button" onClick={() => setAbierto(false)} aria-label="Cerrar" className="rounded-lg p-1.5 text-tenue">
-                <X className="size-5" aria-hidden />
-              </button>
-            </div>
-            <ListaGrupos ruta={ruta} alPulsar={() => setAbierto(false)} />
-            <div className="mt-5 border-t border-borde pt-3">
-              <Link
-                href="/buscar"
-                onClick={() => setAbierto(false)}
-                className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-tenue"
-              >
-                <Search className="size-4" aria-hidden />
-                Buscar
-              </Link>
-              <EnlaceAjustes ruta={ruta} alPulsar={() => setAbierto(false)} />
-              <BotonSalir />
-            </div>
-          </div>
-        </div>
-      )}
+      {abierto && <HojaSecciones ruta={ruta} alCerrar={() => setAbierto(false)} vuelta={mas} />}
 
       <nav
         aria-label="Secciones principales"
@@ -218,9 +246,11 @@ export function BarraInferior() {
           );
         })}
         <button
+          ref={mas}
           type="button"
           onClick={() => setAbierto(true)}
           aria-expanded={abierto}
+          aria-haspopup="dialog"
           className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${enMas ? 'text-acento' : 'text-apagado'}`}
         >
           <Menu className="size-5" aria-hidden />

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import { Download, ExternalLink, FileText, Upload } from 'lucide-react';
+import { ZONA_TOQUE } from '@/components/estilos';
+import { FiltroDesplegable } from '@/components/filtro-desplegable';
 import { SubirDocumento } from '@/components/subir-documento';
-import { Chip, Encabezado, Pendiente, Tarjeta, Vacio, euros } from '@/components/ui';
+import { Chip, Encabezado, Filtro, Pendiente, Tarjeta, Vacio, euros } from '@/components/ui';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
 import { almacenConfigurado } from '@/lib/documentos/almacen';
 import { tipoParaServir } from '@/lib/documentos/archivos';
@@ -24,20 +25,6 @@ function conFiltro(actual: { cliente?: string; categoria?: Categoria }, cambio: 
   if (categoria) parametros.set('categoria', categoria);
   const consulta = parametros.toString();
   return consulta ? `/documentos?${consulta}` : '/documentos';
-}
-
-function Filtro({ href, activo, children }: { href: string; activo: boolean; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      aria-current={activo ? 'true' : undefined}
-      className={`rounded-full border px-3 py-1 text-xs whitespace-nowrap ${
-        activo ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
-      }`}
-    >
-      {children}
-    </Link>
-  );
 }
 
 export default async function PaginaDocumentos({ searchParams }: PageProps<'/documentos'>) {
@@ -68,19 +55,19 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
         subtitulo="Facturas, contratos y lo que te pasan los clientes. El archivo, en un almacén privado; en la bóveda, una nota con sus datos"
       />
 
-      <div className="grid gap-6 xl:grid-cols-5">
-        <div className="space-y-4 xl:col-span-3">
-          <div className="flex flex-wrap gap-1.5">
-            <Filtro href={conFiltro(filtro, { cliente: null })} activo={!cliente}>
-              Todos los clientes
-            </Filtro>
-            {fichas.map((f) => (
-              <Filtro key={f.nombre} href={conFiltro(filtro, { cliente: f.nombre })} activo={cliente === f.nombre}>
-                {f.titulo}
-              </Filtro>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
+      {/* grid-cols-1 es minmax(0, 1fr): sin él, en el móvil la columna crecía con el título más largo y ensanchaba la página */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+        <div className="min-w-0 space-y-4 xl:col-span-3">
+          {/* El cliente, en un desplegable: como etiquetas, con los de la categoría, eran cinco filas del móvil */}
+          <FiltroDesplegable
+            etiqueta="Cliente"
+            actual={cliente ?? ''}
+            opciones={[
+              { valor: '', texto: 'Todos los clientes', href: conFiltro(filtro, { cliente: null }) },
+              ...fichas.map((f) => ({ valor: f.nombre, texto: f.titulo, href: conFiltro(filtro, { cliente: f.nombre }) })),
+            ]}
+          />
+          <nav aria-label="Categoría" className="flex flex-wrap gap-2">
             <Filtro href={conFiltro(filtro, { categoria: null })} activo={!categoria}>
               Todo
             </Filtro>
@@ -89,7 +76,7 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
                 {nombre}
               </Filtro>
             ))}
-          </div>
+          </nav>
 
           <Tarjeta titulo={`${visibles.length} ${visibles.length === 1 ? 'documento' : 'documentos'}`} icono={FileText} sinRelleno>
             {visibles.length === 0 ? (
@@ -103,8 +90,8 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
                   return (
                     <li key={d.nota.ruta} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
                       <div className="min-w-0">
-                        <Link href={hrefNota(d.nota.ruta)} className="block truncate text-sm font-medium hover:text-acento">
-                          {d.nota.titulo}
+                        <Link href={hrefNota(d.nota.ruta)} className={`${ZONA_TOQUE} block text-sm font-medium hover:text-acento`}>
+                          <span className="block truncate">{d.nota.titulo}</span>
                         </Link>
                         <p className="mt-0.5 text-xs text-tenue">
                           {tituloDe.get(d.cliente) ?? d.cliente}
@@ -120,7 +107,7 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
                             href={hrefArchivo(d)}
                             target={enLinea ? '_blank' : undefined}
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-tenue hover:text-acento"
+                            className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-xs text-tenue hover:text-acento`}
                           >
                             {enLinea ? <ExternalLink className="size-3.5" aria-hidden /> : <Download className="size-3.5" aria-hidden />}
                             {enLinea ? 'Abrir' : 'Descargar'}
@@ -138,7 +125,7 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
           </p>
         </div>
 
-        <div className="xl:col-span-2">
+        <div className="min-w-0 xl:col-span-2">
           <div id="subir" className="scroll-mt-20">
             <Tarjeta titulo="Subir un documento" icono={Upload}>
               {!configurado ? (

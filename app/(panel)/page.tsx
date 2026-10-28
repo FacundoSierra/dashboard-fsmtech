@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { Bell, CalendarClock, CheckSquare, ExternalLink, Flame, Hourglass, Inbox, History } from 'lucide-react';
+import { Bell, CalendarClock, CheckSquare, ExternalLink, Flame, Hourglass, Inbox, History, Plus } from 'lucide-react';
 import { ListaAvisos } from '@/components/avisos';
 import { NuevoObjetivo } from '@/components/tarea-editable';
 import { ListaTareas, ListaTareasEditable } from '@/components/tareas';
@@ -82,7 +82,7 @@ function saludo(): string {
 
 export default async function PaginaHoy() {
   const boveda = await obtenerBoveda();
-  const { rutas } = boveda;
+  const { rutas, titulos } = boveda;
   const hoy = hoyMadrid();
 
   const { daily, objetivos, espera, completado, anteriores } = resumenHoy(boveda, hoy);
@@ -119,19 +119,27 @@ export default async function PaginaHoy() {
         <Suspense fallback={<KpiCargando etiqueta="Webs en línea" />}>
           <KpiWebs boveda={boveda} />
         </Suspense>
+        {/* Lo que queda de verdad, ya con los gastos del negocio: la misma cifra y el mismo nombre que en Economía */}
         <Kpi
-          etiqueta="Te quedan al mes"
-          valor={dinero.conPlan ? euros(dinero.netoMensual) : '—'}
+          etiqueta="Te queda al mes"
+          valor={dinero.conPlan ? euros(dinero.netoMensual - dinero.negocio.alMes) : '—'}
           href="/economia"
           estado={dinero.atrasados.length ? 'grave' : undefined}
           detalle={
-            !dinero.conPlan
-              ? 'Sin planes de cobro'
-              : dinero.atrasados.length
-                ? `${euros(dinero.pendiente)} sin cobrar`
-                : dinero.pendiente
-                  ? `${euros(dinero.pendiente)} por cobrar este mes`
-                  : 'Cobros al día'
+            !dinero.conPlan ? (
+              'Sin planes de cobro'
+            ) : (
+              <>
+                <span className="block">Con los gastos del negocio</span>
+                <span className="block">
+                  {dinero.atrasados.length
+                    ? `${euros(dinero.pendiente)} sin cobrar`
+                    : dinero.pendiente
+                      ? `${euros(dinero.pendiente)} por cobrar este mes`
+                      : 'Cobros al día'}
+                </span>
+              </>
+            )
           }
         />
         <Suspense fallback={<KpiCargando etiqueta="Avisos" />}>
@@ -142,7 +150,7 @@ export default async function PaginaHoy() {
       {/* grid-cols-1 es minmax(0, 1fr): sin él, en el móvil la columna crece con lo más ancho que tenga dentro */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <Suspense fallback={<div className="h-40 animate-pulse rounded-xl border border-borde bg-superficie" />}>
+          <Suspense fallback={<div className="h-40 motion-safe:animate-pulse rounded-xl border border-borde bg-superficie" />}>
             <TarjetaAvisos boveda={boveda} hoy={hoy} />
           </Suspense>
 
@@ -156,7 +164,7 @@ export default async function PaginaHoy() {
             ) : principales.length === 0 ? (
               <Vacio>La daily de hoy no tiene objetivos.</Vacio>
             ) : (
-              <ListaTareasEditable tareas={objetivos} rutas={rutas} ruta={daily.ruta} mover="espera" />
+              <ListaTareasEditable tareas={objetivos} rutas={rutas} titulos={titulos} ruta={daily.ruta} mover="espera" />
             )}
             <div className="mt-4">
               <NuevoObjetivo creaDiaria={!daily} />
@@ -168,7 +176,7 @@ export default async function PaginaHoy() {
               <details className="mt-4 border-t border-borde pt-3">
                 <summary className="cursor-pointer text-sm text-tenue">Completado hoy · {completado.length}</summary>
                 <div className="mt-3">
-                  <ListaTareas tareas={completado} rutas={rutas} />
+                  <ListaTareas tareas={completado} rutas={rutas} titulos={titulos} />
                 </div>
               </details>
             )}
@@ -179,6 +187,7 @@ export default async function PaginaHoy() {
               <ListaTareasEditable
                 tareas={espera}
                 rutas={rutas}
+                titulos={titulos}
                 ruta={daily.ruta}
                 mover="objetivos"
                 detalle={(tarea) => <DiasEsperando tarea={tarea} hoy={hoy} />}
@@ -201,7 +210,7 @@ export default async function PaginaHoy() {
                         </Link>{' '}
                         · {cuandoEs(fecha, hoy)}
                       </p>
-                      <ListaTareasEditable tareas={tareas} rutas={rutas} ruta={nota.ruta} />
+                      <ListaTareasEditable tareas={tareas} rutas={rutas} titulos={titulos} ruta={nota.ruta} />
                     </div>
                   ))}
                 </div>
@@ -222,7 +231,7 @@ export default async function PaginaHoy() {
                       {reunion.fecha && (
                         <span className="flex w-11 shrink-0 flex-col items-center rounded-lg border border-borde bg-superficie-2 py-1">
                           <span className="text-base font-semibold leading-none">{Number(reunion.fecha.slice(8, 10))}</span>
-                          <span className="mt-0.5 text-[10px] uppercase text-apagado">
+                          <span className="mt-0.5 text-[11px] uppercase text-apagado">
                             {MES_CORTO.format(new Date(`${reunion.fecha}T00:00:00Z`)).replace('.', '')}
                           </span>
                         </span>
@@ -251,7 +260,7 @@ export default async function PaginaHoy() {
                     <Link href={hrefNota(proyecto.nota.ruta)} className="mb-1 block text-xs text-tenue hover:text-acento">
                       {proyecto.nota.titulo}
                     </Link>
-                    <ListaTareas tareas={[{ ...tarea, nivel: 0 }]} rutas={rutas} />
+                    <ListaTareas tareas={[{ ...tarea, nivel: 0 }]} rutas={rutas} titulos={titulos} />
                   </li>
                 ))}
               </ul>
@@ -261,7 +270,14 @@ export default async function PaginaHoy() {
           <Tarjeta
             titulo={`Inbox · ${inbox.length}`}
             icono={Inbox}
-            accion={<EnlaceAccion href="/capturar">+ Apuntar</EnlaceAccion>}
+            accion={
+              <EnlaceAccion href="/capturar">
+                <span className="inline-flex items-center gap-1">
+                  <Plus className="size-3.5" aria-hidden />
+                  Apuntar
+                </span>
+              </EnlaceAccion>
+            }
           >
             {inbox.length === 0 ? (
               <Vacio>Nada pendiente de procesar.</Vacio>
@@ -319,7 +335,7 @@ function KpiCargando({ etiqueta }: { etiqueta: string }) {
   return (
     <div className="rounded-xl border border-borde bg-superficie p-4 shadow-tarjeta" aria-busy="true">
       <span className="text-sm text-tenue">{etiqueta}</span>
-      <div className="mt-2 h-8 w-16 animate-pulse rounded bg-superficie-2" />
+      <div className="mt-2 h-8 w-16 motion-safe:animate-pulse rounded bg-superficie-2" />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { duracion } from '@/lib/vigilancia/disponibilidad';
 import { estadoGeneral } from '@/lib/vigilancia/estado';
 
 const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+const FLECHA = 'grid size-11 place-items-center rounded-lg border border-borde bg-superficie hover:text-acento';
 
 export async function generateMetadata({ params }: PageProps<'/informes/[cliente]'>): Promise<Metadata> {
   const { cliente } = await params;
@@ -52,16 +53,16 @@ export default async function PaginaInforme({ params, searchParams }: PageProps<
     <>
       <div className="no-imprimir mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          <Link href={`${ruta}?mes=${sumarMeses(mes, -1)}`} aria-label="Mes anterior" className="rounded-lg border border-borde bg-superficie p-2 hover:text-acento">
+          <Link href={`${ruta}?mes=${sumarMeses(mes, -1)}`} aria-label="Mes anterior" className={FLECHA}>
             <ChevronLeft className="size-4" aria-hidden />
           </Link>
           <span className="min-w-36 text-center text-sm font-medium first-letter:uppercase">{nombreMes(mes, true)}</span>
           {mes < mesActual ? (
-            <Link href={`${ruta}?mes=${sumarMeses(mes, 1)}`} aria-label="Mes siguiente" className="rounded-lg border border-borde bg-superficie p-2 hover:text-acento">
+            <Link href={`${ruta}?mes=${sumarMeses(mes, 1)}`} aria-label="Mes siguiente" className={FLECHA}>
               <ChevronRight className="size-4" aria-hidden />
             </Link>
           ) : (
-            <span className="rounded-lg border border-borde p-2 text-apagado opacity-50" aria-hidden>
+            <span className="grid size-11 place-items-center rounded-lg border border-borde text-apagado opacity-50" aria-hidden>
               <ChevronRight className="size-4" />
             </span>
           )}
@@ -76,18 +77,23 @@ export default async function PaginaInforme({ params, searchParams }: PageProps<
       )}
 
       <article className="imprimir-plano mx-auto max-w-3xl rounded-xl border border-borde bg-superficie p-6 shadow-tarjeta sm:p-10">
-        <header className="flex items-start justify-between gap-4 border-b border-borde pb-6">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-apagado">Informe de mantenimiento</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">{informe.cliente.titulo}</h1>
-            <p className="mt-1 text-sm text-tenue first-letter:uppercase">{nombreMes(mes, true)}</p>
+        {/* En el móvil, la firma va arriba y en una fila: al lado del título, el nombre se partía en tres líneas */}
+        <header className="flex flex-col-reverse gap-5 border-b border-borde pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight">{informe.cliente.titulo}</h1>
+            <p className="mt-1 text-sm text-tenue">Informe de mantenimiento · {nombreMes(mes, true)}</p>
           </div>
-          <div className="text-right">
-            <div className="ml-auto flex size-9 items-center justify-center rounded-lg bg-acento-fuerte text-xs font-bold text-white [-webkit-print-color-adjust:exact] [print-color-adjust:exact]" aria-hidden>
+          <div className="flex shrink-0 items-center gap-2.5 sm:block sm:text-right">
+            <div
+              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-acento-fuerte text-xs font-bold text-white [-webkit-print-color-adjust:exact] [print-color-adjust:exact] sm:ml-auto"
+              aria-hidden
+            >
               FS
             </div>
-            <p className="mt-1.5 text-xs font-semibold">FSMTECH</p>
-            <p className="text-xs text-tenue">Facundo Sierra Morales</p>
+            <div>
+              <p className="text-xs font-semibold sm:mt-1.5">FSMTECH</p>
+              <p className="whitespace-nowrap text-xs text-tenue">Facundo Sierra Morales</p>
+            </div>
           </div>
         </header>
 
@@ -96,7 +102,8 @@ export default async function PaginaInforme({ params, searchParams }: PageProps<
             etiqueta="Disponibilidad"
             valor={mediaDisponibilidad === null ? '—' : porcentaje(mediaDisponibilidad, mediaDisponibilidad === 100 ? 0 : 2)}
           />
-          <Cifra etiqueta="Incidencias" valor={String(incidencias)} />
+          {/* Sin vigilancia no se ha medido nada: un «0» le diría al cliente que no hubo caídas */}
+          <Cifra etiqueta="Incidencias" valor={mediaDisponibilidad === null ? '—' : String(incidencias)} />
           <Cifra etiqueta="Cambios publicados" valor={conCambios.length ? String(publicados) : '—'} />
           <Cifra
             etiqueta="Vulnerabilidades"
@@ -199,6 +206,9 @@ function SeccionProyecto({ p, ahora }: { p: InformeProyecto; ahora: number }) {
           )}
         </div>
       )}
+
+      {/* Sin web vigilada y sin acceso al repo, la sección se quedaba en el nombre: en un documento para el cliente, parecía roto */}
+      {!p.web && !p.cambios && <p className="text-sm text-tenue">Sin datos de este proyecto en este periodo.</p>}
 
       {p.cambios &&
         (p.cambios.mejoras.length + p.cambios.correcciones.length + p.cambios.seguridad.length === 0 ? (

@@ -70,7 +70,7 @@ export default async function PaginaCrear({ searchParams }: PageProps<'/crear'>)
             key={valor}
             href={`/crear?tipo=${valor}`}
             aria-current={tipo === valor ? 'page' : undefined}
-            className={`rounded-lg px-4 py-1.5 text-sm font-medium ${tipo === valor ? 'bg-superficie text-texto shadow-sm' : 'text-tenue hover:text-texto'}`}
+            className={`inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium ${tipo === valor ? 'bg-superficie text-texto shadow-sm' : 'text-tenue hover:text-texto'}`}
           >
             {TIPOS[valor]}
           </Link>

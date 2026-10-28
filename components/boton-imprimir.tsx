@@ -8,7 +8,7 @@ export function BotonImprimir() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90"
+      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90"
     >
       <Printer className="size-4" aria-hidden />
       Imprimir o guardar en PDF

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { CalendarClock, FileText, HandCoins, Paperclip, PieChart, Receipt, Scale, TrendingUp } from 'lucide-react';
+import { CalendarClock, Coins, FileText, HandCoins, Paperclip, PieChart, Receipt, Scale, TrendingUp, Wallet } from 'lucide-react';
 import { BotonCobro } from '@/components/boton-cobro';
+import { ZONA_TOQUE } from '@/components/estilos';
 import { CobroExtra, NuevaRenovacion } from '@/components/formularios-economia';
 import { GraficoIngresos } from '@/components/grafico-ingresos';
 import { BarrasHorizontales, FranjaCobros } from '@/components/graficos';
@@ -11,6 +12,7 @@ import {
   Encabezado,
   Estado,
   FILA,
+  Filtro,
   Kpi,
   Pendiente,
   TABLA,
@@ -25,12 +27,16 @@ import {
 import { LINEAS, esLinea, lineaDe, obtenerBoveda, type Linea } from '@/lib/boveda/consultas';
 import { documentos, facturaDe, hrefArchivo, type Documento } from '@/lib/documentos/documentos';
 import {
+  cobrosPorCobrar,
   economia,
+  mediaSinCuota,
   mesesDelPlan,
   nombreMes,
   planVigente,
+  sinCuotaFija,
   type Balance,
   type Cobro,
+  type CobroDebido,
   type EconomiaCliente,
   type GastosNegocio,
   type LineaPlan,
@@ -57,24 +63,20 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
     .sort((a, b) => b.rentabilidad.margen - a.rentabilidad.margen);
   const hayPlanes = datos.clientes.some((c) => c.planes.length > 0);
   const docs = documentos(boveda);
+  const debidos = cobrosPorCobrar(datos, hoy);
+  // Lo que dejan los clientes menos lo que cuesta el negocio al mes: la cifra de Hoy
+  const queda = datos.netoMensual - datos.negocio.alMes;
 
   return (
     <>
       <Encabezado titulo="Economía" subtitulo={`Lo acordado con cada cliente en ${anio} y lo que te han pagado`} />
 
       {(lineas.length > 1 || linea) && (
-        <nav aria-label="Línea de negocio" className="-mt-2 mb-5 flex flex-wrap gap-1.5">
+        <nav aria-label="Línea de negocio" className="-mt-2 mb-5 flex flex-wrap gap-2">
           {[undefined, ...lineas].map((valor) => (
-            <Link
-              key={valor ?? 'todas'}
-              href={valor ? `/economia?linea=${valor}` : '/economia'}
-              aria-current={linea === valor ? 'true' : undefined}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                linea === valor ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
-              }`}
-            >
+            <Filtro key={valor ?? 'todas'} href={valor ? `/economia?linea=${valor}` : '/economia'} activo={linea === valor}>
               {valor ? LINEAS[valor] : 'Todas las líneas'}
-            </Link>
+            </Filtro>
           ))}
         </nav>
       )}
@@ -94,15 +96,23 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
         </div>
       ) : (
         <div className="space-y-6">
+          {/*
+            Dos cifras que antes se llamaban igual: «Te queda al mes» ya descuenta los gastos del
+            negocio (es la que sale en Hoy) y el «Margen de los clientes», no. Cada una con su nombre
+          */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi
-              etiqueta="Te quedan al mes"
+              etiqueta="Te queda al mes"
+              valor={euros(queda)}
+              icono={Wallet}
+              detalle={`Con los gastos del negocio: ${euros(datos.negocio.alMes)} al mes`}
+            />
+            <Kpi
+              etiqueta="Margen de los clientes"
               valor={euros(datos.netoMensual)}
               icono={TrendingUp}
               detalle={
-                (datos.variacion === 0
-                  ? `${datos.conPlan} ${datos.conPlan === 1 ? 'cliente' : 'clientes'} con plan`
-                  : `${datos.variacion > 0 ? '+' : '−'}${euros(Math.abs(datos.variacion))} respecto al mes pasado`) +
+                `Al mes, te pagan ${euros(datos.ingresoMensual)} y pagas ${euros(datos.gastoMensual)} por ellos` +
                 (datos.clientes.some((c) => c.plan?.estimado) ? '. Las sesiones, por su media' : '')
               }
             />
@@ -119,28 +129,26 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
                     : 'Al día'
               }
             />
-            <Kpi
-              etiqueta="Pagas a proveedores"
-              valor={euros(datos.gastoMensual)}
-              detalle={`Al mes. Te pagan ${euros(datos.ingresoMensual)}`}
-            />
           </div>
+
+          {/* Lo que más se hace en esta pantalla, arriba: antes, en el móvil, el primer botón estaba a casi 3.000 px */}
+          <PorCobrar debidos={debidos} docs={docs} hoy={hoy} />
 
           <TarjetaBalance
             balance={datos.balance}
             anio={anio}
-            alMes={{ tePagan: datos.ingresoMensual, porClientes: datos.gastoMensual, negocio: datos.negocio.alMes, clientes: datos.netoMensual }}
+            alMes={{ tePagan: datos.ingresoMensual, porClientes: datos.gastoMensual, negocio: datos.negocio.alMes, queda }}
           />
 
-          {/* grid-cols-1 es minmax(0, 1fr): sin él, la columna del móvil crece con su contenido */}
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-            <Tarjeta titulo="Lo que te queda cada mes" icono={TrendingUp} className="xl:col-span-3">
+          {/* grid-cols-1 es minmax(0, 1fr): sin él, la columna del móvil crece con su contenido. `items-start`: cada tarjeta, de su alto */}
+          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-5">
+            <Tarjeta titulo="Margen de los clientes, mes a mes" icono={TrendingUp} className="xl:col-span-3">
               {datos.serie.length < 2 ? (
                 <Vacio>La evolución se dibuja a partir del segundo mes con planes.</Vacio>
               ) : (
                 <>
                   <GraficoIngresos
-                    titulo="Lo que te queda cada mes"
+                    titulo="Margen de los clientes, mes a mes"
                     puntos={datos.serie.map((p) => ({
                       eje: nombreMes(p.mes).split(' ')[0],
                       anio: p.mes.slice(2, 4),
@@ -149,13 +157,14 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
                       texto: euros(p.importe),
                     }))}
                   />
-                  <details className="mt-3 text-sm">
-                    <summary className="cursor-pointer text-tenue">Ver como tabla</summary>
-                    <table className={`${TABLA} mt-2`}>
+                  <details className="mt-1 text-sm">
+                    {/* 20 px de texto y 12 arriba y abajo: 44 px de toque, sin quitarle el triángulo */}
+                    <summary className="cursor-pointer py-3 text-tenue hover:text-texto">Ver como tabla</summary>
+                    <table className={TABLA}>
                       <thead>
                         <tr>
                           <th className={TH}>Mes</th>
-                          <th className={`${TH} text-right`}>Te queda</th>
+                          <th className={`${TH} text-right`}>Margen</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -174,7 +183,7 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
 
             <Tarjeta titulo="Reparto por cliente" icono={PieChart} className="xl:col-span-2">
               <BarrasHorizontales
-                titulo="Lo que te queda al mes de cada cliente"
+                titulo="Margen de cada cliente al mes"
                 barras={datos.clientes
                   .map((c) => ({ c, plan: planVigente(c, hoy) }))
                   .filter(({ plan }) => plan && plan.netoMensual > 0)
@@ -193,6 +202,16 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
             </Tarjeta>
           </div>
 
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-tenue">Clientes</h2>
+            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+              {datos.clientes.map((c) => (
+                <TarjetaCliente key={c.nota.ruta} cliente={c} anio={anio} hoy={hoy} docs={docs} />
+              ))}
+            </div>
+          </section>
+
+          {/* Lo que no es del día a día, después de los clientes */}
           <Tarjeta titulo="Lo que te ha dejado cada cliente · últimos 12 meses" icono={HandCoins}>
             {conRentabilidad.length === 0 ? (
               <Vacio>Aún no hay cobros marcados en los últimos doce meses.</Vacio>
@@ -217,21 +236,12 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
           </Tarjeta>
 
           <GastosDelNegocio negocio={datos.negocio} anio={anio} hoy={hoy} linea={linea} />
-
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-tenue">Clientes</h2>
-            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
-              {datos.clientes.map((c) => (
-                <TarjetaCliente key={c.nota.ruta} cliente={c} anio={anio} hoy={hoy} docs={docs} />
-              ))}
-            </div>
-          </section>
         </div>
       )}
 
       <div className="mt-6">
         <Suspense
-          fallback={<div className="h-48 animate-pulse rounded-xl border border-borde bg-superficie" aria-label="Cargando renovaciones" />}
+          fallback={<div className="h-48 motion-safe:animate-pulse rounded-xl border border-borde bg-superficie" aria-label="Cargando renovaciones" />}
         >
           <Renovaciones
             manuales={datos.renovaciones}
@@ -254,14 +264,14 @@ function TarjetaBalance({
 }: {
   balance: Balance;
   anio: number;
-  alMes: { tePagan: number; porClientes: number; negocio: number; clientes: number };
+  alMes: { tePagan: number; porClientes: number; negocio: number; queda: number };
 }) {
   const filas = [
     { etiqueta: 'Cobrado', detalle: 'Casillas marcadas', valor: balance.cobrado, signo: '+' },
     { etiqueta: 'Pagado por tus clientes', detalle: 'Hosting, dominios, bases de datos… según sus planes', valor: balance.porClientes, signo: '−' },
     { etiqueta: 'Gastos del negocio', detalle: 'Tus herramientas y suscripciones, y los pagos sueltos', valor: balance.negocio, signo: '−' },
   ];
-  const queda = alMes.clientes - alMes.negocio;
+  const { queda } = alMes;
 
   return (
     <Tarjeta titulo={`Balance de ${anio}, hasta hoy`} icono={Scale}>
@@ -289,10 +299,55 @@ function TarjetaBalance({
       <p className="mt-3 text-xs text-tenue">
         Al mes, con los planes y las suscripciones de hoy: te pagan {euros(alMes.tePagan, true)}, pagas{' '}
         {euros(alMes.porClientes, true)} por tus clientes y {euros(alMes.negocio, true)} del negocio.{' '}
-        {queda >= 0 ? `Te quedan ${euros(queda, true)}` : `Pierdes ${euros(-queda, true)}`}.
+        {queda >= 0 ? `Te quedan ${euros(queda, true)} al mes` : `Pierdes ${euros(-queda, true)} al mes`}.
       </p>
     </Tarjeta>
   );
+}
+
+// ── Por cobrar ───────────────────────────────────────────────────────────────
+
+/**
+ * Los cobros de este mes y los atrasados de todos los clientes, con su botón. Los marcados hoy
+ * se quedan en la lista con «Deshacer», en su sitio; sin nada que cobrar ni marcado hoy, no ocupa sitio
+ */
+function PorCobrar({ debidos, docs, hoy }: { debidos: CobroDebido[]; docs: Documento[]; hoy: string }) {
+  if (debidos.length === 0) return null;
+  const faltan = debidos.filter((d) => !d.cobro.cobrado).length;
+  const claves = clavesEstables(debidos.map((d) => ({ ruta: d.plan.nota.ruta, cobro: d.cobro })));
+
+  return (
+    <Tarjeta titulo={faltan ? `Por cobrar · ${faltan}` : 'Por cobrar · todo marcado'} icono={Coins} sinRelleno>
+      <div id="por-cobrar" className="scroll-mt-20" />
+      <ul className="divide-y divide-borde">
+        {debidos.map(({ cliente, plan, cobro }, i) => (
+          <FilaCobro
+            key={claves[i]}
+            cobro={cobro}
+            ruta={plan.nota.ruta}
+            cliente={cliente.nota.nombre}
+            titulo={cliente.nota.titulo}
+            docs={docs}
+            hoy={hoy}
+          />
+        ))}
+      </ul>
+    </Tarjeta>
+  );
+}
+
+/**
+ * Una clave por cobro que no cambia al marcarlo: la línea sí cambia (gana «— cobrado …»), y con
+ * ella de clave React montaría un botón nuevo y se perdería el «Deshacer» de la fila
+ */
+function clavesEstables(cobros: { ruta: string; cobro: Cobro }[]): string[] {
+  const vistas = new Map<string, number>();
+  return cobros.map(({ ruta, cobro }) => {
+    const base = `${ruta}|${cobro.mes}|${cobro.concepto}`;
+    const veces = vistas.get(base) ?? 0;
+    vistas.set(base, veces + 1);
+    return veces ? `${base}|${veces}` : base;
+  });
 }
 
 /** Lo que paga el negocio y no es de ningún cliente: de `negocio/gastos-fsmtech.md` */
@@ -305,7 +360,7 @@ function GastosDelNegocio({ negocio, anio, hoy, linea }: { negocio: GastosNegoci
       sinRelleno
       accion={
         negocio.nota && (
-          <Link href={hrefNota(negocio.nota.ruta)} className="text-xs text-tenue hover:text-acento">
+          <Link href={hrefNota(negocio.nota.ruta)} className={`${ZONA_TOQUE} text-xs text-tenue hover:text-acento`}>
             Ver la nota
           </Link>
         )
@@ -383,14 +438,14 @@ function estadoCobros(c: EconomiaCliente, plan: PlanAnual | undefined): { nivel:
 function TarjetaCliente({ cliente, anio, hoy, docs }: { cliente: EconomiaCliente; anio: number; hoy: string; docs: Documento[] }) {
   const plan = cliente.plan ?? cliente.proximo;
   const estado = estadoCobros(cliente, plan);
-  const debidos = plan?.cobros.filter((c) => c.estado === 'atrasado' || c.estado === 'pendiente') ?? [];
+  const claves = plan ? clavesEstables(plan.cobros.map((cobro) => ({ ruta: plan.nota.ruta, cobro }))) : [];
 
   return (
     <article id={`cliente-${cliente.nota.nombre}`} className="scroll-mt-20 rounded-xl border border-borde bg-superficie shadow-tarjeta">
       <div className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div className="min-w-0">
           <h3 className="font-semibold leading-tight">
-            <Link href={hrefNota(cliente.nota.ruta)} className="hover:text-acento">
+            <Link href={hrefNota(cliente.nota.ruta)} className={`${ZONA_TOQUE} hover:text-acento`}>
               {cliente.nota.titulo}
             </Link>
           </h3>
@@ -411,35 +466,7 @@ function TarjetaCliente({ cliente, anio, hoy, docs }: { cliente: EconomiaCliente
             </p>
           )}
         </div>
-        {plan && (
-          <dl className="flex gap-5 text-right">
-            {plan.cuotaMensual > 0 || plan.tarifas.length === 0 ? (
-              <>
-                <div>
-                  <dt className="text-xs text-apagado">Te paga</dt>
-                  <dd className="cifras text-sm font-semibold">{euros(plan.cuotaMensual, true)}/mes</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-apagado">Te queda</dt>
-                  <dd className="cifras text-sm font-semibold">{euros(plan.netoMensual, true)}/mes</dd>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <dt className="text-xs text-apagado">Tarifa</dt>
-                  <dd className="cifras text-sm font-semibold">
-                    {plan.tarifas.map((t) => `${euros(t.importe, true)}/${t.cada === 'hora' ? 'hora' : 'sesión'}`).join(' · ')}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-apagado">Te queda de media</dt>
-                  <dd className="cifras text-sm font-semibold">{euros(plan.netoMensual, true)}/mes</dd>
-                </div>
-              </>
-            )}
-          </dl>
-        )}
+        {plan && <CuotaDelPlan plan={plan} hoy={hoy} />}
       </div>
 
       {!plan ? (
@@ -448,30 +475,24 @@ function TarjetaCliente({ cliente, anio, hoy, docs }: { cliente: EconomiaCliente
         </p>
       ) : (
         <>
+          {/* Lo que hay que cobrar ya está arriba, en «Por cobrar»: aquí, la franja y el trato entero */}
           <div className="px-4 pb-4">
             <FranjaCobros meses={mesesDelPlan(plan)} cobros={plan.cobros} nombre={cliente.nota.titulo} />
           </div>
 
-          {debidos.length > 0 && (
-            <ul className="divide-y divide-borde border-t border-borde">
-              {debidos.map((cobro) => (
-                <FilaCobro key={cobro.linea} cobro={cobro} ruta={plan.nota.ruta} cliente={cliente.nota.nombre} docs={docs} />
-              ))}
-            </ul>
-          )}
-
           <details className="border-t border-borde">
-            <summary className="cursor-pointer px-4 py-2.5 text-xs text-tenue hover:text-texto">
-              El trato y todos sus cobros
-            </summary>
-            <div className="space-y-4 px-4 pb-4">
+            {/* 16 px de texto y 14 arriba y abajo: 44 px de toque, con su triángulo */}
+            <summary className="cursor-pointer px-4 py-3.5 text-xs text-tenue hover:text-texto">El trato y todos sus cobros</summary>
+            <div className="space-y-3 px-4 pb-2">
               <TablaPlan plan={plan} />
-              <ul className="divide-y divide-borde rounded-lg border border-borde">
-                {plan.cobros.map((cobro) => (
-                  <FilaCobro key={cobro.linea} cobro={cobro} ruta={plan.nota.ruta} cliente={cliente.nota.nombre} docs={docs} />
-                ))}
-              </ul>
-              <Link href={hrefNota(plan.nota.ruta)} className="inline-flex items-center gap-1 text-xs text-tenue hover:text-acento">
+              {plan.cobros.length > 0 && (
+                <ul className="divide-y divide-borde rounded-lg border border-borde">
+                  {plan.cobros.map((cobro, i) => (
+                    <FilaCobro key={claves[i]} cobro={cobro} ruta={plan.nota.ruta} cliente={cliente.nota.nombre} docs={docs} hoy={hoy} />
+                  ))}
+                </ul>
+              )}
+              <Link href={hrefNota(plan.nota.ruta)} className="inline-flex min-h-11 items-center gap-1 text-xs text-tenue hover:text-acento">
                 <FileText className="size-3.5" aria-hidden />
                 Abrir la nota de cobros
               </Link>
@@ -487,6 +508,44 @@ function TarjetaCliente({ cliente, anio, hoy, docs }: { cliente: EconomiaCliente
   );
 }
 
+/**
+ * Lo que paga y el margen que deja. Sin cuota fija (OVB, que liquida comisiones; un cliente que no
+ * paga) lo dice en vez de enseñar «0 €/mes», y si ha ido pagando, la media de lo cobrado
+ */
+function CuotaDelPlan({ plan, hoy }: { plan: PlanAnual; hoy: string }) {
+  const media = sinCuotaFija(plan) ? mediaSinCuota(plan, hoy) : undefined;
+  const anual = plan.cobrosAnuales.reduce((t, l) => t + l.importe, 0);
+  const cifras: { etiqueta: string; valor: string; ayuda?: string }[] = sinCuotaFija(plan)
+    ? [
+        { etiqueta: 'Te paga', valor: 'Sin cuota fija' },
+        ...(media !== undefined
+          ? [{ etiqueta: 'De media', valor: `≈ ${euros(media, true)}/mes`, ayuda: 'Lo cobrado en los meses ya cerrados del trato, entre esos meses. No suma en el margen' }]
+          : plan.gastoMensual
+            ? [{ etiqueta: 'Margen', valor: `${euros(plan.netoMensual, true)}/mes`, ayuda: 'Lo que pagas tú por él' }]
+            : []),
+      ]
+    : plan.tarifas.length && plan.cuotaMensual === 0 && anual === 0
+      ? [
+          { etiqueta: 'Tarifa', valor: plan.tarifas.map((t) => `${euros(t.importe, true)}/${t.cada === 'hora' ? 'hora' : 'sesión'}`).join(' · ') },
+          { etiqueta: 'Margen de media', valor: `${euros(plan.netoMensual, true)}/mes` },
+        ]
+      : [
+          { etiqueta: 'Te paga', valor: plan.cuotaMensual || !anual ? `${euros(plan.cuotaMensual, true)}/mes` : `${euros(anual, true)}/año` },
+          { etiqueta: 'Margen', valor: `${euros(plan.netoMensual, true)}/mes` },
+        ];
+
+  return (
+    <dl className="flex gap-5 text-right">
+      {cifras.map((c) => (
+        <div key={c.etiqueta} title={c.ayuda}>
+          <dt className="text-xs text-apagado">{c.etiqueta}</dt>
+          <dd className="cifras text-sm font-semibold">{c.valor}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 const ESTADO_COBRO: Record<Cobro['estado'], { nivel: NivelEstado; texto: string }> = {
   cobrado: { nivel: 'bien', texto: 'Cobrado' },
   atrasado: { nivel: 'grave', texto: 'Atrasado' },
@@ -494,23 +553,46 @@ const ESTADO_COBRO: Record<Cobro['estado'], { nivel: NivelEstado; texto: string 
   programado: { nivel: 'sin-datos', texto: 'Por cobrar' },
 };
 
-function FilaCobro({ cobro, ruta, cliente, docs }: { cobro: Cobro; ruta: string; cliente: string; docs: Documento[] }) {
+/** Una fila de cobro. Con `titulo` (el del cliente), para la lista de «Por cobrar», que los junta todos */
+function FilaCobro({
+  cobro,
+  ruta,
+  cliente,
+  titulo,
+  docs,
+  hoy,
+}: {
+  cobro: Cobro;
+  ruta: string;
+  cliente: string;
+  titulo?: string;
+  docs: Documento[];
+  hoy: string;
+}) {
   const estado = ESTADO_COBRO[cobro.estado];
   const factura = facturaDe(docs, cliente, cobro.mes, cobro.importe);
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-2.5">
-      <div className="min-w-0">
-        <p className="truncate text-sm">
+    // Si no caben, el importe y el botón bajan a su línea: al lado, en el móvil, el concepto se cortaba
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5">
+      <div className="min-w-0 flex-1 basis-60">
+        {titulo && <p className="truncate text-sm font-medium">{titulo}</p>}
+        <p className={`break-words text-sm ${titulo ? 'text-tenue' : ''}`}>
           <span className="capitalize">{nombreMes(cobro.mes)}</span> · {cobro.concepto}
         </p>
-        <div className="flex flex-wrap items-center gap-x-3">
+        <div className="flex flex-wrap items-center gap-x-4">
           <Estado nivel={estado.nivel}>
-            <span className="text-xs text-tenue">
+            {/* Que se parta: en una fila estrecha del móvil, entero se montaba sobre el importe */}
+            <span className="whitespace-normal text-xs text-tenue">
               {cobro.cobrado && cobro.fechaCobro ? `Cobrado el ${fechaCorta(cobro.fechaCobro)}` : estado.texto}
             </span>
           </Estado>
           {factura ? (
-            <a href={hrefArchivo(factura)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-acento hover:underline">
+            <a
+              href={hrefArchivo(factura)}
+              target="_blank"
+              rel="noreferrer"
+              className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-xs text-acento hover:underline`}
+            >
               <Paperclip className="size-3" aria-hidden />
               Factura
             </a>
@@ -518,7 +600,7 @@ function FilaCobro({ cobro, ruta, cliente, docs }: { cobro: Cobro; ruta: string;
             cobro.estado !== 'programado' && (
               <Link
                 href={`/documentos?cliente=${encodeURIComponent(cliente)}&categoria=factura&cobro=${cobro.mes}#subir`}
-                className="inline-flex items-center gap-1 text-xs text-apagado hover:text-acento"
+                className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-xs text-apagado hover:text-acento`}
               >
                 <Paperclip className="size-3" aria-hidden />
                 Sin factura
@@ -527,9 +609,11 @@ function FilaCobro({ cobro, ruta, cliente, docs }: { cobro: Cobro; ruta: string;
           )}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="ml-auto flex shrink-0 items-center gap-3">
         <span className="cifras text-sm font-medium">{euros(cobro.importe, true)}</span>
-        {cobro.estado !== 'programado' && <BotonCobro ruta={ruta} linea={cobro.linea} cobrado={cobro.cobrado} />}
+        {cobro.estado !== 'programado' && (
+          <BotonCobro ruta={ruta} linea={cobro.linea} cobrado={cobro.cobrado} marcadoHoy={cobro.fechaCobro === hoy} />
+        )}
       </div>
     </li>
   );
@@ -542,6 +626,10 @@ function quienPaga(linea: LineaPlan): string {
 }
 
 function TablaPlan({ plan }: { plan: PlanAnual }) {
+  // OVB: sin líneas en el plan, lo que entra son las casillas de cada liquidación
+  if (plan.lineas.length === 0) {
+    return <p className="text-xs text-tenue">Sin cuota fija ni tarifa en el plan: lo que entra se apunta en los cobros de cada mes.</p>;
+  }
   return (
     <div className="overflow-x-auto rounded-lg border border-borde">
       <table className={TABLA}>
@@ -573,10 +661,10 @@ function TablaPlan({ plan }: { plan: PlanAnual }) {
         <tfoot>
           <tr className={FILA}>
             <td className={`${TD} text-xs text-tenue`} colSpan={3}>
-              Te paga {euros(plan.cuotaMensual, true)} al mes
+              {sinCuotaFija(plan) ? 'Sin cuota fija' : `Te paga ${euros(plan.cuotaMensual, true)} al mes`}
               {plan.cobrosAnuales.length > 0 &&
                 ` y ${plan.cobrosAnuales.map((l) => `${euros(l.importe, true)} al año por ${l.concepto}`).join(', ')}`}
-              . Pagas tú {euros(plan.gastoMensual, true)} al mes a proveedores. Te quedan{' '}
+              . Pagas tú {euros(plan.gastoMensual, true)} al mes a proveedores. Margen:{' '}
               <strong className="font-semibold text-texto">{euros(plan.netoMensual, true)} al mes</strong>.
             </td>
           </tr>

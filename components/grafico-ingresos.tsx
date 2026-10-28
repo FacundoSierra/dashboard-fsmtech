@@ -42,7 +42,9 @@ const formatoEje = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 });
  */
 export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; titulo: string }) {
   const contenedor = useRef<HTMLDivElement>(null);
-  const [ancho, setAncho] = useState(640);
+  // Sin medir (en el servidor y hasta que llega la primera medida) no se dibuja: con un ancho
+  // supuesto, en el móvil salía a la mitad de alto y con letra diminuta, y saltaba al medir
+  const [ancho, setAncho] = useState<number | null>(null);
   const [activo, setActivo] = useState<number | null>(null);
 
   useEffect(() => {
@@ -55,6 +57,13 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
 
   if (puntos.length === 0) return null;
 
+  const altoTotal = MARGEN_SUPERIOR + ALTO_GRAFICO + ALTO_EJE_X;
+  if (ancho === null) {
+    // El hueco con el alto que tendrá, para que lo de debajo no se mueva cuando aparezca
+    return <div ref={contenedor} className="w-full min-w-0" style={{ height: altoTotal }} aria-hidden />;
+  }
+
+  const anchoMedido = ancho;
   const ticks = divisiones(Math.max(...puntos.map((p) => p.valor)));
   const maximo = ticks[ticks.length - 1] || 1;
   const anchoPlot = ancho - ANCHO_EJE_Y - MARGEN_DERECHO;
@@ -71,7 +80,7 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
 
   function alMover(evento: PointerEvent<SVGSVGElement>) {
     const caja = evento.currentTarget.getBoundingClientRect();
-    const px = ((evento.clientX - caja.left) / caja.width) * ancho;
+    const px = ((evento.clientX - caja.left) / caja.width) * anchoMedido;
     const i = puntos.length === 1 ? 0 : Math.round(((px - ANCHO_EJE_Y) / anchoPlot) * (puntos.length - 1));
     setActivo(Math.min(ultimo, Math.max(0, i)));
   }
@@ -85,7 +94,6 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
   }
 
   const seleccionado = activo !== null ? puntos[activo] : null;
-  const altoTotal = MARGEN_SUPERIOR + ALTO_GRAFICO + ALTO_EJE_X;
 
   return (
     // min-w-0 y el SVG al 100 %: el gráfico se adapta al hueco y nunca lo ensancha. Si impusiera
