@@ -8,7 +8,7 @@ Panel privado que resume clientes, proyectos, objetivos diarios, la semana y las
 npm ci
 cp .env.example .env.local   # rellena DASHBOARD_PASSWORD, DASHBOARD_SECRET y BOVEDA_DIR
 npm run dev
-npm test                     # las reglas de la consultoría (node:test)
+npm test                     # las reglas de la consultoría y el parser (node:test)
 ```
 
 Abre http://localhost:3000 e introduce la contraseña. En local, las capturas se escriben directamente en `BOVEDA_DIR/inbox/`.

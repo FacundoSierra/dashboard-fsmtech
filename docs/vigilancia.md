@@ -121,7 +121,7 @@ activadas.
 `/informes/<cliente>?mes=YYYY-MM` genera un informe para mandar al cliente, imprimible o en
 PDF desde el navegador:
 
-- **Disponibilidad** de cada web e incidencias del mes (de la vigilancia horaria)
+- **Disponibilidad** de cada web e incidencias del mes (de la vigilancia horaria; sin vigilancia, un guion en vez de un 0)
 - **Cambios publicados**, clasificados por el prefijo del commit: `feat` → mejoras, `fix` →
   correcciones, `seguridad` → seguridad; el resto (`docs`, `chore`, `refactor`…) se cuenta
   como mantenimiento interno sin listarlo

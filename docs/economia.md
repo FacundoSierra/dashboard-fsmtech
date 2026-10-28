@@ -159,8 +159,9 @@ En el cuerpo, sección «Cobros», una casilla por cobro:
 Tres formas de marcar un cobro, y las tres acaban en la misma línea:
 
 1. **En Obsidian**, pulsando la casilla (y añadiendo la fecha, si quieres)
-2. **Desde el panel**, en Economía: botón «Cobrado» (y «Deshacer» si te equivocas). Lo que no
-   estaba en el plan, con «Cobro extra»
+2. **Desde el panel**, en Economía: botón «Marcar cobrado» y, si te equivocas, «Deshacer» (a un
+   toque si se marcó hoy; en un cobro anterior pide confirmar). Lo que no estaba en el plan, con
+   «Cobro extra»
 3. **Diciéndoselo a Claude** («ha pagado Bodegas lo de octubre»)
 
 ### Estados
@@ -171,6 +172,9 @@ Tres formas de marcar un cobro, y las tres acaban en la misma línea:
 | Pendiente | Sin marcar, de este mes | Celda mediana, amarilla |
 | Atrasado | Sin marcar, de un mes anterior | Celda alta, roja, y aviso en Hoy y en Estado |
 | Por cobrar | Sin marcar, de un mes que no ha llegado | Celda baja, gris |
+
+El bloque «Por cobrar» de la página junta los pendientes y los atrasados; los «Por cobrar» de esta
+tabla (meses que no han llegado) no entran.
 
 La altura cambia con el estado porque el verde y el rojo no se distinguen con deuteranopía
 (ΔE 4,1 medido con el validador de la guía de visualización).
@@ -185,7 +189,7 @@ panel está en `docs/arquitectura.md`):
 
 | Botón | Escritura | Dónde | Qué cambia |
 |---|---|---|---|
-| «Cobrado» / «Deshacer» | `marcarCobro()` | Nota de cobros, sección «Cobros» | La casilla y `— cobrado AAAA-MM-DD` |
+| «Marcar cobrado» / «Deshacer» | `marcarCobro()` | Nota de cobros, sección «Cobros» | La casilla y `— cobrado AAAA-MM-DD` |
 | «Cobro extra» | `anadirCobroExtra()` | Nota de cobros del plan en vigor, sección «Cobros» | Una línea nueva ya marcada: `- [x] 2026-11 — Landing de Navidad — 150 € — cobrado 2026-11-14` |
 | «Apuntar una renovación» | `anadirRenovacion()` | Ficha del cliente, sección «Renovaciones» | Una línea nueva: `- 2027-01-12 — Dominio ejemplo.es` |
 
@@ -209,11 +213,13 @@ por Obsidian Sync, y se arregla a mano.
 
 | | Cómo |
 |---|---|
-| **Te quedan al mes** | Suma de lo que queda con cada plan en vigor este mes |
+| **Te queda al mes** | El margen de los clientes menos lo que suponen al mes los gastos del negocio. Es la cifra de Hoy y la de Economía |
+| **Margen de los clientes** | Suma de lo que queda con cada plan en vigor este mes: lo que te pagan menos lo que pagas tú por ellos (dominios, hosting…, con lo anual repartido, que sale en la línea de debajo). Lleva las sesiones por su media |
 | **Cobrado este año** | Suma de las casillas marcadas de este año: lo cobrado de verdad |
 | **Pendiente de cobro** | Casillas sin marcar de este mes y de meses anteriores |
-| **Pagas a proveedores** | Lo que pagas tú al mes, con lo anual repartido |
-| **Evolución** | Lo que queda cada mes desde el primer plan, hasta 24 meses |
+| **Por cobrar** | Los cobros de este mes y los atrasados de todos los clientes (también de tratos de años anteriores), arriba en la página, con su botón. Los marcados hoy se quedan en la lista con «Deshacer» |
+| **Sin cuota fija** | Un plan sin cuota al mes ni al año ni tarifas (OVB, un cliente que no paga) dice «Sin cuota fija» en vez de «0 €». Si ya ha cobrado algo en los meses cerrados, enseña «De media ≈ N €/mes», que **no suma** en ninguna cifra |
+| **Margen mes a mes** | Lo que queda cada mes desde el primer plan, hasta 24 meses |
 | **Reparto** | Lo que queda de cada cliente, y si uno pasa de la mitad del total |
 | **Lo que te ha dejado cada cliente** | Últimos doce meses, este incluido: lo cobrado de verdad (casillas marcadas) menos lo que pagas tú por él según el plan de cada mes (dominios, hosting…). No cuenta tus horas |
 | **Balance del año, hasta hoy** | Lo cobrado (casillas marcadas) menos lo pagado por los clientes (el `gastoMensual` del plan en vigor, de enero a este mes) menos los gastos del negocio (los cargos de las suscripciones hasta hoy y los pagos sueltos). Debajo, la misma cuenta al mes con lo de hoy: lo que pagan los clientes, lo que pagas por ellos y lo que suponen al mes las suscripciones que siguen cobrándose |

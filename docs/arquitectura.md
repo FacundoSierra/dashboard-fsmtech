@@ -31,7 +31,7 @@ El panel solo escribe lo que está en esta tabla (`lib/boveda/escritura.ts`). Ca
 | `crearDiaria` | `daily-notes/AAAA-MM-DD.md`, nueva | Crea la del día; nunca sobrescribe | Hoy, al añadir un objetivo sin diaria |
 | `marcarTarea` | Diaria, «🎯 Objetivos» o «⏳ A la espera» | Solo la casilla de una línea | Hoy |
 | `anadirObjetivo` | Diaria, «🎯 Objetivos» | Una línea nueva al final | Hoy |
-| `moverTarea` | Diaria, entre «🎯 Objetivos» y «⏳ A la espera» | Mueve una tarea de primer nivel con sus hijas | Hoy |
+| `moverTarea` | Diaria, entre «🎯 Objetivos» y «⏳ A la espera» | Mueve una tarea de primer nivel con sus hijas. Al pasarla a la espera añade `— **quién** — desde AAAA-MM-DD`; al devolverla se lo quita, solo si la línea acaba así | Hoy |
 | `marcarCobro` | Nota de cobros, «Cobros» | La casilla y la fecha de cobro | Economía |
 | `anadirCobroExtra` | Nota de cobros, «Cobros» | Una línea nueva, ya cobrada | Economía |
 | `anadirRenovacion` | Ficha de cliente, «Renovaciones» | Una línea nueva | Economía |
@@ -67,23 +67,23 @@ Al revés, el script del PC mira antes en GitHub: si el panel ya creó la diaria
 
 Cliente (con su nota de cobros si ya hay trato), reunión y requerimiento se crean con **las plantillas de verdad de la bóveda**, leídas de `templates/` en cada creación: una nota hecha en el panel es igual que una hecha en Obsidian o por Claude, y si cambia una plantilla, el panel la sigue sin tocar código. De la plantilla solo se cambia el título, las fechas (`{{date:…}}`), las propiedades que se piden y el contenido de las secciones que se piden; los comentarios de ayuda, el resto de secciones y las etiquetas se quedan.
 
-- **Los nombres de nota son únicos en toda la bóveda**: si ya hay una nota que se llama igual (un cliente `cni-web-crm` chocaría con el proyecto), no se crea
+- **Los nombres de nota son únicos en toda la bóveda**: si ya hay una nota que se llama igual (un cliente `cni-web-crm` chocaría con el proyecto), no se crea y el aviso enlaza la que ya existe
 - **`REQ-###`**: uno más que el mayor del proyecto, por nombre de archivo o por `id` (`siguienteRequerimiento()`), y el formulario enseña cuál va a ser
 - **Trato del cliente**: un concepto con su importe y `cada` (`mes`, `año`, `sesion`, `hora`) desde un mes. Doce casillas si es al mes, una si es al año, ninguna si son tarifas (se apuntan al cobrarlas). El trato se comprueba antes de crear la ficha, para no dejarla a medias por un importe mal escrito
 - Reunión con fecha y hora: la diaria de ese día la recoge sola
 
-### Barra de órdenes (`Ctrl+K`)
+### Barra de órdenes (`Ctrl+K`, `⌘K` en Mac)
 
-En la cabecera, con `Ctrl+K` o su botón (también en el móvil). Salta a una sección o a una nota por su título, y hace lo de cada día escribiendo:
+En la cabecera, con `Ctrl+K` (`⌘K` en Mac) o su botón (también en el móvil). Salta a una sección o a una nota por su título, y hace lo de cada día escribiendo:
 
 | Se escribe | Hace |
 |---|---|
 | `objetivo …` o `+ …` | Lo añade a los objetivos de hoy (`apuntarObjetivo`, la misma acción que Hoy) |
 | `cobrado vm septiembre` | Lista los cobros de este mes y atrasados que encajan, y marca el elegido (`cambiarCobro`) |
-| `apuntar …` | Abre Capturar con el texto puesto |
-| Cualquier otra cosa | Secciones y notas que encajan, y buscar en todas las notas |
+| `apuntar …` o `apuntar tarea\|idea\|nota …` | Abre Capturar con el texto puesto y, si se dice, el tipo elegido (`/capturar?tipo=`) |
+| Cualquier otra cosa | Secciones y notas que encajan (con el cliente o proyecto de cada una, o su carpeta), y buscar en todas las notas |
 
-Los datos (títulos de las notas y cobros pendientes) se piden con una Server Action cada vez que se abre, así nunca están desfasados. No escribe nada por su cuenta: usa las mismas Server Actions, con sus mismas comprobaciones, que los botones de cada página. Va en un portal a `body`: la cabecera tiene `backdrop-blur`, y con eso un `fixed` de dentro se mediría contra ella.
+Los datos (títulos de las notas y cobros pendientes) se piden con una Server Action cada vez que se abre, así nunca están desfasados. No escribe nada por su cuenta: usa las mismas Server Actions, con sus mismas comprobaciones, que los botones de cada página. Va en un portal a `body`: la cabecera tiene `backdrop-blur`, y con eso un `fixed` de dentro se mediría contra ella. Es un diálogo: al abrirse se lleva el foco, Esc lo cierra desde cualquier sitio, el Tab no sale de él y, al cerrar, el foco vuelve al botón (`components/dialogo.ts`).
 
 ### Si la sincronización del PC choca
 
@@ -134,7 +134,8 @@ Resto del texto
 - **Secciones:** se dividen por títulos. `contenidoSeccion()` incluye las subsecciones y busca sin tildes ni emojis ("🎯 Objetivos" coincide con `objetivos`).
 - **Extracción:** tareas `- [ ]` / `- [x]` con su nivel de sangría, viñetas, `[[enlaces]]` (también desde las propiedades) y `#etiquetas`.
 - **Diccionarios de enlaces:** `rutas` y `titulos` son objetos sin prototipo, para que `[[constructor]]` no resuelva a nada.
-- **Markdown:** `components/markdown.tsx` convierte los enlaces, incrustaciones y avisos (`> [!note]`) de Obsidian a Markdown estándar.
+- **Markdown:** `components/markdown.tsx` convierte los enlaces, incrustaciones y avisos (`> [!note]`) de Obsidian a Markdown estándar. Un `[[enlace]]` sin alias se lee con el título de la nota, cortado antes de « — » (`CNI — web y CRM` → `CNI`). Las vistas `.base` de `requerimientos`, `reuniones` y `proyectos` se pintan como listas con las notas que enlazan a la nota abierta; las demás vistas salen como texto.
+- **Texto para pintar:** `textoParaPanel()` quita el emoji inicial y las etiquetas `#prioridad/*` al pintar tareas y líneas cortas. Las escrituras siguen buscando la línea original (`Tarea.linea`). Pruebas en `lib/boveda/parser.test.mjs`.
 
 ## Convenciones de la bóveda que usa el panel
 
@@ -144,8 +145,8 @@ Resto del texto
 | Hoy: pendientes anteriores | Objetivos sin marcar de las dailies de los 14 días anteriores que no se repiten en la de hoy |
 | Hoy: completado | Tareas marcadas de la sección "Completado" de hoy |
 | Hoy: urgente | Tareas abiertas de proyectos activos con 🚨, "urgente" o `#prioridad/alta` |
-| Semana | Para cada día: objetivos y "Completado" de su daily, reuniones con esa `fecha` y tareas marcadas en otras notas que empiezan por `YYYY-MM-DD —` |
-| Semana: revisión | `daily-notes/semanal/AAAA-Www.md` de esa semana o, si aún no está, la última anterior: sección «Prioridades» y las preguntas del callout de «Reflexión» (`> - ¿…?`) con sus respuestas (`- **¿…?** respuesta`) |
+| Semana | Para cada día: objetivos y "Completado" de su daily, reuniones con esa `fecha` y tareas marcadas en otras notas que empiezan por `YYYY-MM-DD —`. El total de objetivos cuenta cada uno una vez: el que la diaria arrastra de un día a otro no se repite, y está hecho si se marcó cualquier día |
+| Semana: revisión | `daily-notes/semanal/AAAA-Www.md` de esa semana o, si aún no está, la última anterior: sección «Prioridades» y las preguntas del callout de «Reflexión» (`> - ¿…?`) con sus respuestas (`- **¿…?** respuesta`). Si es de esta semana o de la anterior, sale abierta y con el formulario de las preguntas sin responder; si es más vieja, plegada («La última revisión es de hace N semanas») y sin formulario |
 | Semana: racha | Días seguidos con daily hasta hoy, o hasta ayer si hoy aún no hay |
 | Clientes | Notas con `tipo: cliente`; `estado` (potencial, activo, pausado, perdido) y `linea` (desarrollo, consultoria-financiera, otro). Ver `docs/economia.md` |
 | Clientes: proyectos | Propiedad `cliente` de los proyectos |
@@ -154,8 +155,8 @@ Resto del texto
 | Clientes: ideas | "Oportunidades / ideas" de sus contactos, y las ideas de las dailies que enlazan al cliente o a sus proyectos |
 | Proyectos | `tipo: proyecto`: `estado`, `cliente`, `stack`, `web` (o la línea `Web:` del cuerpo), `remoto` y tareas de "Próximos pasos" |
 | Reuniones | `tipo: reunion`: `fecha`, `hora`, `cliente`, `proyectos` y tareas abiertas de la nota |
-| Inbox | Notas de `inbox/`, las más recientes primero; `categoria`, `fecha`, `hora` y `relacionado` si las tienen |
-| Buscar | Todas las palabras de dos letras o más, sin distinguir tildes, en el título, las propiedades, las etiquetas o el texto; el título puntúa más |
+| Inbox | Notas de `inbox/`, las más recientes primero; `categoria`, `fecha`, `hora` y `relacionado` si las tienen. El resumen no repite el título |
+| Buscar | Todas las palabras de dos letras o más, sin distinguir tildes, en el título, las propiedades, las etiquetas o el texto; el título puntúa más. Sin tope: salen de 20 en 20 («Ver más»), con filtro por carpeta (`?carpeta=`: clientes, proyectos, reuniones, dailies, personas, desarrollo, otras) y el número de cada una. En `/buscar` no sale el buscador de la cabecera |
 | Requerimientos pendientes | `tipo: requerimiento` con `estado` distinto de `hecho` y `descartado` |
 | Estado: qué se vigila | Proyectos con `estado: activo`: `web` (o la línea `Web:`), `supabase` (`https://<ref>.supabase.co`) y `remoto` (repo de GitHub) |
 | Economía | `tipo: cobros` en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`: propiedad `plan` y casillas de la sección «Cobros». Sección «Renovaciones» de las fichas de cliente. Y `tipo: gastos` (`negocio/gastos-fsmtech.md`): propiedad `suscripciones` y sección «Pagos sueltos». Ver `docs/economia.md` |
@@ -166,7 +167,7 @@ Resto del texto
 
 ## App instalable (PWA)
 - **Manifest (`app/manifest.ts`):**
-  - nombre, colores e iconos;
+  - nombre, colores (`theme_color` y `background_color`, los dos `#1c5cab`, el azul de marca) e iconos;
   - accesos directos a Apuntar, Buscar y Semana;
   - `share_target`: al compartir desde otra app del móvil se abre `/capturar?titulo=…&texto=…&url=…` con el texto ya escrito.
 - **Iconos:** se generan con `ImageResponse` en `app/icon.tsx`, `app/apple-icon.tsx` y `app/iconos/[tamano]` (192 y 512).
@@ -202,7 +203,7 @@ El diseño completo está en `docs/specs/req-001-consultoria-en-el-panel.md` y e
 - **Una sola puerta**: `baseDeDatos()` de `lib/base/cliente.ts` (`server-only`) llama a `verificarSesion()` y después devuelve el cliente con la clave secreta, que entra como `service_role` y se salta el RLS: uno por proceso, sin sesión de Supabase Auth, con `fetch` sin caché y solo con una URL `https`. Es el único archivo que lee la clave. `/api/vigilancia`, `lib/avisos.ts`, `lib/informes.ts` y `lib/boveda/` no lo importan (ADR-002)
 - **Cerrada a todo lo demás**: RLS activo en las once tablas y ninguna política; permisos solo para `service_role`, y nada para `anon` ni `authenticated`; las dos funciones («Ha llegado» y «Deshacer»), solo `service_role`, y reciben el consultor en `p_consultor`, porque con la clave secreta no hay `auth.uid()`. En `consultoria_consultores`, `service_role` no puede cambiar `fuente_desde`. Si se filtrara la clave publicable, no leería nada
 - **La sección `/consultoria`** (`app/(panel)/consultoria/`, en el grupo Negocio de la navegación): el layout y cada página empiezan con `exigirConsultoria()` (`lib/consultoria/sesion.ts`). Sin sesión, a `/login`; sin las variables, sin la `0001` o sin la copia, `FaltaMigracion` dice qué falta. Si Supabase no responde, lo recoge el `error.tsx` de la sección y el resto del panel sigue igual. Lee con `lib/consultoria/consultas.ts`, memorizado con `cache()` de React por petición, y escribe con `lib/consultoria/acciones.ts`, que llama a `verificarSesion()` fuera de su `try` y empieza el `catch` con `unstable_rethrow`
-- **Hasta el cambio no escribe**: mientras `fuente_desde` sea nulo, la fuente sigue siendo FSM-Finance. La sección lleva arriba «Copia de FSM-Finance: aquí todavía no se guarda nada», cada acción devuelve «La consultoría aún se lleva en FSM-Finance: el cambio no está hecho» y los scripts con `--guardar` paran. «Nueva firma» calcula en el navegador y enseña lo que saldría, sin escribir. El cambio (spec 6.4) son dos pasos de Facundo: la `0017` de FSM-Finance (solo lectura) y `fuente_desde` puesto como `postgres`
+- **Escribe solo con `fuente_desde` puesto**: si es nulo, la fuente sigue siendo FSM-Finance; la sección lleva arriba «Copia de FSM-Finance: aquí todavía no se guarda nada», cada acción devuelve «La consultoría aún se lleva en FSM-Finance: el cambio no está hecho» y los scripts con `--guardar` paran. Desde el 2026-10-27 (13:27) está puesto: la base del panel es la fuente y FSM-Finance queda en solo lectura. El cambio (spec 6.4) fueron dos pasos de Facundo: la `0017` de FSM-Finance y `fuente_desde` puesto como `postgres`
 - **Sin nombres fuera de la base** (spec, sección 10): la consultoría no pasa por `lib/boveda/escritura.ts`, ni por los avisos, los informes o la búsqueda; la barra de órdenes solo tiene el enlace a la sección; el log, solo `code` y `message`; nada de `'use cache'`, `unstable_cache` ni `fetch` en caché
 - **Los scripts** (`scripts/consultoria-*.mjs`, comandos en `CLAUDE.md`) se ejecutan desde el PC con la clave `pc` del `.env.local`. Su salida lleva nombres y no se copia a notas. `consultoria:copiar` lee FSM-Finance (solo `select`) y compara las dos bases sin nombres
 - **Se vigila** como las bases de los clientes, sin clave (`GET /auth/v1/health`), cuando la nota del proyecto lleve su `supabase`

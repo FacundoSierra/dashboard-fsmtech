@@ -1,6 +1,6 @@
 # Base de datos
 
-**Estado (2026-10-27):** la migración `0001_consultoria.sql` está escrita y la ha revisado el `revisor-migraciones`. **Está pendiente de ejecutar** en `fsmtech`. La base está vacía: aún no hay copia de los datos de FSM-Finance ni se ha hecho el cambio. Lo que falta y en qué orden, en la sección 12 de `docs/specs/req-001-consultoria-en-el-panel.md`.
+**Estado (2026-10-28):** la `0001_consultoria.sql` está ejecutada en `fsmtech` y los datos copiados de FSM-Finance con «todo igual». El cambio se hizo el 2026-10-27 a las 13:27 (`fuente_desde` puesto): la base del panel es la fuente. Lo que sigue de REQ-001, en la sección 13 de `docs/specs/req-001-consultoria-en-el-panel.md`.
 
 ## Motor
 - Supabase (Postgres), proyecto `fsmtech`, West EU (Irlanda, `eu-west-1`), plan gratuito: sin copias de seguridad (la exportación semanal es la 13.3 de la spec)
@@ -23,7 +23,7 @@ Lo que crea la `0001`:
 Dinero en `numeric(12,2)` (las unidades, en `numeric(10,2)`), fechas contables en `date`, y los importes de cada herramienta en columnas generadas (`bruto`, `hucha`, `irpf` y `neto`; en los extornos, `resto`).
 
 ## Lo que cambia respecto a FSM-Finance (spec, sección 4)
-- **`consultoria_consultores`**, la primera tabla: `id` (sin valor por defecto: la copia trae el de FSM-Finance, que no es un dato personal), `nombre`, `fuente_desde` (nulo hasta el cambio) y `creado_en`. Solo puede haber uno (`consultoria_consultores_uno`). El `consultor_id` de las otras diez tablas apunta aquí, con el mismo nombre y el mismo valor
+- **`consultoria_consultores`**, la primera tabla: `id` (sin valor por defecto: la copia trae el de FSM-Finance, que no es un dato personal), `nombre`, `fuente_desde` (nulo hasta el cambio; puesto desde el 2026-10-27) y `creado_en`. Solo puede haber uno (`consultoria_consultores_uno`). El `consultor_id` de las otras diez tablas apunta aquí, con el mismo nombre y el mismo valor
 - **Sin `perfiles`, sin `es_consultor()`, sin políticas** (fuera los diez `create policy`) y sin la siembra de compañías: las compañías llegan con la copia
 - **Solo en `fsmtech`**: la `0001` se para antes de cambiar nada si la base tiene `perfiles`, porque esa es la de FSM-Finance. Los scripts hacen lo mismo al conectar
 - **`p_consultor`**: las dos funciones lo reciben como primer parámetro, porque con la clave secreta no hay `auth.uid()`. Si es nulo o no está en `consultoria_consultores`, `42501` («No hay consultor»)
