@@ -262,9 +262,13 @@ export async function anadirObjetivo(ruta: string, texto: string): Promise<void>
   );
 }
 
+// El final que añade el panel al pasar una tarea a «A la espera». Si la línea sigue después de la fecha, la escribió otro y se deja
+const RE_SUFIJO_ESPERA = /\s*— \*\*[^*]+\*\* — desde \d{4}-\d{2}-\d{2}\s*$/;
+
 /**
  * Pasa una tarea de «Objetivos» a «A la espera», con el formato de siempre
- * (`— **quién** — desde AAAA-MM-DD`), o la devuelve cuando el otro ha contestado.
+ * (`— **quién** — desde AAAA-MM-DD`), o la devuelve cuando el otro ha contestado,
+ * quitándole ese final para que no se encadene si vuelve a esperar.
  * Solo tareas de primer nivel; sus hijas van con ellas.
  */
 export async function moverTarea(
@@ -283,7 +287,10 @@ export async function moverTarea(
       if (sangriaDe(lineas[indice]) > 0) throw new ErrorEscritura('Solo se mueven las tareas de primer nivel.');
 
       const bloque = lineas.splice(indice, finDeBloque(lineas, indice, rango.fin) - indice);
-      if (destino.a === 'espera') bloque[0] = `${bloque[0].trimEnd()} — **${quien}** — desde ${destino.desde}`;
+      bloque[0] =
+        destino.a === 'espera'
+          ? `${bloque[0].trimEnd()} — **${quien}** — desde ${destino.desde}`
+          : bloque[0].replace(RE_SUFIJO_ESPERA, '');
       const [clave, nombre] = destino.a === 'espera' ? ['a la espera', '⏳ A la espera'] : ['objetivos', '🎯 Objetivos'];
       insertarAlFinal(lineas, seccion(lineas, clave, nombre), bloque);
     },
