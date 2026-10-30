@@ -60,12 +60,15 @@ const EN_BARRA_INFERIOR = ['/', '/proyectos', '/estado', '/economia'];
 
 const TODAS = GRUPOS.flatMap((grupo) => grupo.secciones);
 
-/** Marca del panel: las iniciales sobre el azul de la app */
+/**
+ * Marca del panel: las iniciales en blanco sobre el azul oscuro, en círculo como el logotipo de la
+ * referencia. Las mismas que el icono instalado
+ */
 export function Marca() {
   return (
     <span
       aria-hidden
-      className="flex size-7 items-center justify-center rounded-lg bg-acento-fuerte text-[11px] font-bold tracking-tight text-white"
+      className="flex size-9 items-center justify-center rounded-full bg-acento-fuerte text-[12px] font-bold tracking-tight text-white"
     >
       FS
     </span>
@@ -76,22 +79,28 @@ function esActiva(href: string, ruta: string): boolean {
   return href === '/' ? ruta === '/' : ruta === href || ruta.startsWith(`${href}/`);
 }
 
-// En la hoja del móvil, cada fila de 44 px; en el menú lateral, que se usa con ratón, más juntas
-const FILA_HOJA = 'min-h-11';
+/**
+ * Una fila del menú, de 44 px. La sección en la que estás lleva, como en la referencia, una barra
+ * vertical del azul de la marca pegada al borde izquierdo de la isla, el icono en azul y el texto
+ * en tinta y seminegrita: no va solo por color. Las demás, en gris; al pasar, un trozo de tarjeta
+ */
+function claseFila(activa: boolean): string {
+  const estado = activa ? 'font-semibold text-texto [&_svg]:text-acento' : 'font-medium text-tenue hover:bg-superficie hover:text-texto';
+  return `relative flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-[15px] transition-colors ${estado}`;
+}
+
+/** La barra de la sección activa. `-left-3`: el margen de la isla, para que toque su borde */
+function BarraActiva() {
+  return <span aria-hidden className="absolute -left-3 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-acento" />;
+}
 
 function EnlaceSeccion({ seccion, ruta, alPulsar }: { seccion: Seccion; ruta: string; alPulsar?: () => void }) {
   const activa = esActiva(seccion.href, ruta);
   const IconoSeccion = seccion.icono;
   return (
-    <Link
-      href={seccion.href}
-      onClick={alPulsar}
-      aria-current={activa ? 'page' : undefined}
-      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${alPulsar ? FILA_HOJA : ''} ${
-        activa ? 'bg-acento-suave text-acento' : 'text-tenue hover:bg-superficie-2 hover:text-texto'
-      }`}
-    >
-      <IconoSeccion className="size-4 shrink-0" aria-hidden />
+    <Link href={seccion.href} onClick={alPulsar} aria-current={activa ? 'page' : undefined} className={claseFila(activa)}>
+      {activa && <BarraActiva />}
+      <IconoSeccion className="size-5 shrink-0" aria-hidden />
       {seccion.texto}
     </Link>
   );
@@ -102,8 +111,8 @@ function ListaGrupos({ ruta, alPulsar }: { ruta: string; alPulsar?: () => void }
     <div className="space-y-5">
       {GRUPOS.map((grupo) => (
         <div key={grupo.titulo}>
-          <p className="mb-1 px-2.5 text-xs font-medium text-apagado">{grupo.titulo}</p>
-          <div className="space-y-0.5">
+          <p className="mb-1 px-3 text-[13px] font-medium text-apagado">{grupo.titulo}</p>
+          <div>
             {grupo.secciones.map((seccion) => (
               <EnlaceSeccion key={seccion.href} seccion={seccion} ruta={ruta} alPulsar={alPulsar} />
             ))}
@@ -117,47 +126,39 @@ function ListaGrupos({ ruta, alPulsar }: { ruta: string; alPulsar?: () => void }
 function EnlaceAjustes({ ruta, alPulsar }: { ruta: string; alPulsar?: () => void }) {
   const activa = esActiva('/ajustes', ruta);
   return (
-    <Link
-      href="/ajustes"
-      onClick={alPulsar}
-      aria-current={activa ? 'page' : undefined}
-      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium ${alPulsar ? FILA_HOJA : ''} ${
-        activa ? 'bg-acento-suave text-acento' : 'text-tenue hover:bg-superficie-2 hover:text-texto'
-      }`}
-    >
-      <Settings className="size-4" aria-hidden />
+    <Link href="/ajustes" onClick={alPulsar} aria-current={activa ? 'page' : undefined} className={claseFila(activa)}>
+      {activa && <BarraActiva />}
+      <Settings className="size-5 shrink-0" aria-hidden />
       Ajustes
     </Link>
   );
 }
 
-function BotonSalir({ enHoja = false }: { enHoja?: boolean }) {
+function BotonSalir() {
   return (
     <form action={cerrarSesion}>
-      <button
-        type="submit"
-        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-tenue hover:bg-superficie-2 hover:text-texto ${enHoja ? FILA_HOJA : ''}`}
-      >
-        <LogOut className="size-4" aria-hidden />
+      <button type="submit" className={claseFila(false)}>
+        <LogOut className="size-5 shrink-0" aria-hidden />
         Salir
       </button>
     </form>
   );
 }
 
-/** Menú lateral de escritorio */
+/** Menú lateral de escritorio: una isla gris, separada 12 px de los bordes de la ventana */
 export function BarraLateral() {
   const ruta = usePathname();
   return (
-    <aside className="no-imprimir fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-borde bg-superficie lg:flex">
-      <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
+    <aside className="no-imprimir fixed inset-y-3 left-3 hidden w-60 flex-col rounded-2xl bg-fondo lg:flex">
+      <Link href="/" className="flex h-[4.5rem] shrink-0 items-center gap-3 px-6">
         <Marca />
-        <span className="text-sm font-semibold tracking-tight">FSMTECH</span>
+        <span className="text-lg font-bold tracking-[-0.02em]">FSMTECH</span>
       </Link>
-      <nav aria-label="Secciones" className="flex-1 overflow-y-auto px-3">
+      <nav aria-label="Secciones" className="flex-1 overflow-y-auto px-3 pt-3">
         <ListaGrupos ruta={ruta} />
       </nav>
-      <div className="space-y-0.5 border-t border-borde p-3">
+      <div className="px-3 pb-4 pt-3">
+        <p className="mb-1 px-3 text-[13px] font-medium text-apagado">General</p>
         <EnlaceAjustes ruta={ruta} />
         <BotonSalir />
       </div>
@@ -177,39 +178,56 @@ function HojaSecciones({ ruta, alCerrar, vuelta }: { ruta: string; alCerrar: () 
     <div className="no-imprimir fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-labelledby="hoja-secciones">
       {/* Solo para el dedo y el ratón: con el teclado está la X y Esc */}
       <button type="button" tabIndex={-1} aria-label="Cerrar" className="absolute inset-0 bg-black/40" onClick={alCerrar} />
+      {/* Una isla gris que sube desde abajo, como el menú del escritorio. Flota: por eso lleva sombra */}
       <div
         ref={hoja}
         tabIndex={-1}
-        className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-borde bg-superficie p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none"
+        className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[1.75rem] bg-fondo px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2 shadow-flotante outline-none"
       >
-        <div className="mb-2 flex items-center justify-between">
-          <p id="hoja-secciones" className="text-sm font-semibold">
+        <span aria-hidden className="mx-auto mb-1 block h-1 w-10 rounded-full bg-borde-fuerte" />
+        <div className="mb-2 flex items-center justify-between pl-3">
+          <p id="hoja-secciones" className="text-xl font-semibold tracking-[-0.02em]">
             Secciones
           </p>
           <button
             type="button"
             onClick={alCerrar}
             aria-label="Cerrar"
-            className="-mr-2 grid size-11 place-items-center rounded-lg text-tenue hover:bg-superficie-2 hover:text-texto"
+            className="grid size-11 place-items-center rounded-full border border-borde bg-superficie text-tenue hover:text-texto"
           >
             <X className="size-5" aria-hidden />
           </button>
         </div>
         <ListaGrupos ruta={ruta} alPulsar={alCerrar} />
-        <div className="mt-5 border-t border-borde pt-3">
-          <Link
-            href="/buscar"
-            onClick={alCerrar}
-            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-tenue hover:bg-superficie-2 hover:text-texto ${FILA_HOJA}`}
-          >
-            <Search className="size-4" aria-hidden />
+        <div className="mt-5">
+          <p className="mb-1 px-3 text-[13px] font-medium text-apagado">General</p>
+          <Link href="/buscar" onClick={alCerrar} className={claseFila(esActiva('/buscar', ruta))}>
+            {esActiva('/buscar', ruta) && <BarraActiva />}
+            <Search className="size-5 shrink-0" aria-hidden />
             Buscar
           </Link>
           <EnlaceAjustes ruta={ruta} alPulsar={alCerrar} />
-          <BotonSalir enHoja />
+          <BotonSalir />
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Cada pestaña de la barra de abajo: 64 px de alto. La de la sección en la que estás lleva la
+ * barra de la marca pegada al borde de arriba (la del menú lateral, tumbada), el icono en azul y el
+ * texto en seminegrita: no va solo por color
+ */
+const PESTANA = 'relative flex min-h-16 flex-col items-center justify-center gap-1 text-[12px]';
+
+function Pestana({ activa, icono: IconoPestana, texto }: { activa: boolean; icono: typeof LayoutDashboard; texto: string }) {
+  return (
+    <>
+      {activa && <span aria-hidden className="absolute left-1/2 top-0 h-1 w-8 -translate-x-1/2 rounded-b-full bg-acento" />}
+      <IconoPestana className={`size-[22px] ${activa ? 'text-acento' : 'text-tenue'}`} aria-hidden />
+      <span className={activa ? 'font-semibold text-texto' : 'font-medium text-tenue'}>{texto}</span>
+    </>
   );
 }
 
@@ -226,35 +244,21 @@ export function BarraInferior() {
     <>
       {abierto && <HojaSecciones ruta={ruta} alCerrar={() => setAbierto(false)} vuelta={mas} />}
 
+      {/* Una tarjeta blanca pegada abajo, con las esquinas de arriba redondeadas: flota sobre la página */}
       <nav
         aria-label="Secciones principales"
-        className="no-imprimir fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-borde bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="no-imprimir fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 rounded-t-2xl bg-superficie px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_rgba(14,20,32,0.08)] lg:hidden dark:shadow-[0_-1px_0_var(--borde)]"
       >
         {principales.map((seccion) => {
           const activa = esActiva(seccion.href, ruta);
-          const IconoSeccion = seccion.icono;
           return (
-            <Link
-              key={seccion.href}
-              href={seccion.href}
-              aria-current={activa ? 'page' : undefined}
-              className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${activa ? 'text-acento' : 'text-apagado'}`}
-            >
-              <IconoSeccion className="size-5" aria-hidden />
-              {seccion.texto}
+            <Link key={seccion.href} href={seccion.href} aria-current={activa ? 'page' : undefined} className={PESTANA}>
+              <Pestana activa={activa} icono={seccion.icono} texto={seccion.texto} />
             </Link>
           );
         })}
-        <button
-          ref={mas}
-          type="button"
-          onClick={() => setAbierto(true)}
-          aria-expanded={abierto}
-          aria-haspopup="dialog"
-          className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${enMas ? 'text-acento' : 'text-apagado'}`}
-        >
-          <Menu className="size-5" aria-hidden />
-          Más
+        <button ref={mas} type="button" onClick={() => setAbierto(true)} aria-expanded={abierto} aria-haspopup="dialog" className={PESTANA}>
+          <Pestana activa={enMas} icono={Menu} texto="Más" />
         </button>
       </nav>
     </>

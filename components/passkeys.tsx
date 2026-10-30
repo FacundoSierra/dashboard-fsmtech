@@ -11,7 +11,7 @@ import { Check, Copy, Fingerprint, Plus } from 'lucide-react';
  */
 
 const BOTON =
-  'inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-borde bg-fondo px-3 font-medium hover:border-borde-fuerte disabled:opacity-60';
+  'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-acento bg-superficie px-4 font-semibold transition-colors hover:bg-acento-suave disabled:opacity-60';
 
 /** Mensaje de error del panel, o el del navegador si el usuario cancela */
 function comoError(error: unknown): string {

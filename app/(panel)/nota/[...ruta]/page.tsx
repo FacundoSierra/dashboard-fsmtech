@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Fragment, type ReactNode } from 'react';
 import { ChevronRight, Circle, CircleDot, CircleSlash } from 'lucide-react';
 import { Markdown, claveVista } from '@/components/markdown';
-import { Estado, Tarjeta, Vacio, nivelEstadoProyecto, type Icono } from '@/components/ui';
+import { Estado, TITULO_PANTALLA, Tarjeta, Vacio, nivelEstadoProyecto, type Icono } from '@/components/ui';
 import { buscarNota, notasQueEnlazan, obtenerBoveda, proyectos, reuniones, texto } from '@/lib/boveda/consultas';
 import type { Boveda, Nota } from '@/lib/boveda/tipos';
 import { fechaLarga } from '@/lib/fechas';
@@ -51,11 +51,11 @@ export default async function PaginaNota({ params }: PageProps<'/nota/[...ruta]'
   return (
     <article className="mx-auto max-w-3xl">
       {/* Lo primero, qué nota es; en el móvil, con las propiedades delante, había que bajar una pantalla */}
-      <h1 className="text-2xl font-semibold tracking-tight">{nota.titulo}</h1>
-      <p className="mt-1 break-all font-mono text-xs text-tenue">{nota.ruta}</p>
+      <h1 className={TITULO_PANTALLA}>{nota.titulo}</h1>
+      <p className="mt-2 break-all font-mono text-xs text-tenue">{nota.ruta}</p>
 
       {propiedades.length > 0 && (
-        <details className="group mt-4 rounded-xl border border-borde bg-superficie shadow-tarjeta">
+        <details className="group mt-4 rounded-xl bg-superficie">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm text-tenue hover:text-texto [&::-webkit-details-marker]:hidden">
             <ChevronRight className="size-4 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
             Propiedades · {propiedades.length}
@@ -73,7 +73,8 @@ export default async function PaginaNota({ params }: PageProps<'/nota/[...ruta]'
         </details>
       )}
 
-      <div className="mt-6">
+      {/* El texto de la nota, en una tarjeta blanca como todo lo demás del panel */}
+      <div className="imprimir-plano mt-4 rounded-xl bg-superficie px-5 py-4 sm:px-8 sm:py-6">
         <Markdown texto={sinTitulo(nota.cuerpo, nota.titulo)} rutas={boveda.rutas} titulos={boveda.titulos} vistas={vistasDe(boveda, nota)} />
       </div>
 
@@ -112,7 +113,7 @@ function vistasDe(boveda: Boveda, nota: Nota): Record<string, ReactNode> {
   };
 }
 
-const LISTA = 'divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie shadow-tarjeta';
+const LISTA = 'divide-y divide-borde overflow-hidden rounded-xl border border-borde bg-superficie';
 const FILA_VISTA = 'flex min-h-11 items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-superficie-2';
 
 /**

@@ -118,7 +118,7 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                 <div className="flex items-start gap-3 p-4">
                   <span
                     aria-hidden
-                    className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-acento-suave text-sm font-semibold text-acento"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-acento-suave text-sm font-semibold text-acento"
                   >
                     {iniciales(cliente.nota.titulo)}
                   </span>

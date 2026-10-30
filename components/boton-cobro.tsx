@@ -48,7 +48,7 @@ export function BotonCobro({
         <button
           type="submit"
           disabled={guardando}
-          className={`${ZONA_TOQUE} inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-acento-fuerte px-2.5 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60`}
+          className={`${ZONA_TOQUE} inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-acento-fuerte px-3 py-1 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60`}
         >
           {icono(Check)}
           Marcar cobrado

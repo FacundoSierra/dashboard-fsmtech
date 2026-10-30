@@ -1,11 +1,17 @@
 import Link from 'next/link';
 import type { ComponentType, ReactNode } from 'react';
-import { AlertTriangle, CheckCircle2, CircleDashed, CircleMinus, OctagonAlert, XCircle } from 'lucide-react';
-import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, ZONA_TOQUE } from './estilos';
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, CircleMinus, OctagonAlert, XCircle } from 'lucide-react';
+import { BOTON_PRINCIPAL, BOTON_REDONDO, BOTON_SECUNDARIO, ZONA_TOQUE } from './estilos';
 
 export type Icono = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
 
 // ── Página ───────────────────────────────────────────────────────────────────
+
+/**
+ * El título de cada pantalla, como el «Dashboard» de la referencia: grande, en seminegrita y
+ * apretado. La misma letra que todo lo demás
+ */
+export const TITULO_PANTALLA = 'text-[28px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[36px]';
 
 export function Encabezado({
   titulo,
@@ -17,10 +23,10 @@ export function Encabezado({
   acciones?: ReactNode;
 }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <header className="mb-6 flex flex-wrap items-end justify-between gap-4 sm:mb-7">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight">{titulo}</h1>
-        {subtitulo && <p className="mt-1 text-sm text-tenue first-letter:uppercase">{subtitulo}</p>}
+        <h1 className={TITULO_PANTALLA}>{titulo}</h1>
+        {subtitulo && <p className="mt-1.5 text-[15px] text-tenue first-letter:uppercase">{subtitulo}</p>}
       </div>
       {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
     </header>
@@ -31,7 +37,7 @@ export function Seccion({ titulo, extra, children }: { titulo: string; extra?: R
   return (
     <section className="space-y-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold text-tenue">{titulo}</h2>
+        <h2 className="text-lg font-semibold tracking-[-0.01em]">{titulo}</h2>
         {extra}
       </div>
       {children}
@@ -41,6 +47,13 @@ export function Seccion({ titulo, extra, children }: { titulo: string; extra?: R
 
 // ── Tarjetas ─────────────────────────────────────────────────────────────────
 
+/** El título de una tarjeta, como «Project Analytics» en la referencia: 17 px en seminegrita */
+export const TITULO_TARJETA = 'text-[17px] font-semibold tracking-[-0.01em]';
+
+/**
+ * Una tarjeta: blanca, muy redondeada (20 px), sin borde ni sombra; se separa del gris por el tono.
+ * El título arriba y, a su derecha, su acción (un enlace o un botón en píldora)
+ */
 export function Tarjeta({
   children,
   titulo,
@@ -48,6 +61,7 @@ export function Tarjeta({
   accion,
   className = '',
   sinRelleno = false,
+  estirar = false,
 }: {
   children: ReactNode;
   titulo?: ReactNode;
@@ -56,19 +70,23 @@ export function Tarjeta({
   className?: string;
   /** Para tablas y listas que llegan hasta el borde */
   sinRelleno?: boolean;
+  /** Que la tarjeta llene el alto de su fila y su contenido, el de la tarjeta (para llevar algo al pie) */
+  estirar?: boolean;
 }) {
   return (
-    <section className={`imprimir-plano rounded-xl border border-borde bg-superficie shadow-tarjeta ${className}`}>
+    <section className={`imprimir-plano rounded-xl bg-superficie ${estirar ? 'flex h-full flex-col' : ''} ${className}`}>
       {titulo && (
-        <div className={`flex items-center justify-between gap-3 ${sinRelleno ? 'border-b border-borde px-4 py-3' : 'px-4 pt-4'}`}>
-          <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-            {IconoTitulo && <IconoTitulo className="size-4 shrink-0 text-apagado" aria-hidden />}
+        <div className={`flex min-h-11 items-center justify-between gap-3 px-5 pt-4 sm:px-6 sm:pt-5 ${sinRelleno ? 'pb-2' : ''}`}>
+          <h2 className={`flex min-w-0 items-center gap-2 ${TITULO_TARJETA}`}>
+            {IconoTitulo && <IconoTitulo className="size-[18px] shrink-0 text-apagado" aria-hidden />}
             <span className="truncate">{titulo}</span>
           </h2>
           {accion && <div className="shrink-0 text-sm">{accion}</div>}
         </div>
       )}
-      <div className={sinRelleno ? '' : titulo ? 'p-4 pt-3' : 'p-4'}>{children}</div>
+      <div className={`${sinRelleno ? '' : titulo ? 'px-5 pb-5 pt-3 sm:px-6 sm:pb-6' : 'p-5 sm:p-6'} ${estirar ? 'flex flex-1 flex-col' : ''}`}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -106,16 +124,19 @@ export function EnlaceBoton({
 }
 
 /**
- * Un filtro de una lista, que es un enlace a la misma página con otro parámetro. Se ve de 36 px y
- * se toca en 44: entre una fila y la siguiente, `gap-2` como mínimo para que no se pisen
+ * Un filtro de una lista, que es un enlace a la misma página con otro parámetro. En píldora: el
+ * activo, relleno del azul oscuro; los demás, blancos con borde. Se ve de 36 px y se toca en 44:
+ * entre una fila y la siguiente, `gap-2` como mínimo para que no se pisen
  */
 export function Filtro({ href, activo, children }: { href: string; activo: boolean; children: ReactNode }) {
   return (
     <Link
       href={href}
       aria-current={activo ? 'true' : undefined}
-      className={`${ZONA_TOQUE} inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-sm ${
-        activo ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
+      className={`${ZONA_TOQUE} inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 text-sm transition-colors ${
+        activo
+          ? 'border-acento-fuerte bg-acento-fuerte font-semibold text-white'
+          : 'border-borde-fuerte bg-superficie font-medium text-tenue hover:border-borde-control hover:text-texto'
       }`}
     >
       {children}
@@ -126,8 +147,12 @@ export function Filtro({ href, activo, children }: { href: string; activo: boole
 // ── Cifras ───────────────────────────────────────────────────────────────────
 
 /**
- * Indicador: etiqueta, valor y un detalle opcional. El valor va en cifras proporcionales
- * (las tabulares dejan los números grandes con huecos).
+ * Una cifra en su tarjeta, como las de arriba de la referencia: el nombre, la cifra grande y un
+ * detalle. Con `href`, en la esquina, el botón redondo con la flecha en diagonal que lleva a su
+ * sección (la tarjeta entera no es enlace: así no hay enlaces dentro de enlaces). `destacada`: la
+ * primera de la pantalla, rellena del azul oscuro de la marca con el texto en blanco.
+ *
+ * El valor va en cifras proporcionales (las tabulares dejan los números grandes con huecos).
  */
 export function Kpi({
   etiqueta,
@@ -135,7 +160,9 @@ export function Kpi({
   detalle,
   icono: IconoKpi,
   href,
+  textoEnlace,
   estado,
+  destacada = false,
   children,
 }: {
   etiqueta: string;
@@ -143,29 +170,56 @@ export function Kpi({
   detalle?: ReactNode;
   icono?: Icono;
   href?: string;
+  /** El nombre del botón de la flecha, para quien no la ve: «Ver Estado» */
+  textoEnlace?: string;
   /** Un indicador que tiene estado lo enseña con icono, no coloreando la cifra */
   estado?: NivelEstado;
+  destacada?: boolean;
   children?: ReactNode;
 }) {
-  const contenido = (
-    <>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-tenue">{etiqueta}</span>
-        {estado ? <IconoEstado nivel={estado} /> : IconoKpi && <IconoKpi className="size-4 text-apagado" aria-hidden />}
-      </div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight">{valor}</div>
-      {detalle && <div className="mt-1 text-xs text-tenue">{detalle}</div>}
-      {children && <div className="mt-3">{children}</div>}
-    </>
+  const esquina = href ? (
+    <FlechaTarjeta href={href} texto={textoEnlace ?? `Ver ${etiqueta.toLowerCase()}`} destacada={destacada} />
+  ) : estado ? (
+    <IconoEstado nivel={estado} className="size-5" />
+  ) : (
+    IconoKpi && <IconoKpi className="size-5 text-apagado" aria-hidden />
   );
 
-  const clase = 'imprimir-plano block rounded-xl border border-borde bg-superficie p-4 shadow-tarjeta';
-  return href ? (
-    <Link href={href} className={`${clase} transition-colors hover:border-borde-fuerte`}>
-      {contenido}
+  return (
+    <div className={`imprimir-plano flex min-w-0 flex-col rounded-xl p-5 sm:p-6 ${destacada ? 'tema-marca' : 'bg-superficie'}`}>
+      <div className="flex min-h-9 items-start justify-between gap-2">
+        <span className="pt-1.5 text-[15px] font-semibold leading-snug tracking-[-0.01em] sm:text-base">{etiqueta}</span>
+        {esquina}
+      </div>
+      <div className="mt-3 text-[30px] font-semibold leading-none tracking-[-0.03em] sm:text-[36px] xl:text-[44px]">{valor}</div>
+      {detalle && (
+        <div className="mt-3 flex items-center gap-1.5 text-[13px] text-tenue">
+          {href && estado && <IconoEstado nivel={estado} />}
+          <span className="min-w-0">{detalle}</span>
+        </div>
+      )}
+      {children && <div className="mt-3">{children}</div>}
+    </div>
+  );
+}
+
+/**
+ * La flecha en diagonal de la esquina de una tarjeta, en un círculo con borde (blanco y relleno en
+ * la tarjeta azul, como en la referencia). Se ve de 36 px y se toca en 44
+ */
+export function FlechaTarjeta({ href, texto, destacada = false }: { href: string; texto: string; destacada?: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={`${ZONA_TOQUE} ${
+        destacada
+          ? 'inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-acento-fuerte transition-colors hover:bg-white/85'
+          : BOTON_REDONDO
+      }`}
+    >
+      <ArrowUpRight className="size-[18px]" aria-hidden />
+      <span className="sr-only">{texto}</span>
     </Link>
-  ) : (
-    <div className={clase}>{contenido}</div>
   );
 }
 
@@ -218,15 +272,27 @@ export function Estado({ nivel, children }: { nivel: NivelEstado; children: Reac
   );
 }
 
+/**
+ * Un estado en píldora, como las etiquetas de la referencia («Completed», «Pending»): el icono del
+ * nivel y el texto en tinta, sobre un gris claro con borde. El color sigue yendo solo en el icono
+ */
+export function EstadoPildora({ nivel, children }: { nivel: NivelEstado; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-borde bg-superficie-2 py-0.5 pl-1.5 pr-2.5 text-xs font-semibold">
+      <IconoEstado nivel={nivel} className="size-3.5" />
+      <span>{children}</span>
+    </span>
+  );
+}
+
 // ── Etiquetas ────────────────────────────────────────────────────────────────
 
 export type Tono = 'neutro' | 'acento';
 
 export function Chip({ children, tono = 'neutro' }: { children: ReactNode; tono?: Tono }) {
-  const clase =
-    tono === 'acento' ? 'border-transparent bg-acento-suave text-acento' : 'border-borde bg-superficie-2 text-tenue';
+  const clase = tono === 'acento' ? 'bg-acento-suave text-acento' : 'bg-superficie-2 text-tenue';
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium ${clase}`}>
+    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${clase}`}>
       {children}
     </span>
   );
@@ -253,7 +319,7 @@ export function Vacio({ children, icono: IconoVacio }: { children: ReactNode; ic
 /** Aviso de algo que falta configurar: dice qué y dónde, sin romper la página */
 export function Pendiente({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-borde-fuerte bg-superficie-2 p-4 text-sm">
+    <div className="rounded-xl border border-dashed border-borde-control bg-superficie p-5 text-sm">
       <p className="font-medium">{titulo}</p>
       <div className="mt-1 text-tenue">{children}</div>
     </div>
@@ -263,8 +329,8 @@ export function Pendiente({ titulo, children }: { titulo: string; children: Reac
 // ── Tablas ───────────────────────────────────────────────────────────────────
 
 export const TABLA = 'w-full text-sm';
-export const TH = 'px-4 py-2 text-left text-xs font-medium text-apagado whitespace-nowrap';
-export const TD = 'px-4 py-2.5 align-middle';
+export const TH = 'px-5 py-2.5 text-left text-xs font-semibold text-apagado whitespace-nowrap sm:px-6';
+export const TD = 'px-5 py-3 align-middle sm:px-6';
 export const FILA = 'border-t border-borde';
 
 export function Fila({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {

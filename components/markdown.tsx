@@ -71,8 +71,11 @@ const componentes: Components = {
     ),
 };
 
-// En línea (tareas, avisos, propiedades) no hay `.prosa` que les dé estilo: lo llevan aquí
-const ENLACE_EN_LINEA = 'text-acento underline decoration-acento/40 underline-offset-2 hover:decoration-acento';
+// En línea (tareas, avisos, propiedades) no hay `.prosa` que les dé estilo: lo llevan aquí. En la
+// tinta del texto con un subrayado fino, que es lo que lo distingue (no el color): una lista de
+// quince objetivos con veinte enlaces en azul se leía moteada. Al pasar, el azul de la marca
+const ENLACE_EN_LINEA =
+  'underline decoration-borde-control/60 decoration-1 underline-offset-[3px] hover:text-acento hover:decoration-acento';
 
 const componentesEnLinea: Components = {
   a: ({ href = '', children }) =>

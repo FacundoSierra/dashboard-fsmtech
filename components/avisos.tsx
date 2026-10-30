@@ -10,7 +10,8 @@ const ETIQUETA: Record<Aviso['nivel'], string> = {
   info: 'Info',
 };
 
-export function ListaAvisos({ avisos, limite }: { avisos: Aviso[]; limite?: number }) {
+/** `compacta`: el detalle, a dos líneas como mucho (en Hoy; en Estado se lee entero) */
+export function ListaAvisos({ avisos, limite, compacta = false }: { avisos: Aviso[]; limite?: number; compacta?: boolean }) {
   const visibles = limite ? avisos.slice(0, limite) : avisos;
 
   return (
@@ -25,12 +26,14 @@ export function ListaAvisos({ avisos, limite }: { avisos: Aviso[]; limite?: numb
                 <span className="sr-only">{ETIQUETA[aviso.nivel]}: </span>
                 {aviso.titulo}
               </p>
-              {aviso.detalle && <p className="mt-0.5 text-xs leading-relaxed text-tenue">{aviso.detalle}</p>}
+              {aviso.detalle && (
+                <p className={`mt-0.5 text-xs leading-relaxed text-tenue ${compacta ? 'line-clamp-2' : ''}`}>{aviso.detalle}</p>
+              )}
             </div>
             {externo && <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-apagado" aria-hidden />}
           </>
         );
-        const clase = 'flex items-start gap-3 px-4 py-3';
+        const clase = 'flex items-start gap-3 px-5 py-3.5 sm:px-6';
         return (
           <li key={aviso.id}>
             {aviso.href ? (

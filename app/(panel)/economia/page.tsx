@@ -102,6 +102,7 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
           */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi
+              destacada
               etiqueta="Te queda al mes"
               valor={euros(queda)}
               icono={Wallet}

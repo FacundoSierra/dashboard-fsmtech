@@ -1,12 +1,26 @@
 @import "tailwindcss";
 
 /*
- * Sistema de diseño del panel.
+ * Sistema de diseño del panel: islas grises con tarjetas blancas.
  *
- * Los colores de datos y de estado salen de la paleta de referencia de visualización,
- * validados contra las superficies de aquí (tarjeta blanca y #1a1a19):
- *   - serie: azul, >= 3:1 sobre la tarjeta en los dos modos
- *   - estados (bien / aviso / grave / crítico): reservados para estado, nunca para series
+ * - En el escritorio, la ventana (`--ventana`) es blanca y dentro van tres islas grises
+ *   (`--fondo`): el menú, la barra de arriba y la página. En el móvil, el gris es el suelo.
+ * - Las tarjetas (`--superficie`) son blancas, muy redondeadas (`rounded-xl`, 20 px), sin borde ni
+ *   sombra: se separan del gris por el tono. Dentro de una tarjeta, `--superficie-2` es el paso
+ *   siguiente (al pasar, chips, la pista de los gráficos).
+ * - La marca, en escala: `acento-fuerte` (el azul oscuro) rellena la tarjeta destacada y el botón
+ *   principal; `serie` (el azul de la marca) es lo hecho en los gráficos; `serie-fuerte`, hoy; el
+ *   rayado (`--rayado`), lo que falta o aún no ha llegado. La tarjeta oscura (`.tema-oscuro`) es
+ *   el acento de cada pantalla, una como mucho.
+ *
+ * Contraste medido (WCAG): `texto`, `tenue`, `apagado`, `acento` y los textos de estado, 4,5:1 o más
+ * sobre el fondo, la tarjeta, `superficie-2` y `acento-suave`, en los dos modos; el blanco, 9,7:1
+ * sobre `acento-fuerte`. `borde-control`, `serie`, `serie-fuerte`, `rayado` y los iconos de
+ * estado, 3:1 o más sobre la tarjeta.
+ *
+ * Los colores de datos y de estado, reservados para eso:
+ *   - serie: el azul de los datos (lo hecho, las barras, el medidor), nunca para estado
+ *   - estados (bien / aviso / grave / crítico): nunca para series
  *   - bien y crítico se confunden con deuteranopía (ΔE 4,1): un estado nunca va solo por
  *     color, siempre con icono y texto, y en las franjas de disponibilidad las incidencias
  *     cambian también de altura
@@ -15,88 +29,172 @@
   /* Calendarios, relojes, desplegables y barras de desplazamiento nativos, en el modo que toca */
   color-scheme: light;
 
-  /* Superficies */
-  --fondo: #f5f5f3;
+  /* Superficies, de fuera adentro: ventana, islas, tarjeta y el paso siguiente dentro de ella */
+  --ventana: #ffffff;
+  --fondo: #f2f4f7;
   --superficie: #ffffff;
-  --superficie-2: #f9f9f7;
-  --borde: #e6e5e0;
-  --borde-fuerte: #d4d3cc;
-  /* El borde de lo que se pulsa y no tiene relleno (la casilla sin marcar): 3:1 o más sobre las superficies */
-  --borde-control: #84827c;
+  --superficie-2: #eef2f7;
+  --borde: #e5e9ef;
+  --borde-fuerte: #d2d8e1;
+  /* El borde de lo que se pulsa y no tiene relleno (la casilla, los campos, el círculo de la flecha): 3:1 */
+  --borde-control: #7b8594;
 
-  /* Tinta. `apagado` también es texto (pies, cabeceras de tabla): 4,5:1 sobre el fondo y la tarjeta */
-  --texto: #0f0f0e;
-  --tenue: #57564f;
-  --apagado: #6f6d67;
+  /* Tinta. `apagado` también es texto (pies, cabeceras de tabla): 4,5:1 sobre todas las superficies */
+  --texto: #0e1420;
+  --tenue: #4a5465;
+  --apagado: #5d6879;
 
-  /* Acento de la interfaz: enlaces y selección */
-  --acento: #256abf;
-  --acento-fuerte: #1c5cab;
-  --acento-suave: #e8f0fb;
+  /* La marca. `acento`: enlaces, foco y la sección activa; `acento-fuerte`: lo relleno */
+  --acento: #1c5cab;
+  --acento-fuerte: #164480;
+  --acento-suave: #e6eefa;
 
   /* Datos */
-  --serie: #2a78d6;
-  --serie-suave: rgba(42, 120, 214, 0.1);
-  --rejilla: #e8e7e1;
-  --eje: #c3c2b7;
-  --sin-datos: #e2e1db;
+  --serie: #1c5cab;
+  --serie-fuerte: #0f2f5c;
+  --serie-suave: rgba(28, 92, 171, 0.12);
+  --rayado: #8592a6;
+  --rejilla: #e5e9ef;
+  --eje: #c3cad5;
+  --sin-datos: #dfe4eb;
 
   /* Estados. `aviso` y `grave` son para rellenos (franjas, cajas); sus iconos, un paso más
      oscuros (`-icono`), para que se lean a 3:1 sobre el fondo, la tarjeta y el acento suave */
-  --bien: #0ca30c;
-  --bien-texto: #006300;
+  --bien: #1f8a3f;
+  --bien-texto: #13692f;
   --aviso: #fab219;
   --aviso-icono: #a87c0c;
   --grave: #ec835a;
-  --grave-icono: #d4693f;
+  --grave-icono: #c45a2e;
   --critico: #d03b3b;
   --critico-texto: #b42323;
 
   /* Compatibilidad con los nombres anteriores */
   --ok: var(--bien-texto);
 
-  --sombra: 0 1px 2px rgba(15, 15, 14, 0.04), 0 1px 1px rgba(15, 15, 14, 0.02);
+  /* Nada en reposo lleva sombra: se separa por tono. Solo flota lo que de verdad flota (menús, diálogos) */
+  --sombra: none;
+  --sombra-flotante: 0 24px 64px rgba(14, 20, 32, 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --fondo: #0e0e0d;
-    --superficie: #1a1a19;
-    --superficie-2: #20201e;
-    --borde: #2c2c2a;
-    --borde-fuerte: #3a3a37;
-    --borde-control: #7a7871;
+    --ventana: #0b0d11;
+    --fondo: #13161c;
+    --superficie: #1b1f27;
+    --superficie-2: #252a34;
+    --borde: #2a303b;
+    --borde-fuerte: #39404d;
+    --borde-control: #7d8798;
 
-    --texto: #f5f5f2;
-    --tenue: #c3c2b7;
-    /* 4,5:1 también sobre el acento suave (la opción elegida de la barra de órdenes) */
-    --apagado: #9a988f;
+    --texto: #eef1f6;
+    --tenue: #b2bbca;
+    --apagado: #949eb0;
 
-    --acento: #6da7ec;
-    --acento-fuerte: #256abf;
-    --acento-suave: #1b2c4d;
+    --acento: #8ab4f8;
+    --acento-fuerte: #1f58aa;
+    --acento-suave: #182a45;
 
-    --serie: #3987e5;
-    --serie-suave: rgba(57, 135, 229, 0.14);
-    --rejilla: #2c2c2a;
-    --eje: #383835;
-    --sin-datos: #2f2f2c;
+    /* En oscuro, lo que más resalta es lo claro: hoy va en el azul más claro */
+    --serie: #4f8ff0;
+    --serie-fuerte: #a9c9ff;
+    --serie-suave: rgba(79, 143, 240, 0.18);
+    --rayado: #76829a;
+    --rejilla: #2a303b;
+    --eje: #3a414d;
+    --sin-datos: #2c323d;
 
-    --bien: #0ca30c;
-    --bien-texto: #34c534;
+    --bien: #3aae55;
+    --bien-texto: #4cc46a;
     /* Sobre el oscuro, los tonos de relleno ya se leen de sobra */
     --aviso-icono: #fab219;
     --grave-icono: #ec835a;
-    --critico: #d03b3b;
+    --critico: #e04848;
     --critico-texto: #f07474;
 
-    --sombra: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --sombra-flotante: 0 24px 64px rgba(0, 0, 0, 0.55);
   }
 }
 
+/*
+ * La tarjeta oscura (en la referencia, la del cronómetro): lo que va dentro se pinta con estas
+ * tintas, así que sus enlaces, estados y botones se leen sin clases propias. Medido sobre su azul
+ * casi negro: el texto 16:1, `tenue` 10,8:1, `apagado` 8,1:1 y `borde-control` 5,6:1
+ */
+.tema-oscuro {
+  color-scheme: dark;
+  --superficie: #0a1f3d;
+  --superficie-2: #183056;
+  --borde: #22395e;
+  --borde-fuerte: #2f4a73;
+  --borde-control: #8798b5;
+  --texto: #ffffff;
+  --tenue: #c6d2e5;
+  --apagado: #a9b7cd;
+  --acento: #a9c9ff;
+  --acento-suave: #183056;
+  --bien: #4cc46a;
+  --bien-texto: #6fd88a;
+  --aviso-icono: #fab219;
+  --grave-icono: #f09a76;
+  --critico: #f07474;
+  --critico-texto: #f79a9a;
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+@media (prefers-color-scheme: dark) {
+  /* En oscuro, más negra que las tarjetas y con su canto azul: el tono solo no la separaba */
+  .tema-oscuro {
+    --superficie: #0a1426;
+    --superficie-2: #16243d;
+    --borde: #1f3357;
+    box-shadow: inset 0 0 0 1px #1f3357;
+  }
+}
+
+/*
+ * La tarjeta rellena del azul de la marca (la primera cifra de cada pantalla): blanco encima.
+ * Sobre `acento-fuerte`: el blanco 9,7:1 (6,9:1 en oscuro), `tenue` 7,3:1 (5,2:1) y `apagado`
+ * 6,3:1 (4,5:1)
+ */
+.tema-marca {
+  --superficie: var(--acento-fuerte);
+  --texto: #ffffff;
+  --tenue: #d5e0f1;
+  --apagado: #c4d2e8;
+  --borde-control: #ffffff;
+  --acento: #ffffff;
+  --serie: #ffffff;
+  --serie-suave: rgba(255, 255, 255, 0.28);
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+/*
+ * Los tintes de las personas (los círculos con la inicial de «A la espera» y de los proyectos):
+ * identidad, no datos. La inicial, 4,5:1 o más sobre su tinte en los dos modos
+ */
+.tinte-1 { --tinte-fondo: #fde4e6; --tinte-texto: #8f1d35; }
+.tinte-2 { --tinte-fondo: #ddf3e5; --tinte-texto: #19643a; }
+.tinte-3 { --tinte-fondo: #fde6d8; --tinte-texto: #8a3b12; }
+.tinte-4 { --tinte-fondo: #fdf0cc; --tinte-texto: #6e4d08; }
+.tinte-5 { --tinte-fondo: #dde9fb; --tinte-texto: #1c4f9c; }
+.tinte-6 { --tinte-fondo: #d6f1ef; --tinte-texto: #0f5e57; }
+
+@media (prefers-color-scheme: dark) {
+  .tinte-1 { --tinte-fondo: #3d2328; --tinte-texto: #f6b8c3; }
+  .tinte-2 { --tinte-fondo: #1d3326; --tinte-texto: #9fe0b5; }
+  .tinte-3 { --tinte-fondo: #3d2a1f; --tinte-texto: #f6c3a3; }
+  .tinte-4 { --tinte-fondo: #3a3020; --tinte-texto: #f3d48a; }
+  .tinte-5 { --tinte-fondo: #1d2c45; --tinte-texto: #a9c9ff; }
+  .tinte-6 { --tinte-fondo: #173634; --tinte-texto: #93ddd5; }
+}
+
 @theme inline {
+  --color-ventana: var(--ventana);
   --color-fondo: var(--fondo);
   --color-superficie: var(--superficie);
   --color-superficie-2: var(--superficie-2);
@@ -110,7 +208,9 @@
   --color-acento-fuerte: var(--acento-fuerte);
   --color-acento-suave: var(--acento-suave);
   --color-serie: var(--serie);
+  --color-serie-fuerte: var(--serie-fuerte);
   --color-serie-suave: var(--serie-suave);
+  --color-rayado: var(--rayado);
   --color-rejilla: var(--rejilla);
   --color-eje: var(--eje);
   --color-sin-datos: var(--sin-datos);
@@ -124,8 +224,21 @@
   --color-critico-texto: var(--critico-texto);
   --color-ok: var(--ok);
   --shadow-tarjeta: var(--sombra);
-  --font-sans: var(--font-geist-sans);
+  --shadow-flotante: var(--sombra-flotante);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * Los radios, de fuera adentro: las islas (`rounded-2xl`, 24 px), las tarjetas (`rounded-xl`,
+ * 20 px), lo que va dentro de ellas (`rounded-lg`, 12 px) y lo pequeño (`rounded-md`, 8 px). Los
+ * botones, los campos de una línea y las etiquetas de estado van en píldora (`rounded-full`)
+ */
+@theme {
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
 }
 
 body {
@@ -145,6 +258,11 @@ body {
   }
 }
 
+/* Los iconos, más finos que los de serie (2 px): 1,75 px. Los que piden otro grosor lo conservan */
+svg.lucide[stroke-width="2"] {
+  stroke-width: 1.75px;
+}
+
 /* Números que se alinean en columna: tablas y ejes. Las cifras grandes van proporcionales */
 .cifras {
   font-variant-numeric: tabular-nums;
@@ -155,16 +273,17 @@ body {
   /* Siempre en claro: en modo oscuro el texto claro saldría invisible sobre el papel */
   :root {
     color-scheme: light;
-    --fondo: #ffffff; --superficie: #ffffff; --superficie-2: #f9f9f7;
-    --borde: #e6e5e0; --borde-fuerte: #d4d3cc; --borde-control: #84827c;
-    --texto: #0f0f0e; --tenue: #57564f; --apagado: #6f6d67;
-    --acento: #256abf; --acento-fuerte: #1c5cab; --acento-suave: #e8f0fb;
-    --bien-texto: #006300; --critico-texto: #b42323;
-    --aviso-icono: #a87c0c; --grave-icono: #d4693f;
+    --ventana: #ffffff; --fondo: #ffffff; --superficie: #ffffff; --superficie-2: #f2f4f7;
+    --borde: #e5e9ef; --borde-fuerte: #d2d8e1; --borde-control: #7b8594;
+    --texto: #0e1420; --tenue: #4a5465; --apagado: #5d6879;
+    --acento: #1c5cab; --acento-fuerte: #164480; --acento-suave: #e6eefa;
+    --serie: #1c5cab; --serie-fuerte: #0f2f5c; --rayado: #8592a6;
+    --bien-texto: #13692f; --critico-texto: #b42323;
+    --aviso-icono: #a87c0c; --grave-icono: #c45a2e;
   }
   body { background: #fff; color: #000; }
   .no-imprimir { display: none !important; }
-  .imprimir-plano { box-shadow: none !important; border-color: #ddd !important; }
+  .imprimir-plano { box-shadow: none !important; border: 1px solid #ddd !important; }
   @page { margin: 16mm; }
 }
 
@@ -173,8 +292,9 @@ body {
   line-height: 1.65;
   overflow-wrap: break-word;
 }
-.prosa h1 { font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin: 0 0 1rem; letter-spacing: -0.01em; }
-.prosa h2 { font-size: 1.25rem; font-weight: 650; margin: 2rem 0 0.6rem; }
+.prosa:first-child > :first-child { margin-top: 0; }
+.prosa h1 { font-size: 1.875rem; font-weight: 600; line-height: 1.15; margin: 0 0 1rem; letter-spacing: -0.02em; }
+.prosa h2 { font-size: 1.25rem; font-weight: 600; margin: 2rem 0 0.6rem; letter-spacing: -0.01em; }
 .prosa h3 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 0.5rem; }
 .prosa h4 { font-weight: 600; margin: 1.2rem 0 0.4rem; }
 .prosa p { margin: 0.6rem 0; }
@@ -187,11 +307,11 @@ body {
 .prosa input[type="checkbox"] { margin-right: 0.5rem; accent-color: var(--acento); }
 .prosa a { color: var(--acento); text-decoration: underline; text-underline-offset: 2px; }
 .prosa strong { font-weight: 650; }
-.prosa code { font-family: var(--font-mono); font-size: 0.88em; background: var(--acento-suave); padding: 0.1em 0.35em; border-radius: 4px; }
-.prosa pre { overflow-x: auto; background: var(--superficie); border: 1px solid var(--borde); padding: 0.8rem; border-radius: 8px; margin: 0.8rem 0; }
+.prosa code { font-family: var(--font-mono); font-size: 0.88em; background: var(--superficie-2); padding: 0.1em 0.35em; border-radius: 6px; }
+.prosa pre { overflow-x: auto; background: var(--superficie-2); padding: 0.9rem 1rem; border-radius: 12px; margin: 0.8rem 0; }
 .prosa pre code { background: none; padding: 0; }
 .prosa blockquote { border-left: 3px solid var(--acento); padding: 0.1rem 0 0.1rem 0.9rem; margin: 0.8rem 0; color: var(--tenue); }
 .prosa table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.92rem; }
 .prosa th, .prosa td { border: 1px solid var(--borde); padding: 0.35rem 0.6rem; text-align: left; vertical-align: top; }
-.prosa th { background: var(--superficie); font-weight: 600; }
+.prosa th { background: var(--superficie-2); font-weight: 600; }
 .prosa hr { border-color: var(--borde); margin: 1.5rem 0; }

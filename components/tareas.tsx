@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import type { Tarea } from '@/lib/boveda/tipos';
 import { Markdown, textoPlano } from './markdown';
@@ -30,7 +29,7 @@ export function ListaTareas({
         >
           <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center" aria-hidden>
             {tarea.hecha ? (
-              <Check className="size-4 text-bien-texto" strokeWidth={2.5} />
+              <Check className="size-4 text-serie" strokeWidth={2.5} />
             ) : (
               <span className="size-1.5 rounded-full bg-apagado" />
             )}
@@ -48,11 +47,13 @@ export function ListaTareas({
   );
 }
 
+/** Las filas de tareas que se marcan, separadas por una raya: cada una se lee como una cosa */
+export const LISTA_EDITABLE = 'divide-y divide-borde';
+
 /**
  * Las tareas de una diaria, que se marcan desde el panel. `mover`: a qué otra lista se pueden
- * mandar las de primer nivel. `detalle`: algo más que enseñar detrás del texto de una tarea.
- * Lo que se escribe en la nota va siempre con `tarea.linea`, la línea tal cual; lo que se ve,
- * limpio (`textoParaPanel`, en el Markdown en línea)
+ * mandar las de primer nivel. Lo que se escribe en la nota va siempre con `tarea.linea`, la línea
+ * tal cual; lo que se ve, limpio (`textoParaPanel`, en el Markdown en línea)
  */
 export function ListaTareasEditable({
   tareas,
@@ -60,7 +61,6 @@ export function ListaTareasEditable({
   titulos,
   ruta,
   mover,
-  detalle,
 }: {
   tareas: Tarea[];
   rutas: Record<string, string>;
@@ -68,10 +68,9 @@ export function ListaTareasEditable({
   /** La diaria donde están */
   ruta: string;
   mover?: 'espera' | 'objetivos';
-  detalle?: (tarea: Tarea) => ReactNode;
 }) {
   return (
-    <ul className="space-y-2.5">
+    <ul className={LISTA_EDITABLE}>
       {tareas.map((tarea, i) => (
         <TareaEditable
           key={`${i}-${tarea.linea}`}
@@ -82,7 +81,6 @@ export function ListaTareasEditable({
           mover={tarea.nivel === 0 ? mover : undefined}
         >
           <Markdown texto={tarea.texto} rutas={rutas} titulos={titulos} enLinea />
-          {detalle?.(tarea)}
         </TareaEditable>
       ))}
     </ul>

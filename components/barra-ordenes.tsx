@@ -9,6 +9,7 @@ import { cambiarCobro } from '@/app/(panel)/economia/acciones';
 import { datosBarra, type DatosBarra } from '@/app/(panel)/ordenes';
 import { hrefNota } from '@/lib/rutas';
 import { useDialogo } from './dialogo';
+import { ZONA_TOQUE } from './estilos';
 
 type Icono = ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
 
@@ -207,27 +208,28 @@ export function BarraOrdenes() {
 
   return (
     <>
+      {/* En el móvil, un botón redondo blanco como los de la cabecera; desde 768 px, la pastilla del
+          atajo dentro del buscador. El mismo botón: es al que vuelve el foco al cerrar */}
       <button
         ref={boton}
         type="button"
         onClick={() => setAbierta(true)}
-        className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-borde bg-superficie px-2.5 text-sm text-tenue hover:text-texto"
+        className={`${ZONA_TOQUE} inline-flex size-11 shrink-0 items-center justify-center gap-1 rounded-full border border-borde bg-superficie text-tenue transition-colors hover:text-texto md:size-auto md:h-8 md:border-borde-fuerte md:bg-superficie-2 md:px-2.5 md:text-xs md:font-semibold`}
         aria-keyshortcuts={mac ? 'Meta+K' : 'Control+K'}
         aria-haspopup="dialog"
       >
-        <Command className="size-4" aria-hidden />
-        <span className="hidden md:inline">Órdenes</span>
-        <kbd className="hidden rounded border border-borde px-1 font-sans text-[11px] text-apagado md:inline">{mac ? '⌘ K' : 'Ctrl K'}</kbd>
-        <span className="sr-only md:hidden">Barra de órdenes</span>
+        <Command className="size-5 md:hidden" aria-hidden />
+        <span aria-hidden className="hidden md:inline">{mac ? '⌘ K' : 'Ctrl K'}</span>
+        <span className="sr-only">Barra de órdenes</span>
       </button>
 
-      {/* En un portal: la cabecera tiene `backdrop-blur`, y con eso un `fixed` de dentro se mediría contra ella y no contra la pantalla */}
+      {/* En un portal: así el `fixed` se mide contra la pantalla aunque la cabecera llegue a tener un filtro o una transformación */}
       {abierta &&
         createPortal(
           <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label="Barra de órdenes">
             {/* Solo para el ratón: con el teclado se cierra con Esc, y así el Tab no se va aquí */}
             <button type="button" tabIndex={-1} aria-label="Cerrar" className="absolute inset-0 cursor-default bg-black/40" onClick={cerrar} />
-            <div ref={caja} className="relative w-full max-w-xl overflow-hidden rounded-xl border border-borde bg-superficie shadow-2xl">
+            <div ref={caja} className="relative w-full max-w-xl overflow-hidden rounded-2xl bg-superficie shadow-flotante">
               <div className="flex items-center gap-2 border-b border-borde px-3">
                 {haciendo ? (
                   <Loader2 className="size-4 shrink-0 text-apagado motion-safe:animate-spin" aria-hidden />

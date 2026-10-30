@@ -13,12 +13,12 @@ export default async function PaginaLogin({ searchParams }: PageProps<'/login'>)
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl border border-borde bg-superficie p-6 shadow-tarjeta">
-        <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-acento-fuerte text-sm font-bold text-white" aria-hidden>
+      <div className="w-full max-w-sm rounded-xl bg-superficie p-7 sm:p-8">
+        <div className="mb-5 flex size-11 items-center justify-center rounded-full bg-acento-fuerte text-sm font-bold text-white" aria-hidden>
           FS
         </div>
-        <h1 className="text-xl font-semibold tracking-tight">Dashboard FSMTECH</h1>
-        <p className="mb-6 mt-1 text-sm text-tenue">
+        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em]">Dashboard FSMTECH</h1>
+        <p className="mb-6 mt-2 text-sm text-tenue">
           Panel privado. {conHuella ? 'Entra con la huella o con la contraseña.' : 'Introduce la contraseña.'}
         </p>
 

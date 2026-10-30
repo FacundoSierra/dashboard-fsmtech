@@ -15,7 +15,7 @@ import { hrefNota } from '@/lib/rutas';
 export const metadata: Metadata = { title: 'Semana' };
 
 const BOTON =
-  'inline-flex min-h-11 items-center gap-1 rounded-lg border border-borde bg-superficie px-3 shadow-tarjeta hover:text-acento';
+  'inline-flex min-h-11 items-center gap-1 rounded-full border border-borde-fuerte bg-superficie px-4 font-semibold hover:border-acento hover:text-acento';
 
 export default async function PaginaSemana({ searchParams }: PageProps<'/semana'>) {
   const boveda = await obtenerBoveda();
@@ -59,6 +59,7 @@ export default async function PaginaSemana({ searchParams }: PageProps<'/semana'
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div className="col-span-2 sm:col-span-1">
           <Kpi
+            destacada
             etiqueta="Objetivos hechos"
             valor={`${totales.objetivosHechos}/${totales.objetivosTotales}`}
             detalle="Sin repetir lo arrastrado"

@@ -67,15 +67,23 @@ const EMOJI = String.raw`(?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:
 // Los del principio, también dentro de una negrita: `🚨 **Lo primero**` y `**🔎 SEO**`
 const RE_EMOJI_INICIAL = new RegExp(String.raw`^((?:\*\*|__)?)\s*(?:${EMOJI}\s*)+`, 'u');
 const RE_ETIQUETA_PRIORIDAD = /(^|\s)#prioridad\/[\p{L}\p{N}_-]+/gu;
+// El de una sección citada entre comillas: «✅ Completado», «⏳ A la espera». En el panel esas
+// secciones no llevan emoji, así que la cita tampoco
+const RE_EMOJI_DE_SECCION = new RegExp(String.raw`«\s*(?:${EMOJI}\s*)+`, 'gu');
 
 /**
  * El texto de una tarea o de una línea corta como se pinta en el panel: sin el emoji del principio
- * (en Obsidian hace de icono; el panel pone los suyos) ni las etiquetas `#prioridad/*` (lo urgente
- * ya va en «Urgente»). Las notas no cambian: es solo para pintar, y lo que escribe en una nota se
- * busca siempre por la línea tal cual (`Tarea.linea`), nunca por este texto
+ * (en Obsidian hace de icono; el panel pone los suyos), sin el de una sección citada («✅
+ * Completado» → «Completado») ni las etiquetas `#prioridad/*` (lo urgente ya va en «Urgente»).
+ * Los demás emojis de en medio se quedan. Las notas no cambian: es solo para pintar, y lo que
+ * escribe en una nota se busca siempre por la línea tal cual (`Tarea.linea`), nunca por este texto
  */
 export function textoParaPanel(texto: string): string {
-  const limpio = texto.replace(RE_ETIQUETA_PRIORIDAD, '$1').replace(RE_EMOJI_INICIAL, '$1').trim();
+  const limpio = texto
+    .replace(RE_ETIQUETA_PRIORIDAD, '$1')
+    .replace(RE_EMOJI_DE_SECCION, '«')
+    .replace(RE_EMOJI_INICIAL, '$1')
+    .trim();
   return limpio || texto;
 }
 

@@ -1,397 +1,106 @@
-import Link from 'next/link';
 import { Suspense } from 'react';
-import { Bell, CalendarClock, CheckSquare, ExternalLink, Flame, Hourglass, Inbox, History, Plus } from 'lucide-react';
-import { ListaAvisos } from '@/components/avisos';
-import { NuevoObjetivo } from '@/components/tarea-editable';
-import { ListaTareas, ListaTareasEditable } from '@/components/tareas';
-import { Chip, EnlaceAccion, Estado, Kpi, Medidor, Tarjeta, Vacio, euros } from '@/components/ui';
-import { calcularAvisos } from '@/lib/avisos';
-import { esPrioritaria, obtenerBoveda, proyectos, resumenHoy, reunionesProximas } from '@/lib/boveda/consultas';
+import { TarjetaAvisos, TarjetaAvisosCargando, type Urgente } from '@/components/hoy/avisos';
+import { CabeceraHoy } from '@/components/hoy/cabecera';
+import { CifrasDeHoy } from '@/components/hoy/cifras';
+import { PorCobrar } from '@/components/hoy/cobrar';
+import { InboxDeHoy, Paneles } from '@/components/hoy/columna';
+import { ALaEspera } from '@/components/hoy/espera';
+import { MedidorDelDia } from '@/components/hoy/medidor';
+import { Objetivos } from '@/components/hoy/objetivos';
+import { Requerimientos } from '@/components/hoy/requerimientos';
+import { Recordatorio } from '@/components/hoy/reunion';
+import { BarrasSemana } from '@/components/hoy/semana';
+import { esPrioritaria, obtenerBoveda, proyectos, resumenHoy, reunionesProximas, type ResumenHoy } from '@/lib/boveda/consultas';
 import { capturas } from '@/lib/boveda/inbox';
-import { ultimaSubidaDelPc } from '@/lib/boveda/sincronizacion';
-import type { Boveda, Tarea } from '@/lib/boveda/tipos';
-import { economia } from '@/lib/economia';
-import { cuandoEs, diasEntre, esFechaValida, fechaHoraMadrid, fechaLarga, haceTiempo, hoyMadrid } from '@/lib/fechas';
-import { portales, type Portal } from '@/lib/portales';
-import { hrefNota } from '@/lib/rutas';
-import { estadoGeneral } from '@/lib/vigilancia/estado';
-import { reposLocales } from '@/lib/vigilancia/repos-locales';
+import { hoyMadrid } from '@/lib/fechas';
+import { portales } from '@/lib/portales';
 
-const CAPTURAS_VISIBLES = 4;
-const AVISOS_VISIBLES = 5;
-const MES_CORTO = new Intl.DateTimeFormat('es-ES', { month: 'short', timeZone: 'UTC' });
-/** La regla de la bóveda: lo que lleva más de una semana esperando se dice en voz alta */
-const DIAS_ESPERANDO_MUCHO = 7;
-
-/** «FSM-Finance» → FSM, «DF Tech» → DF: si empieza por unas siglas, las siglas; si no, las iniciales */
-function iniciales(nombre: string): string {
-  const palabras = nombre.split(/[\s-]+/).filter(Boolean);
-  if (/^[A-Z0-9]{2,4}$/.test(palabras[0] ?? '')) return palabras[0];
-  return palabras
-    .map((palabra) => palabra[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+/**
+ * La respuesta corta a «¿qué tengo que hacer hoy?», debajo del título. Los mismos números que la
+ * cifra de los objetivos y el medidor, contados igual: solo las tareas de primer nivel
+ */
+function frase({ daily, objetivos }: ResumenHoy): string {
+  if (!daily) return 'Todavía no hay diaria de hoy';
+  const principales = objetivos.filter((t) => t.nivel === 0);
+  const quedan = principales.filter((t) => !t.hecha).length;
+  if (principales.length === 0) return 'La diaria de hoy no tiene objetivos';
+  if (quedan === 0) return principales.length === 1 ? 'Has hecho el objetivo de hoy' : `Has hecho los ${principales.length} objetivos de hoy`;
+  return quedan === 1 ? 'Te queda 1 objetivo' : `Te quedan ${quedan} objetivos`;
 }
 
 /**
- * Tus paneles (FSM-Finance, el de DF…), de `dashboards/portales.md`: se abren en otra pestaña.
- * Sin portales apuntados, no ocupa sitio
+ * Hoy, con la composición de la referencia que eligió Facundo: las cuatro cifras arriba y, debajo,
+ * una rejilla de tarjetas de distintos tamaños sobre doce columnas.
+ *
+ * En el escritorio (desde 1280 px), las dos primeras filas son las de la referencia: la semana en
+ * barras, la reunión y las peticiones abiertas; «A la espera» con sus personas, el medidor del día
+ * y la tarjeta oscura de lo que hay por cobrar. Debajo, los objetivos (la tarjeta grande) y, a su
+ * lado, lo que se ha roto, el inbox y tus paneles.
+ *
+ * El HTML va en el orden de lo que más importa, que es el del móvil (y el de quien navega con el
+ * teclado o un lector de pantalla): lo roto, los objetivos, la reunión, lo que esperas… En el
+ * escritorio, cada tarjeta se coloca en su sitio de la rejilla
  */
-function Portales({ lista }: { lista: Portal[] }) {
-  if (lista.length === 0) return null;
-  return (
-    <nav aria-label="Tus paneles" className="mb-6">
-      <h2 className="mb-2 text-sm font-semibold text-tenue">Tus paneles</h2>
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {lista.map((portal) => (
-          <li key={portal.url}>
-            <a
-              href={portal.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex h-full items-center gap-3 rounded-xl border border-borde bg-superficie p-3 shadow-tarjeta transition-colors hover:border-borde-fuerte"
-            >
-              <span
-                aria-hidden
-                className="grid size-10 shrink-0 place-items-center rounded-lg bg-acento-suave text-sm font-semibold text-acento"
-              >
-                {iniciales(portal.nombre)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium group-hover:text-acento">{portal.nombre}</span>
-                <span className="block truncate text-xs text-tenue">{portal.descripcion ?? portal.dominio}</span>
-              </span>
-              <ExternalLink className="size-4 shrink-0 text-apagado" aria-hidden />
-              <span className="sr-only">(se abre en otra pestaña)</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
-
-function saludo(): string {
-  const hora = Number(fechaHoraMadrid().hora.slice(0, 2));
-  if (hora < 6) return 'Buenas noches';
-  if (hora < 13) return 'Buenos días';
-  if (hora < 21) return 'Buenas tardes';
-  return 'Buenas noches';
-}
-
 export default async function PaginaHoy() {
   const boveda = await obtenerBoveda();
   const { rutas, titulos } = boveda;
   const hoy = hoyMadrid();
 
-  const { daily, objetivos, espera, completado, anteriores } = resumenHoy(boveda, hoy);
-  const principales = objetivos.filter((t) => t.nivel === 0);
-  const hechos = principales.filter((t) => t.hecha).length;
-
-  const proximas = reunionesProximas(boveda, hoy);
-  const urgentes = proyectos(boveda)
+  const resumen = resumenHoy(boveda, hoy);
+  const urgentes: Urgente[] = proyectos(boveda)
     .filter((p) => p.estado === 'activo')
     .flatMap((proyecto) => proyecto.abiertas.filter(esPrioritaria).map((tarea) => ({ tarea, proyecto })));
-  const inbox = capturas(boveda);
-  const dinero = economia(boveda, hoy);
-  const pendientesAnteriores = anteriores.reduce((total, dia) => total + dia.tareas.length, 0);
 
   return (
     <>
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">{saludo()}, Facundo</h1>
-        <p className="mt-1 text-sm text-tenue first-letter:uppercase">{fechaLarga(hoy)}</p>
-      </header>
+      <CabeceraHoy hoy={hoy} frase={frase(resumen)} daily={resumen.daily} />
 
-      <Portales lista={portales(boveda)} />
+      <CifrasDeHoy resumen={resumen} boveda={boveda} hoy={hoy} />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi
-          etiqueta="Objetivos de hoy"
-          valor={daily ? `${hechos}/${principales.length}` : '—'}
-          icono={CheckSquare}
-          href={daily ? hrefNota(daily.ruta) : undefined}
-          detalle={daily ? (principales.length ? undefined : 'La daily no tiene objetivos') : 'Todavía no hay daily de hoy'}
-        >
-          {daily && principales.length > 0 && <Medidor valor={hechos} max={principales.length} etiqueta="Objetivos hechos" />}
-        </Kpi>
-        <Suspense fallback={<KpiCargando etiqueta="Webs en línea" />}>
-          <KpiWebs boveda={boveda} />
-        </Suspense>
-        {/* Lo que queda de verdad, ya con los gastos del negocio: la misma cifra y el mismo nombre que en Economía */}
-        <Kpi
-          etiqueta="Te queda al mes"
-          valor={dinero.conPlan ? euros(dinero.netoMensual - dinero.negocio.alMes) : '—'}
-          href="/economia"
-          estado={dinero.atrasados.length ? 'grave' : undefined}
-          detalle={
-            !dinero.conPlan ? (
-              'Sin planes de cobro'
-            ) : (
-              <>
-                <span className="block">Con los gastos del negocio</span>
-                <span className="block">
-                  {dinero.atrasados.length
-                    ? `${euros(dinero.pendiente)} sin cobrar`
-                    : dinero.pendiente
-                      ? `${euros(dinero.pendiente)} por cobrar este mes`
-                      : 'Cobros al día'}
-                </span>
-              </>
-            )
-          }
-        />
-        <Suspense fallback={<KpiCargando etiqueta="Avisos" />}>
-          <KpiAvisos boveda={boveda} hoy={hoy} />
-        </Suspense>
-      </div>
-
-      {/* grid-cols-1 es minmax(0, 1fr): sin él, en el móvil la columna crece con lo más ancho que tenga dentro */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Suspense fallback={<div className="h-40 motion-safe:animate-pulse rounded-xl border border-borde bg-superficie" />}>
-            <TarjetaAvisos boveda={boveda} hoy={hoy} />
+      {/* grid-cols-1 es minmax(0, 1fr): sin él, en el móvil la columna crece con lo más ancho que tenga dentro.
+          Las filas 1 y 2 del escritorio estiran sus tarjetas al mismo alto, como en la referencia */}
+      {/* La última fila, flexible: lo que sobra de los objetivos (que ocupan dos) cae en ella y no
+          entre los avisos y el inbox */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:mt-4 sm:gap-4 md:grid-cols-2 xl:grid-cols-12 xl:grid-rows-[auto_auto_auto_1fr]">
+        <div id="avisos" className="min-w-0 scroll-mt-24 md:col-span-2 xl:col-span-3 xl:col-start-10 xl:row-start-3">
+          <Suspense fallback={<TarjetaAvisosCargando />}>
+            <TarjetaAvisos boveda={boveda} hoy={hoy} urgentes={urgentes} />
           </Suspense>
-
-          <Tarjeta
-            titulo="Objetivos"
-            icono={CheckSquare}
-            accion={daily && <EnlaceAccion href={hrefNota(daily.ruta)}>Abrir la daily</EnlaceAccion>}
-          >
-            {!daily ? (
-              <Vacio>Todavía no hay daily de hoy.</Vacio>
-            ) : principales.length === 0 ? (
-              <Vacio>La daily de hoy no tiene objetivos.</Vacio>
-            ) : (
-              <ListaTareasEditable tareas={objetivos} rutas={rutas} titulos={titulos} ruta={daily.ruta} mover="espera" />
-            )}
-            <div className="mt-4">
-              <NuevoObjetivo creaDiaria={!daily} />
-            </div>
-            <Suspense fallback={null}>
-              <SubidaDelPc />
-            </Suspense>
-            {completado.length > 0 && (
-              <details className="mt-4 border-t border-borde pt-3">
-                <summary className="cursor-pointer text-sm text-tenue">Completado hoy · {completado.length}</summary>
-                <div className="mt-3">
-                  <ListaTareas tareas={completado} rutas={rutas} titulos={titulos} />
-                </div>
-              </details>
-            )}
-          </Tarjeta>
-
-          {daily && espera.length > 0 && (
-            <Tarjeta titulo={`A la espera · ${espera.filter((t) => t.nivel === 0 && !t.hecha).length}`} icono={Hourglass}>
-              <ListaTareasEditable
-                tareas={espera}
-                rutas={rutas}
-                titulos={titulos}
-                ruta={daily.ruta}
-                mover="objetivos"
-                detalle={(tarea) => <DiasEsperando tarea={tarea} hoy={hoy} />}
-              />
-            </Tarjeta>
-          )}
-
-          {pendientesAnteriores > 0 && (
-            <Tarjeta titulo={`De días anteriores · ${pendientesAnteriores}`} icono={History}>
-              <details>
-                <summary className="cursor-pointer text-sm text-tenue">
-                  Objetivos sin marcar de las últimas dos semanas que no están en la daily de hoy
-                </summary>
-                <div className="mt-4 space-y-4">
-                  {anteriores.map(({ fecha, nota, tareas }) => (
-                    <div key={fecha}>
-                      <p className="mb-2 text-xs text-tenue first-letter:uppercase">
-                        <Link href={hrefNota(nota.ruta)} className="hover:text-acento">
-                          {fechaLarga(fecha)}
-                        </Link>{' '}
-                        · {cuandoEs(fecha, hoy)}
-                      </p>
-                      <ListaTareasEditable tareas={tareas} rutas={rutas} titulos={titulos} ruta={nota.ruta} />
-                    </div>
-                  ))}
-                </div>
-              </details>
-            </Tarjeta>
-          )}
         </div>
 
-        <div className="space-y-6">
-          <Tarjeta titulo="Próximas reuniones" icono={CalendarClock} accion={<EnlaceAccion href="/reuniones">Todas</EnlaceAccion>}>
-            {proximas.length === 0 ? (
-              <Vacio>No hay reuniones previstas.</Vacio>
-            ) : (
-              <ul className="space-y-3">
-                {proximas.slice(0, 4).map((reunion) => (
-                  <li key={reunion.nota.ruta}>
-                    <Link href={hrefNota(reunion.nota.ruta)} className="group flex items-start gap-3">
-                      {reunion.fecha && (
-                        <span className="flex w-11 shrink-0 flex-col items-center rounded-lg border border-borde bg-superficie-2 py-1">
-                          <span className="text-base font-semibold leading-none">{Number(reunion.fecha.slice(8, 10))}</span>
-                          <span className="mt-0.5 text-[11px] uppercase text-apagado">
-                            {MES_CORTO.format(new Date(`${reunion.fecha}T00:00:00Z`)).replace('.', '')}
-                          </span>
-                        </span>
-                      )}
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium leading-snug group-hover:text-acento">{reunion.nota.titulo}</span>
-                        {reunion.fecha && (
-                          <span className="text-xs text-tenue first-letter:uppercase">
-                            {cuandoEs(reunion.fecha, hoy)}
-                            {reunion.hora && ` · ${reunion.hora}`}
-                          </span>
-                        )}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Tarjeta>
+        <div className="min-w-0 md:col-span-2 xl:col-span-9 xl:col-start-1 xl:row-span-2 xl:row-start-3">
+          <Objetivos resumen={resumen} hoy={hoy} rutas={rutas} titulos={titulos} />
+        </div>
 
-          {urgentes.length > 0 && (
-            <Tarjeta titulo={`Urgente · ${urgentes.length}`} icono={Flame}>
-              <ul className="space-y-3">
-                {urgentes.slice(0, 5).map(({ tarea, proyecto }, i) => (
-                  <li key={i}>
-                    <Link href={hrefNota(proyecto.nota.ruta)} className="mb-1 block text-xs text-tenue hover:text-acento">
-                      {proyecto.nota.titulo}
-                    </Link>
-                    <ListaTareas tareas={[{ ...tarea, nivel: 0 }]} rutas={rutas} titulos={titulos} />
-                  </li>
-                ))}
-              </ul>
-            </Tarjeta>
-          )}
+        <div className="min-w-0 xl:col-span-3 xl:col-start-7 xl:row-start-1">
+          <Recordatorio reuniones={reunionesProximas(boveda, hoy)} hoy={hoy} />
+        </div>
 
-          <Tarjeta
-            titulo={`Inbox · ${inbox.length}`}
-            icono={Inbox}
-            accion={
-              <EnlaceAccion href="/capturar">
-                <span className="inline-flex items-center gap-1">
-                  <Plus className="size-3.5" aria-hidden />
-                  Apuntar
-                </span>
-              </EnlaceAccion>
-            }
-          >
-            {inbox.length === 0 ? (
-              <Vacio>Nada pendiente de procesar.</Vacio>
-            ) : (
-              <ul className="space-y-2">
-                {inbox.slice(0, CAPTURAS_VISIBLES).map((captura) => (
-                  <li key={captura.nota.ruta} className="flex items-center justify-between gap-2">
-                    <Link href={hrefNota(captura.nota.ruta)} className="min-w-0 truncate text-sm hover:text-acento">
-                      {captura.nota.titulo}
-                    </Link>
-                    {captura.categoria && <Chip>{captura.categoria}</Chip>}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {inbox.length > CAPTURAS_VISIBLES && (
-              <div className="mt-3 text-sm">
-                <EnlaceAccion href="/inbox">Ver las {inbox.length}</EnlaceAccion>
-              </div>
-            )}
-          </Tarjeta>
+        <div className="min-w-0 xl:col-span-5 xl:col-start-1 xl:row-start-2">
+          <ALaEspera tareas={resumen.espera} ruta={resumen.daily?.ruta} hoy={hoy} rutas={rutas} titulos={titulos} />
+        </div>
+
+        <div className="min-w-0 xl:col-span-4 xl:col-start-6 xl:row-start-2">
+          <MedidorDelDia resumen={resumen} />
+        </div>
+
+        <div className="min-w-0 xl:col-span-6 xl:col-start-1 xl:row-start-1">
+          <BarrasSemana boveda={boveda} hoy={hoy} />
+        </div>
+
+        <div className="min-w-0 xl:col-span-3 xl:col-start-10 xl:row-start-1">
+          <Requerimientos boveda={boveda} />
+        </div>
+
+        <div className="min-w-0 xl:col-span-3 xl:col-start-10 xl:row-start-2">
+          <PorCobrar boveda={boveda} hoy={hoy} />
+        </div>
+
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-3 xl:col-start-10 xl:row-start-4 xl:grid-cols-1 xl:self-start">
+          <InboxDeHoy capturas={capturas(boveda)} />
+          <Paneles lista={portales(boveda)} />
         </div>
       </div>
     </>
-  );
-}
-
-/** Lo marcado aquí llega a Obsidian cuando el PC sincroniza: esto dice cuándo lo hizo por última vez */
-async function SubidaDelPc() {
-  const ultima = await ultimaSubidaDelPc();
-  if (!ultima) return null;
-  return (
-    <p className="mt-3 text-xs text-apagado">
-      Lo que marques aquí llega a Obsidian cuando el PC sincroniza. Última subida del PC: {haceTiempo(ultima)}.
-    </p>
-  );
-}
-
-/** `— **Roberto** — desde 2026-09-21`: cuántos días lleva, en voz alta si pasa de una semana */
-function DiasEsperando({ tarea, hoy }: { tarea: Tarea; hoy: string }) {
-  const desde = tarea.texto.match(/desde (\d{4}-\d{2}-\d{2})/)?.[1];
-  if (tarea.nivel > 0 || tarea.hecha || !esFechaValida(desde)) return null;
-  const dias = diasEntre(desde, hoy);
-  if (dias <= DIAS_ESPERANDO_MUCHO) return null;
-  return (
-    <span className="ml-2 inline-flex align-middle">
-      <Estado nivel="grave">
-        <span className="text-xs">{dias} días esperando</span>
-      </Estado>
-    </span>
-  );
-}
-
-function KpiCargando({ etiqueta }: { etiqueta: string }) {
-  return (
-    <div className="rounded-xl border border-borde bg-superficie p-4 shadow-tarjeta" aria-busy="true">
-      <span className="text-sm text-tenue">{etiqueta}</span>
-      <div className="mt-2 h-8 w-16 motion-safe:animate-pulse rounded bg-superficie-2" />
-    </div>
-  );
-}
-
-async function KpiWebs({ boveda }: { boveda: Boveda }) {
-  const estado = await estadoGeneral(boveda);
-  const conWeb = estado.proyectos.filter((p) => p.web);
-  const enLinea = conWeb.filter((p) => p.web?.responde).length;
-  const caidas = conWeb.length - enLinea;
-  return (
-    <Kpi
-      etiqueta="Webs en línea"
-      valor={`${enLinea}/${conWeb.length}`}
-      estado={caidas ? 'critico' : 'bien'}
-      href="/estado"
-      detalle={caidas ? `${caidas} sin responder` : 'Todas responden'}
-    />
-  );
-}
-
-async function KpiAvisos({ boveda, hoy }: { boveda: Boveda; hoy: string }) {
-  const avisos = calcularAvisos({
-    estado: await estadoGeneral(boveda),
-    economia: economia(boveda, hoy),
-    repos: reposLocales(boveda),
-    hoy,
-  });
-  const serios = avisos.filter((a) => a.nivel === 'critico' || a.nivel === 'grave').length;
-  return (
-    <Kpi
-      etiqueta="Avisos"
-      valor={avisos.length}
-      estado={serios ? 'grave' : avisos.length ? 'aviso' : 'bien'}
-      href="/estado"
-      detalle={serios ? `${serios} ${serios === 1 ? 'importante' : 'importantes'}` : avisos.length ? 'Ninguno importante' : 'Todo en orden'}
-    />
-  );
-}
-
-async function TarjetaAvisos({ boveda, hoy }: { boveda: Boveda; hoy: string }) {
-  const avisos = calcularAvisos({
-    estado: await estadoGeneral(boveda),
-    economia: economia(boveda, hoy),
-    repos: reposLocales(boveda),
-    hoy,
-  });
-  if (avisos.length === 0) return null;
-
-  return (
-    <Tarjeta
-      titulo={`Avisos · ${avisos.length}`}
-      icono={Bell}
-      sinRelleno
-      accion={avisos.length > AVISOS_VISIBLES ? <EnlaceAccion href="/estado">Ver todos</EnlaceAccion> : undefined}
-    >
-      <ListaAvisos avisos={avisos} limite={AVISOS_VISIBLES} />
-    </Tarjeta>
   );
 }

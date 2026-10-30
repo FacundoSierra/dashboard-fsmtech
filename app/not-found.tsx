@@ -11,8 +11,8 @@ export const metadata: Metadata = { title: 'No existe' };
 export default function NoExiste() {
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl border border-borde bg-superficie p-6 text-center shadow-tarjeta">
-        <h1 className="text-lg font-semibold">Esta página no existe</h1>
+      <div className="w-full max-w-sm rounded-xl bg-superficie p-7 text-center">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Esta página no existe</h1>
         <p className="mt-2 text-sm text-tenue">Puede que el enlace esté mal escrito o que la página se haya quitado del panel.</p>
         <p className="mt-4 text-sm">
           <Link href="/" className="inline-flex min-h-11 items-center font-medium text-acento hover:underline">
