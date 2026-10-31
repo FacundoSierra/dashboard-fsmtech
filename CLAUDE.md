@@ -19,7 +19,7 @@ Desde REQ-001 tiene además su propia base de datos, `fsmtech` (Supabase), para 
 - Desarrollo: `npm run dev` (lee y escribe las notas en `BOVEDA_DIR`, definido en `.env.local`)
 - Lint: `npm run lint`
 - Build: `npm run build`
-- Pruebas: `npm test` (`lib/**/*.test.mjs`: las reglas de la consultoría y `textoParaPanel()` del parser, con `node:test`; Node 22.18 o más)
+- Pruebas: `npm test` (`lib/**/*.test.mjs`: las reglas de la consultoría, `textoParaPanel()` del parser y `partesEspera()`, con `node:test`; Node 22.18 o más)
 - Consultoría (REQ-001), en este repo. **Sin `--guardar` solo enseñan lo que harían**, y la vista previa funciona aunque falten las variables, la `0001` o la copia (con los valores de serie). **Su salida lleva nombres de clientes**: se lee en la terminal y no se copia a ninguna nota (a las notas, como mucho, la línea de la liquidación, que no los lleva). Leen `SUPABASE_URL` y `SUPABASE_SECRET_KEY` del `.env.local` del panel y no tienen `--consultor`: hay uno solo
   - `npm run consultoria:copiar -- --origen <ruta al .env.local de FSM-Finance> [--guardar] [--exportar <archivo.json>]` — copia la consultoría de FSM-Finance (solo la lee) y compara las dos bases lado a lado, sin nombres. `--guardar` solo **antes** del cambio y en una base vacía: hoy el script se niega, porque `fuente_desde` ya está puesto. `--exportar` escribe las filas de origen en un JSON y se niega dentro de un repo con remoto que no lo ignore. Sale con 1 si algo es distinto, también en vista previa
   - `npm run consultoria:firma -- --cliente … --compania … --producto … --aportacion … --fecha AAAA-MM-DD [--duracion N] [--unidades N] [--unidades-nivel N] [--pago …] [--unica] [--apex [--de-mes AAAA-MM]] [--propio] [--tipo …] [--pct-hucha N] [--estado …] [--referencia …] [--mes-produccion AAAA-MM] [--efecto AAAA-MM-DD] [--cobro AAAA-MM] [--valor-unidad N] [--nota …] [--repetida] [--guardar]` — una firma, con las reglas de la pantalla. Para probar sin base: `--calendario`, `--produccion` y `--unidades-previas`, que con `--guardar` no valen
@@ -36,7 +36,7 @@ Desde REQ-001 tiene además su propia base de datos, `fsmtech` (Supabase), para 
 - `lib/boveda/`:
   - Lectura: `fuente.ts` (carpeta local o API de GitHub) y `github.ts` (configuración y cabeceras)
   - Escritura: `escritura.ts` (todas las escrituras, cada una acotada), `lineas.ts` (secciones y líneas del texto crudo), `plantillas.ts` (notas nuevas con las plantillas de `templates/` de la bóveda), `diaria.ts` (monta la diaria igual que el script del PC) y `sincronizacion.ts` (cuándo subió el PC por última vez)
-  - Análisis: `parser.ts` (frontmatter, secciones, tareas, enlaces y etiquetas; `textoParaPanel()` quita el emoji inicial y `#prioridad/*` solo al pintar)
+  - Análisis: `parser.ts` (frontmatter, secciones, tareas, enlaces y etiquetas; `textoParaPanel()` quita al pintar el emoji inicial, el de una sección citada («✅ Completado» → «Completado») y `#prioridad/*`) y `espera.ts` (`partesEspera()`: una tarea de «A la espera» partida en qué, quién y desde cuándo; sin importaciones, con su prueba `espera.test.mjs`)
   - Consultas: `consultas.ts` (`obtenerBoveda()`, hoy, clientes, proyectos, reuniones), `inbox.ts`, `busqueda.ts` y `semana.ts`
   - Formato de las capturas: `captura.ts`
 - `lib/vigilancia/`: estado técnico de los proyectos activos
@@ -57,7 +57,7 @@ Desde REQ-001 tiene además su propia base de datos, `fsmtech` (Supabase), para 
 - `components/consultoria/`: las pantallas de la consultoría, con los mismos nombres de archivo que en FSM-Finance
 - `scripts/consultoria-*.mjs`: `comun` (lo compartido), `copiar`, `firma`, `importar` y `cierres` (ver Comandos)
 - `supabase/migraciones/`: las migraciones de la base, desde `0001_consultoria.sql`. Detalle en `docs/base-de-datos.md`
-- `lib/portales.ts`: los paneles propios (FSM-Finance, el de DF…) de `dashboards/portales.md`, arriba en Hoy y en la barra de órdenes
+- `lib/portales.ts`: los paneles propios (FSM-Finance, el de DF…) de `dashboards/portales.md`, abajo a la derecha en Hoy («Tus paneles») y en la barra de órdenes
 - `app/api/documentos/`: el único camino a los archivos del almacén privado, con sesión
 - `app/api/vigilancia/`: lo que consulta la vigilancia horaria (`.github/workflows/vigilancia.yml` + `scripts/sincronizar-avisos.mjs`)
 - `app/login/`: formulario y Server Actions de sesión, con el botón de huella si hay dispositivos registrados
@@ -66,9 +66,11 @@ Desde REQ-001 tiene además su propia base de datos, `fsmtech` (Supabase), para 
   - Resúmenes: Hoy (`/`), `/semana`, `/clientes`, `/proyectos`, `/reuniones` e `/inbox`
   - Negocio: `/estado`, `/economia`, `/consultoria` (Resumen, Clientes, Producción, Liquidaciones, Hucha y Ajustes, en `app/(panel)/consultoria/`), `/documentos`, `/informes` e `/informes/[cliente]`
   - Herramientas: `/buscar`, `/capturar`, `/crear` (cliente, reunión y requerimiento) y el lector `/nota/[...ruta]`
-- `app/manifest.ts`, `app/icon.tsx`, `app/apple-icon.tsx` y `app/iconos/[tamano]`: app instalable
+- `app/manifest.ts`, `app/icon.tsx`, `app/apple-icon.tsx`, `app/iconos/[tamano]` (el `any`) y `app/iconos/maskable`: app instalable. El dibujo, en `components/icono-app.tsx`
 - `components/barra-ordenes.tsx` y `app/(panel)/ordenes.ts`: la barra de órdenes (`Ctrl+K`, `⌘K` en Mac): ir a una sección o nota, «objetivo …», «cobrado …» y «apuntar [tarea|idea|nota] …» (abre `/capturar?tipo=`). Sus datos se piden al abrirla y lo que escribe pasa por las mismas Server Actions que los botones
-- `components/`: sistema de diseño (`ui.tsx`) y las clases comunes de toque y botones (`estilos.ts`, 44 px como mínimo), `dialogo.ts` (`useDialogo`: foco, Esc y Tab de los diálogos), navegación (menú lateral y barra inferior), buscadores (`buscador-cabecera.tsx`, y `buscar-lo-que-falta.tsx` para las notas que no existen), `filtro-desplegable.tsx`, gráficos, avisos, Markdown con `[[enlaces]]` de Obsidian (con el título de la nota si no llevan alias) y las vistas `.base` de requerimientos, reuniones y proyectos pintadas como listas, lista de tareas e icono
+- `components/hoy/`: las tarjetas de Hoy, una por archivo: `cabecera`, `cifras` (las cuatro `Kpi` de arriba), `semana` (la semana en barras), `medidor` (el avance del día), `reunion` (la de hoy o la siguiente), `requerimientos` (las peticiones abiertas), `cobrar` (la tarjeta oscura de «Por cobrar»), `espera` (por persona), `objetivos`, `avisos`, `columna` (inbox y «Tus paneles») y `nuevo-objetivo`. La página (`app/(panel)/page.tsx`) las coloca en una rejilla de doce columnas
+- `components/piezas.tsx`: lo pequeño que repiten las tarjetas: el rayado (`PatronRayado`, `Rayado`, `Muestra`) y el círculo con la inicial (`Avatar`, con seis tintes). `components/plegable.tsx`: lo que se guarda plegado (`details`)
+- `components/`: sistema de diseño (`ui.tsx`: `Tarjeta`, `Kpi`, `FlechaTarjeta`, `EstadoPildora`; los colores y los radios, en `app/globals.css`) y las clases comunes de toque y botones (`estilos.ts`, 44 px como mínimo), `dialogo.ts` (`useDialogo`: foco, Esc y Tab de los diálogos), navegación (menú lateral y barra inferior), buscadores (`buscador-cabecera.tsx`, y `buscar-lo-que-falta.tsx` para las notas que no existen), `filtro-desplegable.tsx`, gráficos, avisos, Markdown con `[[enlaces]]` de Obsidian (con el título de la nota si no llevan alias) y las vistas `.base` de requerimientos, reuniones y proyectos pintadas como listas, lista de tareas e icono
 - `app/not-found.tsx` y `app/(panel)/not-found.tsx`: las direcciones que no existen; la del panel ofrece buscar la nota que falta
 
 Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. Vigilancia, avisos e informes en `docs/vigilancia.md`; economía en `docs/economia.md`; documentos en `docs/documentos.md`; la base de datos en `docs/base-de-datos.md`, y la consultoría en `docs/specs/req-001-consultoria-en-el-panel.md`.
@@ -77,7 +79,7 @@ Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. 
 - Lee `AGENTS.md` antes de programar: esta versión de Next.js tiene cambios incompatibles con versiones anteriores
 - Toda lectura de notas pasa por `obtenerBoveda()`, que llama a `verificarSesion()`. Nunca leer `lib/boveda/fuente.ts` directamente desde una página o una ruta
 - La única excepción es `/api/vigilancia`, que no tiene sesión: usa `obtenerBovedaParaVigilancia()`, que exige la autorización de `autorizarVigilancia()`. No usarla en ningún otro sitio
-- Los estados (bien, aviso, grave, crítico) llevan siempre icono y texto, nunca solo color: el verde y el rojo no se distinguen con deuteranopía. Usar `<Estado>` e `<IconoEstado>` de `components/ui.tsx`
+- Los estados (bien, aviso, grave, crítico) llevan siempre icono y texto, nunca solo color: el verde y el rojo no se distinguen con deuteranopía. Usar `<Estado>`, `<EstadoPildora>` e `<IconoEstado>` de `components/ui.tsx`
 - Nada de `Date.now()` al pintar (la regla de pureza de React lo marca): usar `estado.comprobado` como «ahora»
 - Las URLs que salen de las notas pasan por `urlVigilable()` antes de llamarlas
 - Cada Server Action que toque notas llama a `verificarSesion()` al empezar. No basta con el proxy: son endpoints POST propios
@@ -98,6 +100,9 @@ Detalle de datos, escritura, caché, PWA y seguridad en `docs/arquitectura.md`. 
 - **Con `fuente_desde` nulo no se escribe en la consultoría**: las acciones devuelven «La consultoría aún se lleva en FSM-Finance» y los scripts con `--guardar` paran. Está puesto desde el 2026-10-27, así que hoy se escribe; la comprobación se queda como protección. `fuente_desde` solo lo cambia Facundo, como `postgres`: la clave secreta no puede, y ningún código hace `update` de `consultoria_consultores`
 - **Migraciones** en `supabase/migraciones/NNNN_titulo.sql`: las ejecuta Facundo en el editor SQL de `fsmtech`, después del `revisor-migraciones`, nunca un agente. Cada tabla nueva, con RLS activo y `grant` solo a `service_role`; cada función nueva, con su `revoke … from public` (el `alter default privileges` de la `0001` no lo quita) y su `grant` a quien toque. Tablas con el prefijo de su módulo (`consultoria_*`), dinero en `numeric(12,2)` y fechas contables en `date` (ADR-001)
 - `lib/consultoria/reglas.ts` y `cuadro.ts`: **sin importaciones en tiempo de ejecución** (los cargan Next y los scripts de Node) y solo sintaxis que se pueda borrar (`erasableSyntaxOnly`). Importes en enteros. **Un porcentaje 0 es un valor**: `??`, nunca `||`. Un cuadro de comisiones nuevo es un cambio de `cuadro.ts` y de sus pruebas
+- **Aspecto**: islas grises (`--fondo`) con tarjetas blancas (`--superficie`) de 20 px (`rounded-xl`), sin borde ni sombra; solo flota lo que flota de verdad (menús, diálogos). La tarjeta azul (`.tema-marca`) es la primera cifra de cada pantalla, y la oscura (`.tema-oscuro`), el acento de la pantalla, una como mucho. Botones y campos de una línea, en píldora. Colores y radios, solo desde `app/globals.css`, sin colores fijos. Letra: Plus Jakarta Sans con `next/font` (`--font-jakarta`). Más en «Aspecto» de `docs/arquitectura.md`
+- **Datos y estados no se mezclan**: los datos van en la escala de azules (`serie` para lo hecho, `serie-fuerte` para hoy, `rayado` para lo que falta). Los colores de estado, solo para estados y siempre con icono y texto; en las franjas, solo lo que va mal lleva su tono, y además es más alto
+- **`Kpi` es una subrejilla de tres filas** (nombre, cifra y detalle): va en una rejilla que las contenga, y lo que comparta rejilla con las cifras necesita `row-span-3`
 - Hacer push a `main` publica el panel
 - Commits en español: `tipo(ámbito): descripción`
 - Se trabaja desde Windows: no añadir dependencias ni archivos específicos de macOS

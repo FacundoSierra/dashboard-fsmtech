@@ -168,16 +168,18 @@ Tres formas de marcar un cobro, y las tres acaban en la misma línea:
 
 | Estado | Cuándo | En la franja del año |
 |---|---|---|
-| Cobrado | Casilla marcada | Celda baja, verde |
-| Pendiente | Sin marcar, de este mes | Celda mediana, amarilla |
-| Atrasado | Sin marcar, de un mes anterior | Celda alta, roja, y aviso en Hoy y en Estado |
-| Por cobrar | Sin marcar, de un mes que no ha llegado | Celda baja, gris |
+| Cobrado | Casilla marcada | Píldora baja, en azul |
+| Pendiente | Sin marcar, de este mes | Píldora mediana, rayada |
+| Atrasado | Sin marcar, de un mes anterior | La píldora más alta, en el tono de «grave», y aviso en Hoy y en Estado |
+| Por cobrar | Sin marcar, de un mes que no ha llegado | Píldora baja, rayada |
+| Sin cobros | Un mes del plan sin ninguna casilla | Un punto gris |
 
 El bloque «Por cobrar» de la página junta los pendientes y los atrasados; los «Por cobrar» de esta
 tabla (meses que no han llegado) no entran.
 
-La altura cambia con el estado porque el verde y el rojo no se distinguen con deuteranopía
-(ΔE 4,1 medido con el validador de la guía de visualización).
+La altura cambia con el estado, y lo bueno va en azul y no en verde, porque el verde y el rojo no
+se distinguen con deuteranopía (ΔE 4,1 medido con el validador de la guía de visualización). Solo
+lo atrasado lleva el tono de un estado; lo demás, la escala de azules y el rayado.
 
 Los atrasados salen como aviso en el panel, pero **no van al móvil**: los cobros se marcan a
 mano y habría falsas alarmas cada vez que se olvide una casilla.
@@ -220,10 +222,11 @@ por Obsidian Sync, y se arregla a mano.
 | **Por cobrar** | Los cobros de este mes y los atrasados de todos los clientes (también de tratos de años anteriores), arriba en la página, con su botón. Los marcados hoy se quedan en la lista con «Deshacer» |
 | **Sin cuota fija** | Un plan sin cuota al mes ni al año ni tarifas (OVB, un cliente que no paga) dice «Sin cuota fija» en vez de «0 €». Si ya ha cobrado algo en los meses cerrados, enseña «De media ≈ N €/mes», que **no suma** en ninguna cifra |
 | **Margen mes a mes** | Lo que queda cada mes desde el primer plan, hasta 24 meses |
-| **Reparto** | Lo que queda de cada cliente, y si uno pasa de la mitad del total |
+| **Reparto** | Lo que queda de cada cliente, en euros y como porcentaje del total, y el total al pie. Si uno pasa de la mitad, lo dice (solo con más de un cliente con plan) |
 | **Lo que te ha dejado cada cliente** | Últimos doce meses, este incluido: lo cobrado de verdad (casillas marcadas) menos lo que pagas tú por él según el plan de cada mes (dominios, hosting…). No cuenta tus horas |
 | **Balance del año, hasta hoy** | Lo cobrado (casillas marcadas) menos lo pagado por los clientes (el `gastoMensual` del plan en vigor, de enero a este mes) menos los gastos del negocio (los cargos de las suscripciones hasta hoy y los pagos sueltos). Debajo, la misma cuenta al mes con lo de hoy: lo que pagan los clientes, lo que pagas por ellos y lo que suponen al mes las suscripciones que siguen cobrándose |
 | **Gastos del negocio** | Cada suscripción con lo cargado este año y su próximo cargo, y los pagos sueltos del año |
+| **Sin plan de cobros en vigor** | Los clientes con ficha pero sin plan en vigor ni por empezar, en una sola tarjeta: cada uno con la ruta de la nota de cobros que falta crear (`clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`) |
 
 ## Renovaciones
 

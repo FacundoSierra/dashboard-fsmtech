@@ -145,6 +145,13 @@ Resto del texto
 | Hoy: pendientes anteriores | Objetivos sin marcar de las dailies de los 14 días anteriores que no se repiten en la de hoy |
 | Hoy: completado | Tareas marcadas de la sección "Completado" de hoy |
 | Hoy: urgente | Tareas abiertas de proyectos activos con 🚨, "urgente" o `#prioridad/alta` |
+| Hoy: cifras | Objetivos que quedan (primer nivel) de la diaria de hoy; webs en línea y avisos (la vigilancia, `docs/vigilancia.md`); «Te queda al mes» de Economía, con los gastos del negocio |
+| Hoy: la semana | Las barras de lunes a domingo (`resumenSemana`): cada día, lo apuntado en «Completado» de su diaria. Hoy lleva encima, rayados, los objetivos sin marcar; los días que no han llegado, rayados enteros |
+| Hoy: avance del día | Medio círculo con los objetivos de primer nivel marcados de la diaria de hoy sobre el total |
+| Hoy: a la espera | Tareas de «A la espera» de la diaria de hoy, agrupadas por persona con `partesEspera()` (`lib/boveda/espera.ts`): `qué — **quién** — desde AAAA-MM-DD`. Lo que lleva más de una semana esperando se marca. Una línea sin ese formato sale entera, sin persona |
+| Hoy: reunión | La reunión de hoy (`tipo: reunion`, `fecha` de hoy) o, si hoy no hay, la siguiente con fecha; sin ninguna, ofrece crearla |
+| Hoy: peticiones | Los requerimientos abiertos (ver «Requerimientos pendientes»), los que llevan más tiempo esperando primero; salen cinco |
+| Hoy: por cobrar | Lo mismo que «Por cobrar» de Economía: cobros de este mes y atrasados, sumados por cliente |
 | Semana | Para cada día: objetivos y "Completado" de su daily, reuniones con esa `fecha` y tareas marcadas en otras notas que empiezan por `YYYY-MM-DD —`. El total de objetivos cuenta cada uno una vez: el que la diaria arrastra de un día a otro no se repite, y está hecho si se marcó cualquier día |
 | Semana: revisión | `daily-notes/semanal/AAAA-Www.md` de esa semana o, si aún no está, la última anterior: sección «Prioridades» y las preguntas del callout de «Reflexión» (`> - ¿…?`) con sus respuestas (`- **¿…?** respuesta`). Si es de esta semana o de la anterior, sale abierta y con el formulario de las preguntas sin responder; si es más vieja, plegada («La última revisión es de hace N semanas») y sin formulario |
 | Semana: racha | Días seguidos con daily hasta hoy, o hasta ayer si hoy aún no hay |
@@ -161,16 +168,19 @@ Resto del texto
 | Estado: qué se vigila | Proyectos con `estado: activo`: `web` (o la línea `Web:`), `supabase` (`https://<ref>.supabase.co`) y `remoto` (repo de GitHub) |
 | Economía | `tipo: cobros` en `clientes/<cliente>/cobros/<cliente>-cobros-AAAA.md`: propiedad `plan` y casillas de la sección «Cobros». Sección «Renovaciones» de las fichas de cliente. Y `tipo: gastos` (`negocio/gastos-fsmtech.md`): propiedad `suscripciones` y sección «Pagos sueltos». Ver `docs/economia.md` |
 | Repos del PC | `dashboards/repos-locales.md`, que escribe `.scripts/estado-repos.ps1` de la bóveda |
-| Hoy: tus paneles | `tipo: portales` (`dashboards/portales.md`): lista `portales` con `nombre`, `url` y `descripcion`. Solo direcciones `https`; se abren en otra pestaña. También salen en la barra de órdenes («Abrir …») |
+| Hoy: tus paneles | `tipo: portales` (`dashboards/portales.md`): lista `portales` con `nombre`, `url` y `descripcion`. Solo direcciones `https`; se abren en otra pestaña. Salen abajo a la derecha de Hoy y en la barra de órdenes («Abrir …») |
 | Documentos | `tipo: documento` en `clientes/<cliente>/documentos/`: `categoria`, `cliente`, `fecha`, `importe`, `cobro` y `archivo` (en el almacén privado). Ver `docs/documentos.md` |
 | Consultoría | **No sale de las notas**: de la base de datos del panel (sección «Base de datos: la consultoría»). Economía sigue leyendo de las notas las casillas de OVB (`linea: consultoria-financiera`), así que nada cuenta dos veces |
 
 ## App instalable (PWA)
 - **Manifest (`app/manifest.ts`):**
-  - nombre, colores (`theme_color` y `background_color`, los dos `#1c5cab`, el azul de marca) e iconos;
+  - nombre, colores (`theme_color` y `background_color`, los dos `#164480`, el azul de los rellenos de marca y del icono, `--acento-fuerte`) e iconos;
   - accesos directos a Apuntar, Buscar y Semana;
   - `share_target`: al compartir desde otra app del móvil se abre `/capturar?titulo=…&texto=…&url=…` con el texto ya escrito.
-- **Iconos:** se generan con `ImageResponse` en `app/icon.tsx`, `app/apple-icon.tsx` y `app/iconos/[tamano]` (192 y 512).
+- **Iconos:** se generan con `ImageResponse` desde `components/icono-app.tsx`, que dibuja la marca del menú (las iniciales «FS» en blanco sobre el azul de la marca):
+  - `app/icon.tsx` (pestaña del navegador) y `app/iconos/[tamano]` (192 y 512, `purpose: any`): el círculo sobre transparente;
+  - `app/apple-icon.tsx` (iOS, que rellena de negro lo transparente) y `app/iconos/maskable` (512, estático): el azul hasta los bordes, para que Android lo recorte a la forma de cada móvil. Las iniciales caben en la zona segura (el círculo del 80 % central);
+  - `ImageResponse` solo trae la Geist normal, así que las iniciales se engrosan con un trazo blanco (`WebkitTextStroke`) en vez de cargar otra fuente.
 - **Sin service worker:** el panel necesita conexión y no guarda notas en el dispositivo.
 
 ## Vigilancia
@@ -224,3 +234,16 @@ El diseño completo está en `docs/specs/req-001-consultoria-en-el-panel.md` y e
 - **Token de lectura:** `GITHUB_TOKEN_LECTURA` es solo lectura y distinto de `GITHUB_TOKEN`: si se filtra, no puede tocar las notas.
 - **Clave de la base (`SUPABASE_SECRET_KEY`):** una clave secreta de Supabase (`sb_secret_…`), que entra como `service_role`. Solo en el servidor, sin `NEXT_PUBLIC_`, y una por sitio para poder quitar una sin tocar la otra: `panel-vercel` en Vercel (solo Production) y `pc` en el `.env.local` del PC. Nunca en GitHub ni en los secretos de Actions. Supabase no la acepta desde un navegador. Si se filtra: se crea otra, se cambia la variable, se redespliega y se borra la vieja (ADR-002).
 - **Llamadas a webs:** las URLs salen de las notas; `urlVigilable()` solo deja pasar `http(s)` con dominio, nunca `localhost`, `.local`, `.internal` ni IPs.
+
+## Aspecto
+
+Todo sale de `app/globals.css`; no hay colores fijos en los componentes. Nació de una referencia que eligió Facundo el 2026-10-30, llevada al azul de FSMTECH.
+
+- **Islas y tarjetas:** en el escritorio, la ventana es blanca y dentro van tres islas grises (el menú, la barra de arriba y la página); en el móvil, el gris es el suelo. Las tarjetas son blancas, de 20 px, sin borde ni sombra. `Tarjeta`, `Kpi`, `Seccion` y `Encabezado` están en `components/ui.tsx`
+- **Dos temas de tarjeta:** `tema-marca` (rellena del azul `acento-fuerte`, para la primera cifra de cada pantalla) y `tema-oscuro` (la que da el acento de la pantalla, una como mucho). Cambian las variables, así que lo de dentro se lee sin clases propias
+- **Escala de azules para los datos:** `serie` (lo hecho, lo cobrado), `serie-fuerte` (hoy) y `rayado` (lo que falta o aún no ha llegado, un patrón SVG de `components/piezas.tsx`). Los colores de estado (`bien`, `aviso`, `grave`, `critico`) son solo para estados, siempre con icono y texto
+- **Personas y proyectos:** `Avatar` pone la inicial sobre uno de seis tintes (`tinte-1` a `tinte-6`), siempre el mismo para el mismo nombre. Son identidad, no datos
+- **Letra:** Plus Jakarta Sans con `next/font/google` (`--font-jakarta`); Geist Mono, solo para código
+- **Botones en píldora** (`components/estilos.ts`), con `FlechaTarjeta` (la flecha en diagonal de la esquina de una cifra) y `EstadoPildora` (icono de estado y texto en una píldora gris)
+- **`Kpi`** es una subrejilla de tres filas (nombre, cifra y detalle): las cifras de una fila quedan alineadas aunque un nombre ocupe dos líneas. Lo que vaya en su misma rejilla necesita `row-span-3`
+- **Modo oscuro** automático (`prefers-color-scheme`), con el mismo reparto de superficies
