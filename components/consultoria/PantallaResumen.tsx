@@ -6,25 +6,51 @@ import { primerDiaDelMes, textoDelRecuento } from '@/lib/consultoria/reglas';
 import type { MesLiquidacion, ResumenConsultoria } from '@/lib/consultoria/tipos';
 import { nombreDelDia } from '@/lib/consultoria/calendario';
 import { diaYMes, euros, fechaCorta, mesCorto } from '@/lib/consultoria/formato';
-import { IconoEstado } from '@/components/ui';
+import { Muestra, PatronRayado } from '@/components/piezas';
+import { CifraConDecimales, IconoEstado, Kpi } from '@/components/ui';
 import Aviso from './Aviso';
 import DesgloseLiquidacion, { conSigno } from './DesgloseLiquidacion';
 import { NOMBRE_CALENDARIO, enlaceAlMes, euroPorUnidad, mesConMayuscula, soloElMes, unidades } from './formato';
 
-const ENLACE = 'inline-flex min-h-11 items-center text-sm font-medium text-acento underline-offset-4 hover:underline';
+const ENLACE = 'inline-flex min-h-11 items-center text-sm font-semibold text-acento underline-offset-4 hover:underline';
+
+const RAYADO = 'rayado-consultoria';
 
 /**
- * El Resumen de la consultoría: lo que se cobra este mes y el siguiente (como importe a pagar,
- * con la cuenta de comisiones ya dentro), la hucha, el nivel, los próximos cierres y las barras de
- * lo pagado y lo previsto. Los datos se los da la página.
+ * El Resumen de la consultoría, con la composición de Hoy: arriba, las cuatro cifras (lo que se
+ * cobra este mes, rellena del azul; el siguiente cobro, la hucha y el nivel), cada una con su
+ * flecha a donde se explica. Debajo, el desglose de los dos meses (como importe a pagar, con la
+ * cuenta de comisiones ya dentro), la hucha, el nivel, los próximos cierres y las barras de lo
+ * pagado y lo previsto. Los datos se los da la página.
  */
 export default function PantallaResumen({ resumen, hoy, pctIrpf }: { resumen: ResumenConsultoria; hoy: string; pctIrpf: number }) {
   const mesActual = primerDiaDelMes(hoy);
-  const { barras } = resumen;
+  const { barras, hucha, nivel } = resumen;
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start">
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <section aria-label="Cifras de la consultoría" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <CifraDelMes destacada etiqueta="Este mes" mes={resumen.esteMes} vacio={`En ${soloElMes(mesActual)}, nada`} />
+        <CifraDelMes etiqueta="Siguiente cobro" mes={resumen.siguiente} vacio="Nada previsto" conElMes />
+        <Kpi
+          etiqueta="Hucha"
+          valor={<CifraConDecimales texto={euros(hucha.saldo)} />}
+          href="/consultoria/hucha"
+          textoEnlace="Ver la hucha"
+          estado={hucha.saldo < 0 ? 'critico' : undefined}
+          detalle={hucha.saldo < 0 ? 'En negativo' : `Retenido este año: ${euros(hucha.retenidaEsteAnio)}`}
+        />
+        <Kpi
+          etiqueta="Nivel"
+          valor={<CifraConDecimales texto={unidades(nivel.unidades)} />}
+          href="#nivel"
+          textoEnlace="Ir al nivel"
+          estado={nivel.nombre ? undefined : 'aviso'}
+          detalle={nivel.nombre ? `${nivel.nombre} · ${euroPorUnidad(nivel.valorUnidad)}` : 'Sin nivel que aplicar'}
+        />
+      </section>
+
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
         <TarjetaMes
           titulo="Este mes"
           mes={resumen.esteMes}
@@ -41,7 +67,7 @@ export default function PantallaResumen({ resumen, hoy, pctIrpf }: { resumen: Re
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
         <BloqueHucha resumen={resumen} />
         <BloqueNivel nivel={resumen.nivel} />
         <BloqueCierres resumen={resumen} />
@@ -49,20 +75,55 @@ export default function PantallaResumen({ resumen, hoy, pctIrpf }: { resumen: Re
 
       {barras.length > 0 && (
         <Bloque titulo="Lo cobrado y lo previsto" periodo={`${mesCorto(barras[0].mes)} – ${mesCorto(barras[barras.length - 1].mes)}`}>
-          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-tenue">
-            <span className="inline-flex items-center gap-2">
-              <span aria-hidden className="h-3 w-3 rounded-sm bg-serie" />
+          <PatronRayado id={RAYADO} />
+          <p aria-hidden className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-tenue">
+            <span className="inline-flex items-center gap-1.5">
+              <Muestra clase="bg-serie" />
               Pagado
             </span>
-            <span className="inline-flex items-center gap-2">
-              <span aria-hidden className="h-3 w-3 rounded-sm bg-serie/35" />
+            <span className="inline-flex items-center gap-1.5">
+              <Muestra rayado={RAYADO} />
               Previsto: lo que aún no ha llegado
             </span>
           </p>
-          <BarrasMensuales serie={barras} etiqueta="Pagado" color="var(--serie)" />
+          <BarrasMensuales serie={barras} etiqueta="Pagado" color="var(--serie)" rayado={RAYADO} />
         </Bloque>
       )}
     </div>
+  );
+}
+
+/**
+ * La cifra de un mes de cobro, como importe a pagar: lo que llegó al banco si ya ha llegado, o lo
+ * que se espera. La flecha lleva a su liquidación
+ */
+function CifraDelMes({
+  etiqueta,
+  mes,
+  vacio,
+  destacada = false,
+  conElMes = false,
+}: {
+  etiqueta: string;
+  mes: MesLiquidacion | null;
+  vacio: string;
+  destacada?: boolean;
+  /** Decir de qué mes es («Noviembre»): el siguiente cobro no siempre es el mes que viene */
+  conElMes?: boolean;
+}) {
+  if (!mes) return <Kpi destacada={destacada} etiqueta={etiqueta} valor="—" detalle={vacio} />;
+  const llegado = mes.liquidacionId !== null;
+  const importe = llegado ? (mes.importeRecibido ?? mes.aPagar) : mes.aPagar;
+  const cuando = llegado ? (mes.fecha ? `Pagado el ${fechaCorta(mes.fecha)}` : 'Pagado') : 'A pagar, previsto';
+  return (
+    <Kpi
+      destacada={destacada}
+      etiqueta={etiqueta}
+      valor={<CifraConDecimales texto={euros(importe)} />}
+      href={enlaceAlMes(mes.mes)}
+      textoEnlace={`Ver la liquidación de ${soloElMes(mes.mes)}`}
+      detalle={conElMes ? `${mesConMayuscula(mes.mes)} · ${cuando.toLowerCase()}` : cuando}
+    />
   );
 }
 
@@ -88,13 +149,11 @@ function TarjetaMes({
   }
 
   const llegado = mes.liquidacionId !== null;
-  const importe = llegado ? (mes.importeRecibido ?? mes.aPagar) : mes.aPagar;
 
+  // La cifra va arriba, en su `Kpi`: aquí, de qué sale
   return (
     <Bloque titulo={titulo} periodo={periodo}>
-      <p className="mt-4 text-sm text-apagado">{llegado ? 'Importe pagado' : 'Importe a pagar previsto'}</p>
-      <p className="cifras mt-1 text-3xl leading-none font-semibold text-texto md:text-4xl">{euros(importe)}</p>
-      <p className="mt-2 text-sm text-tenue">
+      <p className="mt-3 text-sm text-tenue">
         {/* «5 herramientas y 1 APEX · 2 previstas»: una APEX va con su herramienta */}
         {textoDelRecuento(mes)}
         {llegado && mes.fecha && ` · pagado el ${fechaCorta(mes.fecha)}`}
@@ -110,7 +169,7 @@ function TarjetaMes({
           OVB calculaba {euros(mes.aPagar)}: hay {conSigno(Math.round((mes.importeRecibido - mes.aPagar) * 100) / 100)} de diferencia.
         </Aviso>
       )}
-      <div className="mt-4 rounded-lg bg-fondo/70 p-4">
+      <div className="mt-4 rounded-lg bg-superficie-2 p-4">
         <DesgloseLiquidacion mes={mes} pctIrpf={pctIrpf} compacto />
       </div>
       <Link href={enlaceAlMes(mes.mes)} className={`${ENLACE} mt-2`}>
@@ -123,12 +182,12 @@ function TarjetaMes({
 function BloqueHucha({ resumen }: { resumen: ResumenConsultoria }) {
   const { hucha, cuenta } = resumen;
   const negativa = hucha.saldo < 0;
+  // El saldo va arriba, en su `Kpi`: aquí, de dónde sale y lo que entrará
   return (
     <Bloque titulo="Hucha" periodo="La reserva de cancelación">
-      <p className="cifras mt-4 text-3xl leading-none font-semibold text-texto">{euros(hucha.saldo)}</p>
       {/* En negativo, el estado crítico con su icono y su texto; la cifra, en tinta normal */}
       {negativa && (
-        <p className="mt-2 flex items-start gap-2 text-sm text-texto">
+        <p className="mt-3 flex items-start gap-2 text-sm text-texto">
           <IconoEstado nivel="critico" className="mt-0.5 size-4" />
           <span>En negativo: un extorno se ha llevado más de lo que había.</span>
         </p>
@@ -164,10 +223,9 @@ function BloqueHucha({ resumen }: { resumen: ResumenConsultoria }) {
 
 function BloqueNivel({ nivel }: { nivel: ResumenConsultoria['nivel'] }) {
   return (
-    <Bloque titulo="Nivel" periodo="Unidades hasta este mes, sin las previstas">
-      <p className="cifras mt-4 text-3xl leading-none font-semibold text-texto">{unidades(nivel.unidades)}</p>
+    <Bloque id="nivel" titulo="Nivel" periodo="Unidades hasta este mes, sin las previstas">
       {nivel.nombre ? (
-        <p className="mt-2 text-sm font-semibold text-texto">
+        <p className="mt-3 text-sm font-semibold text-texto">
           {nivel.nombre} · {euroPorUnidad(nivel.valorUnidad)}
         </p>
       ) : (
@@ -206,7 +264,7 @@ function BloqueCierres({ resumen }: { resumen: ResumenConsultoria }) {
       {proximosCierres.length > 0 ? (
         <ul className="mt-4 flex flex-col gap-2">
           {proximosCierres.map((cierre) => (
-            <li key={`${cierre.calendario}-${cierre.mes}`} className="rounded-lg bg-fondo/70 px-4 py-3">
+            <li key={`${cierre.calendario}-${cierre.mes}`} className="rounded-lg bg-superficie-2 px-4 py-3">
               <p className="text-sm font-medium text-texto">
                 {NOMBRE_CALENDARIO[cierre.calendario]} cierra el {nombreDelDia(cierre.confirmarHasta)}
               </p>

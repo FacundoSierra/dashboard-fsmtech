@@ -17,9 +17,12 @@
 export const ZONA_TOQUE =
   "relative after:absolute after:top-1/2 after:left-1/2 after:h-11 after:w-full after:min-w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
 
-/** En píldora si es de una línea; un `textarea`, con el radio de lo que va dentro de las tarjetas */
+/**
+ * En píldora si es de una línea; un `textarea`, con el radio de lo que va dentro de las tarjetas. Un
+ * `select` lleva su flecha propia (`.campo` en `globals.css`): la nativa no respetaba la píldora
+ */
 export const CAMPO =
-  'min-h-11 w-full min-w-0 rounded-full border border-borde-control bg-superficie px-4 py-2 text-[15px] outline-none placeholder:text-apagado focus:border-acento focus:ring-2 focus:ring-acento/25 disabled:opacity-60 [&:is(textarea)]:rounded-2xl';
+  'campo min-h-11 w-full min-w-0 rounded-full border border-borde-control bg-superficie px-4 py-2 text-[15px] outline-none placeholder:text-apagado focus:border-acento focus:ring-2 focus:ring-acento/25 disabled:opacity-60 [&:is(textarea)]:rounded-2xl';
 
 export const ETIQUETA = 'mb-1.5 block text-[13px] font-medium text-tenue';
 
@@ -33,6 +36,27 @@ export const BOTON_SECUNDARIO =
 
 /** «Cancelar», «No»: un botón de texto con su zona de 44 px */
 export const BOTON_TEXTO = 'inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-sm text-tenue hover:text-texto disabled:opacity-60';
+
+/**
+ * Los botones pequeños que van dentro de una fila o en la cabecera de una tarjeta («Marcar cobrado»,
+ * «Nueva»): se ven de 36 px y se tocan en 44. Entre una fila y la siguiente, 8 px como mínimo
+ */
+export const BOTON_PEQUENO = `${ZONA_TOQUE} inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-acento-fuerte px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-acento-fuerte/90 disabled:bg-superficie-2 disabled:text-apagado`;
+
+export const BOTON_PEQUENO_SECUNDARIO = `${ZONA_TOQUE} inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-acento bg-superficie px-3.5 text-[13px] font-semibold text-texto transition-colors hover:bg-acento-suave disabled:opacity-60`;
+
+/**
+ * Las pestañas de dos a cuatro opciones (el tipo en Crear y en Apuntar, las de la Consultoría): una
+ * píldora blanca y, dentro, la elegida rellena del azul oscuro, como el filtro activo. El texto de
+ * la elegida, en seminegrita: no va solo por color
+ */
+export const SEGMENTOS = 'inline-flex max-w-full gap-1 rounded-full bg-superficie p-1';
+
+export function segmento(activo: boolean): string {
+  return `inline-flex min-h-11 min-w-0 items-center justify-center whitespace-nowrap rounded-full px-4 text-sm transition-colors ${
+    activo ? 'bg-acento-fuerte font-semibold text-white' : 'font-medium text-tenue hover:bg-superficie-2 hover:text-texto'
+  }`;
+}
 
 /**
  * El botón redondo de la esquina de las tarjetas de cifras (la flecha en diagonal de la

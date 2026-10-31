@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { Check, Copy, Fingerprint, Plus } from 'lucide-react';
+import { BOTON_PEQUENO_SECUNDARIO, BOTON_PRINCIPAL, CAMPO, ETIQUETA } from './estilos';
 
 /**
  * Entrar y registrar dispositivos con huella o cara. Todo lo que se comprueba está en el
@@ -111,23 +112,12 @@ export function RegistrarDispositivo() {
 
   return (
     <div className="space-y-4">
-      <label className="block max-w-xs text-sm font-medium">
-        Nombre del dispositivo
-        <input
-          value={nombre}
-          onChange={(evento) => setNombre(evento.target.value)}
-          maxLength={40}
-          placeholder="PC de casa"
-          className="mt-1 h-9 w-full rounded-lg border border-borde bg-superficie px-3 text-sm outline-none focus:border-acento focus:ring-2 focus:ring-acento/25"
-        />
+      <label className="block max-w-sm">
+        <span className={ETIQUETA}>Nombre del dispositivo</span>
+        <input value={nombre} onChange={(evento) => setNombre(evento.target.value)} maxLength={40} placeholder="PC de casa" className={CAMPO} />
       </label>
 
-      <button
-        type="button"
-        onClick={registrar}
-        disabled={registrando}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-      >
+      <button type="button" onClick={registrar} disabled={registrando} className={BOTON_PRINCIPAL}>
         <Plus className="size-4" aria-hidden />
         {registrando ? 'Esperando al dispositivo…' : 'Registrar este dispositivo'}
       </button>
@@ -139,7 +129,7 @@ export function RegistrarDispositivo() {
       )}
 
       {variable && (
-        <div className="rounded-lg border border-borde bg-superficie-2 p-4">
+        <div className="rounded-lg bg-superficie-2 p-4">
           <p className="text-sm font-medium">Dispositivo registrado. Falta un paso:</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-tenue">
             <li>Copia esto y pégalo en Vercel, en la variable <code>PASSKEYS</code> del panel.</li>
@@ -150,13 +140,9 @@ export function RegistrarDispositivo() {
             value={variable}
             rows={3}
             onFocus={(evento) => evento.currentTarget.select()}
-            className="mt-3 w-full rounded-lg border border-borde bg-superficie p-2 font-mono text-xs"
+            className="mt-3 w-full rounded-lg border border-borde-control bg-superficie p-3 font-mono text-[13px]"
           />
-          <button
-            type="button"
-            onClick={copiar}
-            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg border border-borde bg-superficie px-2.5 text-sm font-medium hover:border-borde-fuerte"
-          >
+          <button type="button" onClick={copiar} className={`mt-2 ${BOTON_PEQUENO_SECUNDARIO}`}>
             {copiado ? <Check className="size-4 text-bien" aria-hidden /> : <Copy className="size-4" aria-hidden />}
             {copiado ? 'Copiado' : 'Copiar'}
           </button>

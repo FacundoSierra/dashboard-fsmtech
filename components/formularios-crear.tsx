@@ -10,7 +10,7 @@ import {
   type ResultadoCreacion,
 } from '@/app/(panel)/crear/acciones';
 import { hrefNota } from '@/lib/rutas';
-import { BOTON_SECUNDARIO, CAMPO, ETIQUETA } from './estilos';
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAMPO, ETIQUETA } from './estilos';
 
 /** `Centro de Negocios Inmobiliarios` → `centro-de-negocios-inmobiliarios`: la propuesta del nombre corto */
 function aSlug(valor: string): string {
@@ -80,7 +80,7 @@ function Pie({ resultado, creando, texto }: { resultado: ResultadoCreacion; crea
       <button
         type="submit"
         disabled={creando}
-        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60 sm:w-auto"
+        className={`${BOTON_PRINCIPAL} w-full sm:w-auto`}
       >
         {creando && <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />}
         {texto}
@@ -207,7 +207,7 @@ export function FormCliente({
         </p>
       )}
       {conTrato && (
-        <div className="grid grid-cols-1 gap-3 rounded-lg border border-borde bg-superficie-2 p-3 sm:col-span-2 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 rounded-lg bg-superficie-2 p-4 sm:col-span-2 sm:grid-cols-4">
           <label className="sm:col-span-2">
             <span className={ETIQUETA}>Concepto</span>
             <input value={concepto} onChange={(e) => setConcepto(e.target.value)} required maxLength={80} className={CAMPO} />
@@ -229,7 +229,7 @@ export function FormCliente({
             <span className={ETIQUETA}>Primer mes del trato</span>
             <input type="month" value={desde} onChange={(e) => setDesde(e.target.value)} required placeholder="2026-10" className={CAMPO} />
           </label>
-          <p className="text-xs text-tenue sm:col-span-2 sm:self-end">
+          <p className="text-[13px] text-tenue sm:col-span-2 sm:self-end">
             Doce meses desde el primero. Las casillas de cobro se crean solas si es al mes o al año; las sesiones y horas, al cobrarlas.
           </p>
         </div>
@@ -312,7 +312,7 @@ export function FormReunion({
       <Campo etiqueta="Objetivo" opcional ancho>
         <textarea value={objetivo} onChange={(e) => setObjetivo(e.target.value)} rows={2} maxLength={1500} className={CAMPO} />
       </Campo>
-      <p className="text-xs text-tenue sm:col-span-2">Con la fecha puesta, la diaria de ese día la recoge sola entre los objetivos.</p>
+      <p className="text-[13px] text-tenue sm:col-span-2">Con la fecha puesta, la diaria de ese día la recoge sola entre los objetivos.</p>
       <Pie resultado={resultado} creando={creando} texto="Crear reunión" />
     </form>
   );

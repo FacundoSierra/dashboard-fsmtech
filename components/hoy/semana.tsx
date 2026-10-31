@@ -2,7 +2,7 @@ import { EnlaceAccion, Tarjeta } from '@/components/ui';
 import type { Boveda } from '@/lib/boveda/tipos';
 import { resumenSemana } from '@/lib/boveda/semana';
 import { fechaLarga, inicioSemana } from '@/lib/fechas';
-import { Muestra, PatronRayado, Rayado } from './piezas';
+import { Muestra, PatronRayado, Rayado } from '@/components/piezas';
 
 const RAYADO = 'rayado-semana';
 const INICIALES = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];

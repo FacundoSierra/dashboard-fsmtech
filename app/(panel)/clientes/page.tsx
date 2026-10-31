@@ -4,7 +4,8 @@ import type { Nota, Tarea } from '@/lib/boveda/tipos';
 import { CalendarClock, ExternalLink, FileText, FolderLock, Hourglass, Lightbulb, MessagesSquare, Plus, Route } from 'lucide-react';
 import { ZONA_TOQUE } from '@/components/estilos';
 import { Markdown } from '@/components/markdown';
-import { EnlaceBoton, Encabezado, Estado, Filtro, Vacio, euros, nivelEstadoProyecto, porcentaje, type NivelEstado } from '@/components/ui';
+import { Avatar } from '@/components/piezas';
+import { EnlaceBoton, Encabezado, Estado, Filtro, TITULO_TARJETA, Vacio, euros, nivelEstadoProyecto, porcentaje, type NivelEstado } from '@/components/ui';
 import {
   ESTADOS_CLIENTE,
   LINEAS,
@@ -21,18 +22,6 @@ import { cuandoEs, diasEntre, hoyMadrid } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
 
 export const metadata: Metadata = { title: 'Clientes' };
-
-/** `Pablo (Bodegas Agrovello)` → `P`; `Centro de Negocios Inmobiliarios` → `CN` */
-function iniciales(nombre: string): string {
-  return nombre
-    .replace(/\(.*?\)/g, ' ')
-    .split(/\s+/)
-    // Sin palabras de enlace («de», «y») ni signos sueltos
-    .filter((parte) => /^\p{Lu}|^\d/u.test(parte))
-    .slice(0, 2)
-    .map((parte) => parte[0])
-    .join('');
-}
 
 /** El embudo, en su orden: de quien aún no es cliente a quien ya no lo es */
 const ORDEN: EstadoCliente[] = ['potencial', 'activo', 'pausado', 'perdido'];
@@ -107,30 +96,27 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
         <Vacio>{todos.length ? 'Ningún cliente con estos filtros.' : 'No hay fichas de cliente.'}</Vacio>
       ) : (
         // `items-start`: cada tarjeta, de su alto; estiradas a la de la vecina dejaban huecos de hasta 170 px
-        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {lista.map((cliente) => {
             const reunion = cliente.proximaReunion;
             const cuenta = cuotaDe.get(cliente.nota.nombre);
             const plan = cuenta ? planVigente(cuenta, hoy) : undefined;
             const media = plan && sinCuotaFija(plan) ? mediaSinCuota(plan, hoy) : undefined;
             return (
-              <article key={cliente.nota.ruta} className="flex flex-col rounded-xl border border-borde bg-superficie shadow-tarjeta">
-                <div className="flex items-start gap-3 p-4">
-                  <span
-                    aria-hidden
-                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-acento-suave text-sm font-semibold text-acento"
-                  >
-                    {iniciales(cliente.nota.titulo)}
-                  </span>
+              // Una tarjeta del panel, sin borde: se separa del gris por el tono. El círculo, con el tinte
+              // de su nombre, como las personas de Hoy
+              <article key={cliente.nota.ruta} className="flex flex-col rounded-xl bg-superficie">
+                <div className="flex items-start gap-3 px-5 pb-4 pt-5 sm:px-6">
+                  <Avatar nombre={cliente.nota.titulo} dosLetras />
                   <div className="min-w-0 flex-1">
-                    <h2 className="font-semibold leading-tight">
+                    <h2 className={`leading-tight ${TITULO_TARJETA}`}>
                       <Link href={hrefNota(cliente.nota.ruta)} className={`${ZONA_TOQUE} hover:text-acento`}>
                         {cliente.nota.titulo}
                       </Link>
                     </h2>
                     <p className="mt-0.5 truncate text-sm text-tenue">{cliente.sector ?? 'Sin sector'}</p>
                     <Estado nivel={NIVEL[cliente.estado]}>
-                      <span className="text-xs text-tenue">
+                      <span className="text-[13px] text-tenue">
                         {ESTADOS_CLIENTE[cliente.estado]}
                         {cliente.linea !== 'desarrollo' && ` · ${LINEAS[cliente.linea]}`}
                       </span>
@@ -140,25 +126,25 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
 
                 <dl className="grid grid-cols-3 border-y border-borde text-center">
                   <div className="px-2 py-3">
-                    <dt className="text-xs text-apagado">{media !== undefined ? 'De media' : 'Margen'}</dt>
+                    <dt className="text-[13px] text-apagado">{media !== undefined ? 'De media' : 'Margen'}</dt>
                     <dd
-                      className="mt-0.5 text-sm font-semibold"
+                      className="mt-0.5 text-[15px] font-semibold"
                       title={plan?.estimado || media !== undefined ? 'Media de lo cobrado en los meses cerrados' : undefined}
                     >
                       {!plan ? '—' : media !== undefined ? `≈ ${euros(media)}/mes` : `${plan.estimado ? '≈ ' : ''}${euros(plan.netoMensual)}/mes`}
                     </dd>
                   </div>
                   <div className="border-x border-borde px-2 py-3">
-                    <dt className="text-xs text-apagado">Proyectos</dt>
-                    <dd className="mt-0.5 text-sm font-semibold">{cliente.proyectos.length}</dd>
+                    <dt className="text-[13px] text-apagado">Proyectos</dt>
+                    <dd className="mt-0.5 text-[15px] font-semibold">{cliente.proyectos.length}</dd>
                   </div>
                   <div className="px-2 py-3">
-                    <dt className="text-xs text-apagado">Pendientes</dt>
-                    <dd className="mt-0.5 text-sm font-semibold">{cliente.tareasAbiertas}</dd>
+                    <dt className="text-[13px] text-apagado">Pendientes</dt>
+                    <dd className="mt-0.5 text-[15px] font-semibold">{cliente.tareasAbiertas}</dd>
                   </div>
                 </dl>
 
-                <div className="flex-1 space-y-3 p-4 text-sm">
+                <div className="flex-1 space-y-3 px-5 py-4 text-sm sm:px-6">
                   <SeguimientoCliente
                     ultimo={cliente.ultimoContacto}
                     limite={DIAS_SIN_HABLAR[cliente.estado]}
@@ -169,11 +155,11 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                     titulos={boveda.titulos}
                   />
                   {plan && cuenta ? (
-                    <Link href={`/economia#cliente-${cliente.nota.nombre}`} className="flex min-h-11 items-center justify-between gap-2 text-xs">
+                    <Link href={`/economia#cliente-${cliente.nota.nombre}`} className="flex min-h-11 flex-wrap items-center justify-between gap-x-2 text-[13px]">
                       <Estado
                         nivel={cuenta.atrasados.length ? 'grave' : cuenta.pendiente ? 'aviso' : 'bien'}
                       >
-                        <span className="text-xs">
+                        <span className="text-[13px]">
                           {cuenta.atrasados.length
                             ? `${cuenta.atrasados.length} ${cuenta.atrasados.length === 1 ? 'cobro atrasado' : 'cobros atrasados'}`
                             : cuenta.pendiente
@@ -210,7 +196,7 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                             <span className="truncate">{proyecto.nota.titulo.split(' — ')[0]}</span>
                           </Link>
                           <Estado nivel={nivelEstadoProyecto(proyecto.estado)}>
-                            <span className="text-xs capitalize text-tenue">{proyecto.estado}</span>
+                            <span className="text-[13px] capitalize text-tenue">{proyecto.estado}</span>
                           </Estado>
                         </li>
                       ))}
@@ -224,11 +210,9 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                         <Link
                           key={persona.ruta}
                           href={hrefNota(persona.ruta)}
-                          className={`${ZONA_TOQUE} inline-flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border border-borde py-1 pl-1 pr-3 text-xs hover:border-borde-fuerte`}
+                          className={`${ZONA_TOQUE} inline-flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-full bg-superficie-2 py-1 pl-1 pr-3 text-[13px] hover:text-acento`}
                         >
-                          <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-superficie-2 text-[11px] font-semibold">
-                            {iniciales(persona.titulo)}
-                          </span>
+                          <Avatar nombre={persona.titulo} tamano="mini" dosLetras />
                           <span className="truncate">{persona.titulo}</span>
                         </Link>
                       ))}
@@ -237,7 +221,7 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
 
                   {cliente.ideas.length > 0 && (
                     <details>
-                      <summary className={`${ZONA_TOQUE} flex cursor-pointer items-center gap-1.5 text-xs text-tenue hover:text-texto`}>
+                      <summary className={`${ZONA_TOQUE} flex cursor-pointer items-center gap-1.5 text-[13px] text-tenue hover:text-texto`}>
                         <Lightbulb className="size-3.5" aria-hidden />
                         {cliente.ideas.length} {cliente.ideas.length === 1 ? 'idea u oportunidad' : 'ideas y oportunidades'}
                       </summary>
@@ -255,7 +239,7 @@ export default async function PaginaClientes({ searchParams }: PageProps<'/clien
                   )}
                 </div>
 
-                <div className="flex gap-4 border-t border-borde px-4 py-3 text-xs">
+                <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-borde px-5 py-3.5 text-[13px] sm:px-6">
                   <Link href={`/informes/${encodeURIComponent(cliente.nota.nombre)}`} className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-tenue hover:text-acento`}>
                     <FileText className="size-3.5" aria-hidden />
                     Informe del mes
@@ -312,10 +296,10 @@ function SeguimientoCliente({
   const dias = ultimo ? diasEntre(ultimo, hoy) : undefined;
   const frio = limite !== undefined && (dias === undefined || dias > limite);
   return (
-    <div className="space-y-1.5 text-xs">
+    <div className="space-y-1.5 text-[13px]">
       {frio ? (
         <Estado nivel="aviso">
-          <span className="text-xs">{dias === undefined ? 'Sin reuniones ni contacto apuntados' : `${dias} días sin hablar`}</span>
+          <span className="text-[13px]">{dias === undefined ? 'Sin reuniones ni contacto apuntados' : `${dias} días sin hablar`}</span>
         </Estado>
       ) : (
         <p className="flex items-center gap-1.5 text-tenue">

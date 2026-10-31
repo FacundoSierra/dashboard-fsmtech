@@ -5,6 +5,7 @@ import AccionesDelMes from './AccionesDelMes';
 import Aviso from './Aviso';
 import { conSigno } from './DesgloseLiquidacion';
 import EstadoHerramienta from './EstadoHerramienta';
+import { PREVISTA } from './estilos';
 import { productoConApex, soloElMes, unidades } from './formato';
 
 /**
@@ -40,7 +41,7 @@ export default function DetalleLiquidacion({
                 <Link
                   href={`/consultoria/produccion/${l.herramientaId}`}
                   className={`flex items-start justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-acento ${
-                    l.prevista ? 'bg-aviso/10 hover:bg-aviso/20' : 'bg-fondo/60 hover:bg-fondo'
+                    l.prevista ? PREVISTA : 'bg-superficie-2 hover:bg-borde'
                   }`}
                 >
                   <span className="min-w-0 flex-1">
@@ -52,7 +53,7 @@ export default function DetalleLiquidacion({
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     <span className="cifras text-sm font-medium text-texto">{euros(l.bruto)}</span>
-                    <span className="cifras text-xs text-apagado">RC {euros(l.hucha)}</span>
+                    <span className="cifras text-[13px] text-apagado">RC {euros(l.hucha)}</span>
                     <EstadoHerramienta estado={l.estado} />
                   </span>
                 </Link>
@@ -67,7 +68,7 @@ export default function DetalleLiquidacion({
           <h4 className="text-sm font-semibold text-texto">Cargos y abonos</h4>
           <ul className="mt-2 flex flex-col gap-1.5">
             {cargos.map((c) => (
-              <li key={c.cargoId ?? c.extornoId ?? `${c.fecha}-${c.concepto}`} className="flex items-start justify-between gap-3 rounded-lg bg-fondo/60 px-3 py-2.5">
+              <li key={c.cargoId ?? c.extornoId ?? `${c.fecha}-${c.concepto}`} className="flex items-start justify-between gap-3 rounded-lg bg-superficie-2 px-3 py-2.5">
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm text-texto">{c.concepto}</span>
                   <span className="block text-sm text-tenue">

@@ -1,23 +1,29 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { CalendarClock, Coins, FileText, HandCoins, Paperclip, PieChart, Receipt, Scale, TrendingUp, Wallet } from 'lucide-react';
+import { CircleDashed, FileText, Paperclip } from 'lucide-react';
 import { BotonCobro } from '@/components/boton-cobro';
 import { ZONA_TOQUE } from '@/components/estilos';
 import { CobroExtra, NuevaRenovacion } from '@/components/formularios-economia';
 import { GraficoIngresos } from '@/components/grafico-ingresos';
-import { BarrasHorizontales, FranjaCobros } from '@/components/graficos';
+import { BarrasHorizontales, FranjaCobros, LeyendaCobros } from '@/components/graficos';
+import { PatronRayado } from '@/components/piezas';
+import { Plegable } from '@/components/plegable';
 import {
   Chip,
+  Contador,
+  EnlaceAccion,
   Encabezado,
   Estado,
   FILA,
   Filtro,
   Kpi,
   Pendiente,
+  Seccion,
   TABLA,
   TD,
   TH,
+  TITULO_TARJETA,
   Tarjeta,
   Vacio,
   euros,
@@ -49,6 +55,9 @@ import { estadoGeneral } from '@/lib/vigilancia/estado';
 
 export const metadata: Metadata = { title: 'Economía' };
 
+/** El rayado de lo que falta por cobrar en las franjas de los clientes: un patrón para todas */
+const RAYADO_COBROS = 'rayado-cobros';
+
 export default async function PaginaEconomia({ searchParams }: PageProps<'/economia'>) {
   const { linea: pedida } = await searchParams;
   const boveda = await obtenerBoveda();
@@ -64,6 +73,8 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
   const hayPlanes = datos.clientes.some((c) => c.planes.length > 0);
   const docs = documentos(boveda);
   const debidos = cobrosPorCobrar(datos, hoy);
+  const conPlanOProximo = datos.clientes.filter((c) => c.plan ?? c.proximo);
+  const sinPlan = datos.clientes.filter((c) => !(c.plan ?? c.proximo));
   // Lo que dejan los clientes menos lo que cuesta el negocio al mes: la cifra de Hoy
   const queda = datos.netoMensual - datos.negocio.alMes;
 
@@ -82,7 +93,7 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
       )}
 
       {!hayPlanes ? (
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-4">
         <Tarjeta>
           <Pendiente titulo="Todavía no hay planes de cobro">
             <p>
@@ -95,32 +106,43 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
           <GastosDelNegocio negocio={datos.negocio} anio={anio} hoy={hoy} linea={linea} />
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-4">
           {/*
             Dos cifras que antes se llamaban igual: «Te queda al mes» ya descuenta los gastos del
             negocio (es la que sale en Hoy) y el «Margen de los clientes», no. Cada una con su nombre
           */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {/* Como las de Hoy: cada cifra con su flecha a la parte de la página que la explica */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <Kpi
               destacada
               etiqueta="Te queda al mes"
               valor={euros(queda)}
-              icono={Wallet}
+              href="#balance"
+              textoEnlace="Ir al balance del año"
               detalle={`Con los gastos del negocio: ${euros(datos.negocio.alMes)} al mes`}
             />
             <Kpi
               etiqueta="Margen de los clientes"
               valor={euros(datos.netoMensual)}
-              icono={TrendingUp}
+              href="#margen"
+              textoEnlace="Ir al margen mes a mes"
               detalle={
                 `Al mes, te pagan ${euros(datos.ingresoMensual)} y pagas ${euros(datos.gastoMensual)} por ellos` +
                 (datos.clientes.some((c) => c.plan?.estimado) ? '. Las sesiones, por su media' : '')
               }
             />
-            <Kpi etiqueta={`Cobrado en ${anio}`} valor={euros(datos.cobradoAnio)} detalle="Casillas marcadas" />
+            <Kpi
+              etiqueta={`Cobrado en ${anio}`}
+              valor={euros(datos.cobradoAnio)}
+              href="#lo-que-te-ha-dejado"
+              textoEnlace="Ir a lo que te ha dejado cada cliente"
+              detalle="Casillas marcadas"
+            />
             <Kpi
               etiqueta="Pendiente de cobro"
               valor={euros(datos.pendiente)}
+              href={debidos.length ? '#por-cobrar' : undefined}
+              textoEnlace="Ir a los cobros pendientes"
               estado={datos.atrasados.length ? 'grave' : datos.pendiente ? 'aviso' : 'bien'}
               detalle={
                 datos.atrasados.length
@@ -141,9 +163,10 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
             alMes={{ tePagan: datos.ingresoMensual, porClientes: datos.gastoMensual, negocio: datos.negocio.alMes, queda }}
           />
 
-          {/* grid-cols-1 es minmax(0, 1fr): sin él, la columna del móvil crece con su contenido. `items-start`: cada tarjeta, de su alto */}
-          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-5">
-            <Tarjeta titulo="Margen de los clientes, mes a mes" icono={TrendingUp} className="xl:col-span-3">
+          {/* grid-cols-1 es minmax(0, 1fr): sin él, la columna del móvil crece con su contenido. Las dos
+              tarjetas, del mismo alto, como las filas de Hoy: el pie del reparto baja al fondo */}
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-5">
+            <Tarjeta id="margen" titulo="Margen de los clientes, mes a mes" className="xl:col-span-3" estirar>
               {datos.serie.length < 2 ? (
                 <Vacio>La evolución se dibuja a partir del segundo mes con planes.</Vacio>
               ) : (
@@ -158,9 +181,7 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
                       texto: euros(p.importe),
                     }))}
                   />
-                  <details className="mt-1 text-sm">
-                    {/* 20 px de texto y 12 arriba y abajo: 44 px de toque, sin quitarle el triángulo */}
-                    <summary className="cursor-pointer py-3 text-tenue hover:text-texto">Ver como tabla</summary>
+                  <Plegable titulo="Ver como tabla" pequeno className="mt-1">
                     <table className={TABLA}>
                       <thead>
                         <tr>
@@ -177,14 +198,15 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
                         ))}
                       </tbody>
                     </table>
-                  </details>
+                  </Plegable>
                 </>
               )}
             </Tarjeta>
 
-            <Tarjeta titulo="Reparto por cliente" icono={PieChart} className="xl:col-span-2">
+            <Tarjeta titulo="Reparto por cliente" className="xl:col-span-2" estirar>
               <BarrasHorizontales
                 titulo="Margen de cada cliente al mes"
+                reparto={datos.netoMensual}
                 barras={datos.clientes
                   .map((c) => ({ c, plan: planVigente(c, hoy) }))
                   .filter(({ plan }) => plan && plan.netoMensual > 0)
@@ -196,24 +218,33 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
                     detalle: datos.netoMensual ? porcentaje((plan!.netoMensual / datos.netoMensual) * 100) : undefined,
                   }))}
               />
-              {/* Con un solo cliente con plan es obvio y no aporta nada */}
-              {datos.conPlan > 1 && datos.principal && datos.principal.porcentaje >= 50 && (
-                <p className="mt-4 text-xs text-tenue">Más de la mitad de lo que ganas depende de un solo cliente.</p>
-              )}
+              {/* Al pie, como «Y 4 más» en las Peticiones de Hoy: el total del que sale cada parte */}
+              <div className="mt-auto space-y-1 pt-4 text-[13px] text-tenue">
+                <div aria-hidden className="mb-4 border-t border-borde" />
+                <p>
+                  Entre todos, <span className="cifras font-semibold text-texto">{euros(datos.netoMensual)}</span> de margen al mes.
+                </p>
+                {/* Con un solo cliente con plan es obvio y no aporta nada */}
+                {datos.conPlan > 1 && datos.principal && datos.principal.porcentaje >= 50 && (
+                  <p>Más de la mitad de lo que ganas depende de un solo cliente.</p>
+                )}
+              </div>
             </Tarjeta>
           </div>
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-tenue">Clientes</h2>
-            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
-              {datos.clientes.map((c) => (
+          <Seccion titulo="Clientes" extra={<LeyendaCobros rayado={RAYADO_COBROS} />}>
+            <PatronRayado id={RAYADO_COBROS} />
+            <div className="grid grid-cols-1 items-start gap-3 sm:gap-4 xl:grid-cols-2">
+              {conPlanOProximo.map((c) => (
                 <TarjetaCliente key={c.nota.ruta} cliente={c} anio={anio} hoy={hoy} docs={docs} />
               ))}
             </div>
-          </section>
+            {/* Los que no tienen plan, juntos: una tarjeta casi vacía por cada uno dejaba huecos en la rejilla */}
+            {sinPlan.length > 0 && <SinPlan clientes={sinPlan} anio={anio} />}
+          </Seccion>
 
           {/* Lo que no es del día a día, después de los clientes */}
-          <Tarjeta titulo="Lo que te ha dejado cada cliente · últimos 12 meses" icono={HandCoins}>
+          <Tarjeta id="lo-que-te-ha-dejado" titulo="Lo que te ha dejado cada cliente · últimos 12 meses">
             {conRentabilidad.length === 0 ? (
               <Vacio>Aún no hay cobros marcados en los últimos doce meses.</Vacio>
             ) : (
@@ -228,7 +259,7 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
                     detalle: `cobrado ${euros(c.rentabilidad.cobrado)} − pagado a proveedores ${euros(c.rentabilidad.coste)}`,
                   }))}
                 />
-                <p className="mt-4 text-xs text-tenue">
+                <p className="mt-4 text-[13px] text-tenue">
                   Lo cobrado de verdad (casillas marcadas) menos lo que pagas tú por cada cliente según su plan: dominios, hosting y demás.
                   No cuenta tus horas.
                 </p>
@@ -240,9 +271,9 @@ export default async function PaginaEconomia({ searchParams }: PageProps<'/econo
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-3 sm:mt-4">
         <Suspense
-          fallback={<div className="h-48 motion-safe:animate-pulse rounded-xl border border-borde bg-superficie" aria-label="Cargando renovaciones" />}
+          fallback={<div className="h-48 rounded-xl bg-superficie motion-safe:animate-pulse" aria-label="Cargando renovaciones" />}
         >
           <Renovaciones
             manuales={datos.renovaciones}
@@ -275,13 +306,13 @@ function TarjetaBalance({
   const { queda } = alMes;
 
   return (
-    <Tarjeta titulo={`Balance de ${anio}, hasta hoy`} icono={Scale}>
+    <Tarjeta id="balance" titulo={`Balance de ${anio}, hasta hoy`}>
       <dl className="divide-y divide-borde text-sm">
         {filas.map((f) => (
-          <div key={f.etiqueta} className="flex items-baseline justify-between gap-4 py-2 first:pt-0">
+          <div key={f.etiqueta} className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0">
             <dt className="min-w-0">
               {f.etiqueta}
-              <span className="block text-xs text-tenue">{f.detalle}</span>
+              <span className="block text-[13px] text-tenue">{f.detalle}</span>
             </dt>
             <dd className="cifras shrink-0">
               {f.valor ? f.signo : ''}
@@ -297,7 +328,7 @@ function TarjetaBalance({
           </dd>
         </div>
       </dl>
-      <p className="mt-3 text-xs text-tenue">
+      <p className="mt-3 text-[13px] text-tenue">
         Al mes, con los planes y las suscripciones de hoy: te pagan {euros(alMes.tePagan, true)}, pagas{' '}
         {euros(alMes.porClientes, true)} por tus clientes y {euros(alMes.negocio, true)} del negocio.{' '}
         {queda >= 0 ? `Te quedan ${euros(queda, true)} al mes` : `Pierdes ${euros(-queda, true)} al mes`}.
@@ -318,8 +349,20 @@ function PorCobrar({ debidos, docs, hoy }: { debidos: CobroDebido[]; docs: Docum
   const claves = clavesEstables(debidos.map((d) => ({ ruta: d.plan.nota.ruta, cobro: d.cobro })));
 
   return (
-    <Tarjeta titulo={faltan ? `Por cobrar · ${faltan}` : 'Por cobrar · todo marcado'} icono={Coins} sinRelleno>
-      <div id="por-cobrar" className="scroll-mt-20" />
+    <Tarjeta
+      id="por-cobrar"
+      titulo={
+        faltan ? (
+          <>
+            Por cobrar
+            <Contador>{faltan}</Contador>
+          </>
+        ) : (
+          'Por cobrar · todo marcado'
+        )
+      }
+      sinRelleno
+    >
       <ul className="divide-y divide-borde">
         {debidos.map(({ cliente, plan, cobro }, i) => (
           <FilaCobro
@@ -357,18 +400,11 @@ function GastosDelNegocio({ negocio, anio, hoy, linea }: { negocio: GastosNegoci
   return (
     <Tarjeta
       titulo="Gastos del negocio"
-      icono={Receipt}
       sinRelleno
-      accion={
-        negocio.nota && (
-          <Link href={hrefNota(negocio.nota.ruta)} className={`${ZONA_TOQUE} text-xs text-tenue hover:text-acento`}>
-            Ver la nota
-          </Link>
-        )
-      }
+      accion={negocio.nota && <EnlaceAccion href={hrefNota(negocio.nota.ruta)}>Ver la nota</EnlaceAccion>}
     >
       {!hay ? (
-        <div className="p-4">
+        <div className="px-5 pb-5 sm:px-6 sm:pb-6">
           <Vacio>
             {linea
               ? 'No hay gastos del negocio de esta línea. Los generales salen en «Todas las líneas».'
@@ -379,7 +415,7 @@ function GastosDelNegocio({ negocio, anio, hoy, linea }: { negocio: GastosNegoci
         <>
           <ul className="divide-y divide-borde">
             {negocio.suscripciones.map((s) => (
-              <li key={`${s.concepto}-${s.desde}`} className="flex items-center justify-between gap-3 px-4 py-3">
+              <li key={`${s.concepto}-${s.desde}`} className="flex items-center justify-between gap-3 px-5 py-3 sm:px-6">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
                     {s.concepto}
@@ -389,7 +425,7 @@ function GastosDelNegocio({ negocio, anio, hoy, linea }: { negocio: GastosNegoci
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-tenue">
+                  <p className="text-[13px] text-tenue">
                     {euros(s.importe, true)} al {s.cada === 'año' ? 'año' : 'mes'} ·{' '}
                     {s.proximo
                       ? `próximo cargo el ${fechaCorta(s.proximo)} ${s.proximo.slice(0, 4)}`
@@ -400,21 +436,21 @@ function GastosDelNegocio({ negocio, anio, hoy, linea }: { negocio: GastosNegoci
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="cifras text-sm">{euros(s.pagadoAnio, true)}</p>
-                  <p className="text-xs text-tenue">en {anio}</p>
+                  <p className="text-[13px] text-tenue">en {anio}</p>
                 </div>
               </li>
             ))}
             {negocio.sueltos.map((p) => (
-              <li key={`${p.fecha}-${p.concepto}`} className="flex items-center justify-between gap-3 px-4 py-3">
+              <li key={`${p.fecha}-${p.concepto}`} className="flex items-center justify-between gap-3 px-5 py-3 sm:px-6">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{p.concepto}</p>
-                  <p className="text-xs text-tenue">Pago suelto · {fechaCorta(p.fecha)}</p>
+                  <p className="text-[13px] text-tenue">Pago suelto · {fechaCorta(p.fecha)}</p>
                 </div>
                 <p className="cifras shrink-0 text-sm">{euros(p.importe, true)}</p>
               </li>
             ))}
           </ul>
-          <p className="border-t border-borde px-4 py-2.5 text-xs text-tenue">
+          <p className="border-t border-borde px-5 py-3 text-[13px] text-tenue sm:px-6">
             En {anio}, {euros(negocio.pagadoAnio, true)}. Al mes, lo que sigue cobrándose: {euros(negocio.alMes, true)}.
             {linea ? ' Solo las de esta línea: las generales salen en «Todas las líneas».' : ''} Lo que pagas por un cliente va en
             su nota de cobros.
@@ -426,6 +462,29 @@ function GastosDelNegocio({ negocio, anio, hoy, linea }: { negocio: GastosNegoci
 }
 
 // ── Tarjeta de un cliente ────────────────────────────────────────────────────
+
+/** Los clientes sin plan en vigor ni por empezar, en una sola tarjeta: dónde se crea su nota de cobros */
+function SinPlan({ clientes, anio }: { clientes: EconomiaCliente[]; anio: number }) {
+  return (
+    <Tarjeta titulo="Sin plan de cobros en vigor" icono={CircleDashed} sinRelleno>
+      <ul className="divide-y divide-borde">
+        {clientes.map((c) => (
+          <li key={c.nota.ruta} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-5 py-3 sm:px-6">
+            <Link href={hrefNota(c.nota.ruta)} className={`${ZONA_TOQUE} text-[15px] font-medium hover:text-acento`}>
+              {c.nota.titulo}
+            </Link>
+            <code className="min-w-0 break-words text-[13px] text-tenue">
+              clientes/{c.nota.nombre}/cobros/{c.nota.nombre}-cobros-{anio}.md
+            </code>
+          </li>
+        ))}
+      </ul>
+      <p className="border-t border-borde px-5 py-3 text-[13px] text-tenue sm:px-6">
+        Se crea con la plantilla de cobros, o dile a Claude el trato y lo apunta.
+      </p>
+    </Tarjeta>
+  );
+}
 
 function estadoCobros(c: EconomiaCliente, plan: PlanAnual | undefined): { nivel: NivelEstado; texto: string } {
   if (!plan) return { nivel: 'sin-datos', texto: 'Sin plan en vigor' };
@@ -442,28 +501,29 @@ function TarjetaCliente({ cliente, anio, hoy, docs }: { cliente: EconomiaCliente
   const claves = plan ? clavesEstables(plan.cobros.map((cobro) => ({ ruta: plan.nota.ruta, cobro }))) : [];
 
   return (
-    <article id={`cliente-${cliente.nota.nombre}`} className="scroll-mt-20 rounded-xl border border-borde bg-superficie shadow-tarjeta">
-      <div className="flex flex-wrap items-start justify-between gap-3 p-4">
+    // Una tarjeta del panel, sin borde: se separa del gris por el tono. Dentro, la franja y, plegado, el trato
+    <article id={`cliente-${cliente.nota.nombre}`} className="imprimir-plano scroll-mt-24 rounded-xl bg-superficie">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pt-5 sm:px-6">
         <div className="min-w-0">
-          <h3 className="font-semibold leading-tight">
+          <h3 className={`leading-tight ${TITULO_TARJETA}`}>
             <Link href={hrefNota(cliente.nota.ruta)} className={`${ZONA_TOQUE} hover:text-acento`}>
               {cliente.nota.titulo}
             </Link>
           </h3>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
             <Estado nivel={estado.nivel}>
-              <span className="text-xs text-tenue">{estado.texto}</span>
+              <span className="text-[13px] text-tenue">{estado.texto}</span>
             </Estado>
             {plan && (
-              <span className="text-xs capitalize text-apagado">
+              <span className="text-[13px] capitalize text-apagado">
                 {nombreMes(plan.desde)} – {nombreMes(plan.hasta)}
               </span>
             )}
             {cliente.linea !== 'desarrollo' && <Chip>{LINEAS[cliente.linea]}</Chip>}
           </div>
           {cliente.rentabilidad.cobrado > 0 && (
-            <p className="mt-1 text-xs text-tenue">
-              En 12 meses te ha dejado <span className="cifras font-medium text-texto">{euros(cliente.rentabilidad.margen, true)}</span>
+            <p className="mt-1 text-[13px] text-tenue">
+              En 12 meses te ha dejado <span className="cifras font-semibold text-texto">{euros(cliente.rentabilidad.margen, true)}</span>
             </p>
           )}
         </div>
@@ -471,37 +531,42 @@ function TarjetaCliente({ cliente, anio, hoy, docs }: { cliente: EconomiaCliente
       </div>
 
       {!plan ? (
-        <p className="border-t border-borde px-4 py-3 text-xs text-tenue">
-          Sin plan de cobros en vigor. Se crea en <code>clientes/{cliente.nota.nombre}/cobros/{cliente.nota.nombre}-cobros-{anio}.md</code>.
+        <p className="mt-4 border-t border-borde px-5 py-4 text-[13px] text-tenue sm:px-6">
+          Sin plan de cobros en vigor. Se crea en <code className="break-words">clientes/{cliente.nota.nombre}/cobros/{cliente.nota.nombre}-cobros-{anio}.md</code>.
         </p>
       ) : (
         <>
           {/* Lo que hay que cobrar ya está arriba, en «Por cobrar»: aquí, la franja y el trato entero */}
-          <div className="px-4 pb-4">
-            <FranjaCobros meses={mesesDelPlan(plan)} cobros={plan.cobros} nombre={cliente.nota.titulo} />
+          <div className="px-5 pb-2 pt-5 sm:px-6">
+            <FranjaCobros
+              meses={mesesDelPlan(plan)}
+              cobros={plan.cobros}
+              nombre={cliente.nota.titulo}
+              rayado={RAYADO_COBROS}
+              mesActual={hoy.slice(0, 7)}
+            />
           </div>
 
-          <details className="border-t border-borde">
-            {/* 16 px de texto y 14 arriba y abajo: 44 px de toque, con su triángulo */}
-            <summary className="cursor-pointer px-4 py-3.5 text-xs text-tenue hover:text-texto">El trato y todos sus cobros</summary>
-            <div className="space-y-3 px-4 pb-2">
-              <TablaPlan plan={plan} />
-              {plan.cobros.length > 0 && (
-                <ul className="divide-y divide-borde rounded-lg border border-borde">
-                  {plan.cobros.map((cobro, i) => (
-                    <FilaCobro key={claves[i]} cobro={cobro} ruta={plan.nota.ruta} cliente={cliente.nota.nombre} docs={docs} hoy={hoy} />
-                  ))}
-                </ul>
-              )}
-              <Link href={hrefNota(plan.nota.ruta)} className="inline-flex min-h-11 items-center gap-1 text-xs text-tenue hover:text-acento">
-                <FileText className="size-3.5" aria-hidden />
-                Abrir la nota de cobros
-              </Link>
+          <div className="divide-y divide-borde border-t border-borde px-5 sm:px-6">
+            <Plegable titulo="El trato y todos sus cobros" pequeno>
+              <div className="space-y-3">
+                <TablaPlan plan={plan} />
+                {plan.cobros.length > 0 && (
+                  <ul className="divide-y divide-borde rounded-lg bg-superficie-2/60">
+                    {plan.cobros.map((cobro, i) => (
+                      <FilaCobro key={claves[i]} cobro={cobro} ruta={plan.nota.ruta} cliente={cliente.nota.nombre} docs={docs} hoy={hoy} dentro />
+                    ))}
+                  </ul>
+                )}
+                <Link href={hrefNota(plan.nota.ruta)} className="inline-flex min-h-11 items-center gap-1.5 text-[13px] text-tenue hover:text-acento">
+                  <FileText className="size-3.5" aria-hidden />
+                  Abrir la nota de cobros
+                </Link>
+              </div>
+            </Plegable>
+            <div className="py-1.5">
+              <CobroExtra ruta={plan.nota.ruta} hoy={hoy} />
             </div>
-          </details>
-
-          <div className="border-t border-borde px-4 py-2.5">
-            <CobroExtra ruta={plan.nota.ruta} hoy={hoy} />
           </div>
         </>
       )}
@@ -536,11 +601,11 @@ function CuotaDelPlan({ plan, hoy }: { plan: PlanAnual; hoy: string }) {
         ];
 
   return (
-    <dl className="flex gap-5 text-right">
+    <dl className="flex gap-5 sm:text-right">
       {cifras.map((c) => (
         <div key={c.etiqueta} title={c.ayuda}>
-          <dt className="text-xs text-apagado">{c.etiqueta}</dt>
-          <dd className="cifras text-sm font-semibold">{c.valor}</dd>
+          <dt className="text-[13px] text-apagado">{c.etiqueta}</dt>
+          <dd className="cifras text-[15px] font-semibold">{c.valor}</dd>
         </div>
       ))}
     </dl>
@@ -554,7 +619,10 @@ const ESTADO_COBRO: Record<Cobro['estado'], { nivel: NivelEstado; texto: string 
   programado: { nivel: 'sin-datos', texto: 'Por cobrar' },
 };
 
-/** Una fila de cobro. Con `titulo` (el del cliente), para la lista de «Por cobrar», que los junta todos */
+/**
+ * Una fila de cobro. Con `titulo` (el del cliente), para la lista de «Por cobrar», que los junta
+ * todos. `dentro`: en la lista del trato de un cliente, con el relleno de lo que va dentro de la tarjeta
+ */
 function FilaCobro({
   cobro,
   ruta,
@@ -562,6 +630,7 @@ function FilaCobro({
   titulo,
   docs,
   hoy,
+  dentro = false,
 }: {
   cobro: Cobro;
   ruta: string;
@@ -569,21 +638,22 @@ function FilaCobro({
   titulo?: string;
   docs: Documento[];
   hoy: string;
+  dentro?: boolean;
 }) {
   const estado = ESTADO_COBRO[cobro.estado];
   const factura = facturaDe(docs, cliente, cobro.mes, cobro.importe);
   return (
     // Si no caben, el importe y el botón bajan a su línea: al lado, en el móvil, el concepto se cortaba
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5">
+    <li className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 py-3 ${dentro ? 'px-4' : 'px-5 sm:px-6'}`}>
       <div className="min-w-0 flex-1 basis-60">
-        {titulo && <p className="truncate text-sm font-medium">{titulo}</p>}
+        {titulo && <p className="truncate text-[15px] font-semibold">{titulo}</p>}
         <p className={`break-words text-sm ${titulo ? 'text-tenue' : ''}`}>
           <span className="capitalize">{nombreMes(cobro.mes)}</span> · {cobro.concepto}
         </p>
         <div className="flex flex-wrap items-center gap-x-4">
           <Estado nivel={estado.nivel}>
             {/* Que se parta: en una fila estrecha del móvil, entero se montaba sobre el importe */}
-            <span className="whitespace-normal text-xs text-tenue">
+            <span className="whitespace-normal text-[13px] text-tenue">
               {cobro.cobrado && cobro.fechaCobro ? `Cobrado el ${fechaCorta(cobro.fechaCobro)}` : estado.texto}
             </span>
           </Estado>
@@ -592,7 +662,7 @@ function FilaCobro({
               href={hrefArchivo(factura)}
               target="_blank"
               rel="noreferrer"
-              className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-xs text-acento hover:underline`}
+              className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-[13px] text-acento hover:underline`}
             >
               <Paperclip className="size-3" aria-hidden />
               Factura
@@ -601,7 +671,7 @@ function FilaCobro({
             cobro.estado !== 'programado' && (
               <Link
                 href={`/documentos?cliente=${encodeURIComponent(cliente)}&categoria=factura&cobro=${cobro.mes}#subir`}
-                className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-xs text-apagado hover:text-acento`}
+                className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-[13px] text-apagado hover:text-acento`}
               >
                 <Paperclip className="size-3" aria-hidden />
                 Sin factura
@@ -611,7 +681,7 @@ function FilaCobro({
         </div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-3">
-        <span className="cifras text-sm font-medium">{euros(cobro.importe, true)}</span>
+        <span className="cifras text-[15px] font-semibold">{euros(cobro.importe, true)}</span>
         {cobro.estado !== 'programado' && (
           <BotonCobro ruta={ruta} linea={cobro.linea} cobrado={cobro.cobrado} marcadoHoy={cobro.fechaCobro === hoy} />
         )}
@@ -629,10 +699,10 @@ function quienPaga(linea: LineaPlan): string {
 function TablaPlan({ plan }: { plan: PlanAnual }) {
   // OVB: sin líneas en el plan, lo que entra son las casillas de cada liquidación
   if (plan.lineas.length === 0) {
-    return <p className="text-xs text-tenue">Sin cuota fija ni tarifa en el plan: lo que entra se apunta en los cobros de cada mes.</p>;
+    return <p className="text-[13px] text-tenue">Sin cuota fija ni tarifa en el plan: lo que entra se apunta en los cobros de cada mes.</p>;
   }
   return (
-    <div className="overflow-x-auto rounded-lg border border-borde">
+    <div className="overflow-x-auto rounded-lg bg-superficie-2/60">
       <table className={TABLA}>
         <thead>
           <tr>
@@ -647,7 +717,7 @@ function TablaPlan({ plan }: { plan: PlanAnual }) {
               <td className={TD}>
                 {linea.concepto}
                 {linea.renueva && (
-                  <span className="block text-xs text-apagado">
+                  <span className="block text-[13px] text-apagado">
                     Renueva el {fechaCorta(linea.renueva)} de {linea.renueva.slice(0, 4)}
                   </span>
                 )}
@@ -661,7 +731,7 @@ function TablaPlan({ plan }: { plan: PlanAnual }) {
         </tbody>
         <tfoot>
           <tr className={FILA}>
-            <td className={`${TD} text-xs text-tenue`} colSpan={3}>
+            <td className={`${TD} text-[13px] text-tenue`} colSpan={3}>
               {sinCuotaFija(plan) ? 'Sin cuota fija' : `Te paga ${euros(plan.cuotaMensual, true)} al mes`}
               {plan.cobrosAnuales.length > 0 &&
                 ` y ${plan.cobrosAnuales.map((l) => `${euros(l.importe, true)} al año por ${l.concepto}`).join(', ')}`}
@@ -728,10 +798,9 @@ async function Renovaciones({
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
   return (
-    <Tarjeta titulo="Renovaciones" icono={CalendarClock} sinRelleno>
-      <div id="renovaciones" className="scroll-mt-20" />
+    <Tarjeta id="renovaciones" titulo="Renovaciones" sinRelleno>
       {todas.length === 0 ? (
-        <div className="p-4">
+        <div className="px-5 pb-5 sm:px-6 sm:pb-6">
           <Vacio>No hay renovaciones apuntadas.</Vacio>
         </div>
       ) : (
@@ -740,10 +809,10 @@ async function Renovaciones({
             const dias = diasEntre(hoy, r.fecha);
             const nivel: NivelEstado = dias < 0 ? 'critico' : dias < 30 ? 'grave' : dias < 60 ? 'aviso' : 'bien';
             return (
-              <li key={`${r.fecha}-${r.concepto}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+              <li key={`${r.fecha}-${r.concepto}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 sm:px-6">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{r.concepto}</p>
-                  <p className="text-xs text-tenue">
+                  <p className="text-[13px] text-tenue">
                     {fechaCorta(r.fecha)} {r.fecha.slice(0, 4)} · {r.automatica ? 'consultado en el registro' : 'apuntado en la bóveda'}
                   </p>
                 </div>
@@ -754,13 +823,13 @@ async function Renovaciones({
         </ul>
       )}
       {sinFecha.length > 0 && (
-        <p className="border-t border-borde px-4 py-2.5 text-xs text-tenue">
+        <p className="border-t border-borde px-5 py-3 text-[13px] text-tenue sm:px-6">
           {sinFecha.join(', ')}: su registro no publica la caducidad. Apúntala en el plan de cobros (campo{' '}
           <code>renueva</code>) o en la sección «Renovaciones» de la ficha del cliente.
         </p>
       )}
       {clientes.length > 0 && (
-        <div className="border-t border-borde px-4 py-2.5">
+        <div className="border-t border-borde px-5 py-1.5 sm:px-6">
           <NuevaRenovacion clientes={clientes} hoy={hoy} />
         </div>
       )}

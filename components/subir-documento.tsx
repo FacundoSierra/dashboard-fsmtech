@@ -4,7 +4,7 @@ import { useRef, useState, useTransition, type DragEvent, type FormEvent } from 
 import { CheckCircle2, FileUp, Loader2, X } from 'lucide-react';
 import { subirDocumento } from '@/app/(panel)/documentos/acciones';
 import { ACEPTADOS, CATEGORIAS, TAMANO_MAXIMO, type Categoria } from '@/lib/documentos/tipos';
-import { CAMPO, ETIQUETA } from './estilos';
+import { BOTON_PRINCIPAL, CAMPO, ETIQUETA, ZONA_TOQUE } from './estilos';
 
 /** `2026-09 Factura_VM.pdf` → `2026 09 Factura VM`: un título de partida que se puede cambiar */
 function tituloDeArchivo(nombre: string): string {
@@ -91,7 +91,7 @@ export function SubirDocumento({
         }}
         onDragLeave={() => setEncima(false)}
         onDrop={soltar}
-        className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
+        className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
           encima ? 'border-acento bg-acento-suave' : 'border-borde-fuerte bg-superficie-2'
         }`}
       >
@@ -106,7 +106,7 @@ export function SubirDocumento({
                 setArchivo(null);
                 if (selector.current) selector.current.value = '';
               }}
-              className="shrink-0 rounded p-1 text-apagado hover:bg-superficie hover:text-texto"
+              className={`${ZONA_TOQUE} grid size-9 shrink-0 place-items-center rounded-full text-tenue hover:bg-superficie hover:text-texto`}
             >
               <X className="size-4" aria-hidden />
               <span className="sr-only">Quitar el archivo</span>
@@ -121,7 +121,7 @@ export function SubirDocumento({
                 elígelo
               </button>
             </p>
-            <p className="text-xs text-apagado">PDF, imágenes, Word, Excel, texto o zip · 4 MB como mucho</p>
+            <p className="text-[13px] text-tenue">PDF, imágenes, Word, Excel, texto o zip · 4 MB como mucho</p>
           </>
         )}
         <input
@@ -135,7 +135,8 @@ export function SubirDocumento({
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label>
+        {/* El cliente, entero: en la columna estrecha del escritorio, a medias se cortaba el nombre */}
+        <label className="sm:col-span-2">
           <span className={ETIQUETA}>Cliente</span>
           <select value={cliente} onChange={(e) => setCliente(e.target.value)} className={CAMPO}>
             {clientes.map((c) => (
@@ -155,13 +156,13 @@ export function SubirDocumento({
             ))}
           </select>
         </label>
-        <label className="sm:col-span-2">
-          <span className={ETIQUETA}>Título</span>
-          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} required maxLength={120} placeholder="Factura de septiembre" className={CAMPO} />
-        </label>
         <label>
           <span className={ETIQUETA}>Fecha del documento</span>
           <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required className={CAMPO} />
+        </label>
+        <label className="sm:col-span-2">
+          <span className={ETIQUETA}>Título</span>
+          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} required maxLength={120} placeholder="Factura de septiembre" className={CAMPO} />
         </label>
         {conImporte && (
           <label>
@@ -196,7 +197,7 @@ export function SubirDocumento({
       <button
         type="submit"
         disabled={subiendo || !archivo}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white hover:opacity-90 disabled:opacity-60 sm:w-auto"
+        className={`${BOTON_PRINCIPAL} w-full sm:w-auto`}
       >
         {subiendo && <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />}
         {subiendo ? 'Subiendo…' : 'Subir documento'}

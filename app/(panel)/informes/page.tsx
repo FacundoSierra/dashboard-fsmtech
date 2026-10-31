@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronRight, FileText } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import { Avatar } from '@/components/piezas';
 import { Encabezado, Tarjeta, Vacio, euros } from '@/components/ui';
 import { obtenerBoveda, proyectos } from '@/lib/boveda/consultas';
 import { economia, nombreMes, planVigente, sinCuotaFija, type PlanAnual } from '@/lib/economia';
@@ -29,33 +30,33 @@ export default async function PaginaInformes() {
         titulo="Informes"
         subtitulo="Informe mensual de mantenimiento para cada cliente: disponibilidad, cambios publicados y renovaciones"
       />
-      <Tarjeta titulo={`Informes de ${nombreMes(mes, true)}`} icono={FileText} sinRelleno>
+      {/* Cada cliente con el círculo de su nombre, como las personas de Hoy: la fila entera es el enlace */}
+      <Tarjeta titulo={`Informes de ${nombreMes(mes, true)}`} sinRelleno>
         {lista.length === 0 ? (
-          <div className="p-4">
+          <div className="px-5 pb-5 sm:px-6 sm:pb-6">
             <Vacio>No hay clientes con proyectos.</Vacio>
           </div>
         ) : (
-          <ul className="divide-y divide-borde">
+          <ul className="divide-y divide-borde pb-2">
             {lista.map((c) => (
               <li key={c.nota.ruta}>
                 <Link
                   href={`/informes/${encodeURIComponent(c.nota.nombre)}?mes=${mes}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-superficie-2"
+                  className="group flex min-h-16 items-center gap-3 px-5 py-3 hover:bg-superficie-2 sm:px-6"
                 >
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium">{c.nota.titulo}</span>
-                    <span className="text-xs text-tenue">
-                      {cuota(planVigente(c, hoy))}
-                    </span>
+                  <Avatar nombre={c.nota.titulo} dosLetras />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold group-hover:text-acento">{c.nota.titulo}</span>
+                    <span className="block text-[13px] text-tenue">{cuota(planVigente(c, hoy))}</span>
                   </span>
-                  <ChevronRight className="size-4 shrink-0 text-apagado" aria-hidden />
+                  <ChevronRight className="size-5 shrink-0 text-tenue" aria-hidden />
                 </Link>
               </li>
             ))}
           </ul>
         )}
       </Tarjeta>
-      <p className="mt-4 text-xs text-apagado">
+      <p className="mt-4 text-[13px] text-tenue">
         Cada informe se puede imprimir o guardar en PDF para mandárselo al cliente. Dentro se puede cambiar de mes.
       </p>
     </>

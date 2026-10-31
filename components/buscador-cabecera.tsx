@@ -13,7 +13,16 @@ import { Search } from 'lucide-react';
  */
 export function BuscadorCabecera({ children }: { children: ReactNode }) {
   const ruta = usePathname();
-  if (ruta === '/buscar') return <div className="flex min-w-0 flex-1 items-center">{children}</div>;
+  // Con su frase al lado: la pastilla sola, a la izquierda de la cabecera, parecía que se había quedado ahí
+  if (ruta === '/buscar')
+    return (
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        {children}
+        <span aria-hidden className="hidden truncate text-[13px] text-tenue md:inline">
+          para ir a cualquier sección o nota
+        </span>
+      </div>
+    );
 
   return (
     <div className="relative flex min-w-0 flex-1 items-center gap-2 md:max-w-md">

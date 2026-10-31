@@ -131,7 +131,7 @@ export default function AnularHerramienta({
 
   return (
     <section className={TARJETA} aria-labelledby="anular-titulo">
-      <h3 id="anular-titulo" className="text-base font-semibold tracking-tight text-texto">
+      <h3 id="anular-titulo" className="text-[17px] font-semibold tracking-[-0.01em] text-texto">
         {soloElExtorno ? 'Apuntar el extorno' : 'Anular la herramienta'}
       </h3>
 
@@ -195,7 +195,7 @@ export default function AnularHerramienta({
           )}
 
           {hayExtorno && (
-            <div className="rounded-lg bg-fondo/70 p-4 text-sm">
+            <div className="rounded-lg bg-superficie-2 p-4 text-sm">
               <p className="text-texto">
                 La hucha tenía <span className="cifras font-medium">{euros(saldoAntes)}</span> ese día: cubre{' '}
                 <span className="cifras font-medium">{euros(deHucha)}</span> y quedará en{' '}
@@ -264,7 +264,7 @@ export default function AnularHerramienta({
           )}
 
           {hayExtorno && (
-            <details className="rounded-lg border border-borde px-4 py-1">
+            <details className="rounded-lg bg-superficie-2 px-4 py-1">
               <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-texto focus-visible:outline-2 focus-visible:outline-acento">
                 Supuestos de IRPF (0 y 0)
               </summary>

@@ -13,12 +13,13 @@ export default function Cargando() {
     <div aria-busy="true" aria-live="polite">
       <span className="sr-only">Cargando…</span>
 
-      <div className="mb-6">
-        <div className="h-7 w-56 max-w-full rounded-lg bg-superficie-2 motion-safe:animate-pulse" />
-        <div className="mt-2 h-4 w-40 max-w-full rounded bg-superficie-2 motion-safe:animate-pulse" />
+      {/* El título de 36 px y su subtítulo, en el gris de la isla; debajo, una tarjeta blanca sin borde */}
+      <div className="mb-6 sm:mb-7">
+        <div className="h-8 w-56 max-w-full rounded-full bg-borde-fuerte motion-safe:animate-pulse sm:h-10" />
+        <div className="mt-2.5 h-4 w-40 max-w-full rounded-full bg-borde-fuerte motion-safe:animate-pulse" />
       </div>
 
-      <div className="h-72 rounded-xl border border-borde bg-superficie motion-safe:animate-pulse" />
+      <div className="h-72 rounded-xl bg-superficie motion-safe:animate-pulse" />
     </div>
   );
 }

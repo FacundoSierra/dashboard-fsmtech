@@ -19,11 +19,13 @@
  * estado, 3:1 o más sobre la tarjeta.
  *
  * Los colores de datos y de estado, reservados para eso:
- *   - serie: el azul de los datos (lo hecho, las barras, el medidor), nunca para estado
- *   - estados (bien / aviso / grave / crítico): nunca para series
+ *   - serie: el azul de los datos (lo hecho, lo cobrado, los días sin caídas, las barras, el
+ *     medidor), nunca para un estado con icono
+ *   - estados (bien / aviso / grave / crítico): nunca para series. En las franjas de píldoras
+ *     (cobros de Economía, disponibilidad de Estado) solo lo que va mal lleva el tono de su estado,
+ *     y además es la píldora más alta
  *   - bien y crítico se confunden con deuteranopía (ΔE 4,1): un estado nunca va solo por
- *     color, siempre con icono y texto, y en las franjas de disponibilidad las incidencias
- *     cambian también de altura
+ *     color, siempre con icono y texto; en las franjas, lo bueno va en azul y lo malo cambia de altura
  */
 :root {
   /* Calendarios, relojes, desplegables y barras de desplazamiento nativos, en el modo que toca */
@@ -258,6 +260,39 @@ body {
   }
 }
 
+/*
+ * Los desplegables en píldora (`CAMPO` de `components/estilos.ts`): sin la flecha nativa, que en
+ * Chrome no respetaba el radio, y con una propia del color de `tenue` de cada modo. Fuera de las
+ * capas, para que el hueco de la flecha gane al `px-4` del campo
+ */
+select.campo {
+  appearance: none;
+  padding-right: 2.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%234a5465' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+}
+
+@media (prefers-color-scheme: dark) {
+  select.campo {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23b2bbca' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+
+/*
+ * El disco blanco de un icono de estado sobre la tarjeta azul (`tema-marca`): sobre el azul, el verde
+ * y el ámbar no llegaban a 3:1. En los dos modos, el disco es blanco y el icono lleva su tono del
+ * modo claro, que sobre blanco pasa de 3:1 (el ámbar, 3,6:1; el verde, 4,4:1)
+ */
+.disco-estado {
+  --bien: #1f8a3f;
+  --aviso-icono: #a87c0c;
+  --grave-icono: #c45a2e;
+  --critico: #d03b3b;
+  --apagado: #5d6879;
+  background: #ffffff;
+}
+
 /* Los iconos, más finos que los de serie (2 px): 1,75 px. Los que piden otro grosor lo conservan */
 svg.lucide[stroke-width="2"] {
   stroke-width: 1.75px;
@@ -302,6 +337,8 @@ svg.lucide[stroke-width="2"] {
 .prosa ul { list-style: disc; }
 .prosa ol { list-style: decimal; }
 .prosa li { margin: 0.2rem 0; }
+/* Una viñeta vacía (el «- » que dejan las plantillas en «Renovaciones», «Seguimiento»…): no se pinta, parecía rota */
+.prosa li:empty { display: none; }
 .prosa .contains-task-list { list-style: none; padding-left: 0.2rem; }
 .prosa .contains-task-list .contains-task-list { padding-left: 1.4rem; }
 .prosa input[type="checkbox"] { margin-right: 0.5rem; accent-color: var(--acento); }

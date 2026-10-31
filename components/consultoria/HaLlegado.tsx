@@ -113,11 +113,11 @@ export default function HaLlegado({
         ref={hoja}
         tabIndex={-1}
         onClick={(evento) => evento.stopPropagation()}
-        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-superficie shadow-xl outline-none sm:rounded-xl"
+        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-superficie shadow-flotante outline-none sm:rounded-xl"
       >
         <header className="flex items-start justify-between gap-4 border-b border-borde px-5 py-4">
           <div className="min-w-0">
-            <h2 id="ha-llegado-titulo" className="text-base leading-snug font-semibold tracking-tight text-texto">
+            <h2 id="ha-llegado-titulo" className="text-[17px] leading-snug font-semibold tracking-[-0.01em] text-texto">
               Ha llegado la liquidación de {nombreDelMes(mes.mes)}
             </h2>
             <p className="mt-0.5 text-sm text-tenue">Marca lo que trae el documento de OVB. No se guarda nada hasta confirmar.</p>
@@ -126,7 +126,7 @@ export default function HaLlegado({
             type="button"
             onClick={alCerrar}
             aria-label="Cerrar sin guardar"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-tenue transition-colors hover:bg-fondo focus-visible:outline-2 focus-visible:outline-acento"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-tenue transition-colors hover:bg-borde focus-visible:outline-2 focus-visible:outline-acento"
           >
             <X className="size-5" aria-hidden />
           </button>
@@ -141,7 +141,7 @@ export default function HaLlegado({
               <ul className="mt-2 flex flex-col gap-1.5">
                 {lineas.map((l) => (
                   <li key={l.herramientaId}>
-                    <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg bg-fondo/60 px-3 py-2.5 has-focus-visible:outline-2 has-focus-visible:outline-acento">
+                    <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg bg-superficie-2 px-3 py-2.5 has-focus-visible:outline-2 has-focus-visible:outline-acento">
                       <input
                         type="checkbox"
                         checked={marcadas.has(l.herramientaId)}
@@ -170,7 +170,7 @@ export default function HaLlegado({
               <ul className="mt-2 flex flex-col gap-1.5">
                 {cargos.map((c) => (
                   <li key={claveDe(c)}>
-                    <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg bg-fondo/60 px-3 py-2.5 has-focus-visible:outline-2 has-focus-visible:outline-acento">
+                    <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg bg-superficie-2 px-3 py-2.5 has-focus-visible:outline-2 has-focus-visible:outline-acento">
                       <input
                         type="checkbox"
                         checked={cargosMarcados.has(claveDe(c))}
@@ -189,11 +189,11 @@ export default function HaLlegado({
                   </li>
                 ))}
               </ul>
-              <p className="mt-1 text-xs text-apagado">Un cargo sin marcar se queda sin aplicar; un resto de extorno sin marcar pasa al mes siguiente.</p>
+              <p className="mt-1 text-[13px] text-apagado">Un cargo sin marcar se queda sin aplicar; un resto de extorno sin marcar pasa al mes siguiente.</p>
             </fieldset>
           )}
 
-          <div className="mt-5 rounded-lg bg-fondo/70 p-4">
+          <div className="mt-5 rounded-lg bg-superficie-2 p-4">
             <dl className="flex flex-col gap-1.5 text-sm">
               <Fila etiqueta="Comisión" valor={euros(liquidacion.comision)} />
               <Fila etiqueta="RC (a la hucha)" valor={menos(liquidacion.rc)} />
@@ -220,7 +220,7 @@ export default function HaLlegado({
               <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={`${CAMPO} mt-1`} />
             </label>
             <label className={ETIQUETA}>
-              N.º <span className="font-normal text-apagado">(opcional)</span>
+              N.º <span className="font-normal text-apagado">· opcional</span>
               <input value={numero} onChange={(e) => setNumero(e.target.value)} inputMode="numeric" autoComplete="off" className={`${CAMPO} mt-1`} />
             </label>
             <label className={ETIQUETA}>
@@ -242,7 +242,7 @@ export default function HaLlegado({
           )}
 
           {pasanAlSiguiente > 0 && (
-            <div className="mt-4 rounded-lg border border-aviso/50 bg-aviso/10 p-4">
+            <div className="mt-4 rounded-lg bg-superficie-2 p-4">
               <Aviso>
                 <strong className="font-semibold">
                   Pasan a {mesSiguiente}: {pasanAlSiguiente}
@@ -258,7 +258,7 @@ export default function HaLlegado({
                   placeholder="Aún sin firmar"
                   className={`${CAMPO} mt-1 resize-y`}
                 />
-                <span className="mt-1 block text-right text-xs font-normal text-apagado">
+                <span className="mt-1 block text-right text-[13px] font-normal text-apagado">
                   {[...motivo].length}/{MOTIVO_MAXIMO}
                 </span>
               </label>

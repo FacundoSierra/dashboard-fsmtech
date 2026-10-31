@@ -1,6 +1,7 @@
 /**
- * Las piezas pequeñas que repiten las tarjetas de Hoy: el rayado de lo que falta (barras y
- * medidor), su muestra para las leyendas y el avatar de una persona.
+ * Las piezas pequeñas que repiten las tarjetas del panel: el rayado de lo que falta (las barras y
+ * el medidor de Hoy, las franjas de cobros de Economía), su muestra para las leyendas y el círculo
+ * con la inicial de una persona, un proyecto o un cliente.
  */
 
 /**
@@ -57,18 +58,41 @@ export function nombreLimpio(texto: string): string {
     .trim();
 }
 
-/** El círculo de una persona (o de un proyecto): su inicial sobre su tinte. Sin fotos: no las hay */
-export function Avatar({ nombre, tamano = 'grande' }: { nombre: string; tamano?: 'grande' | 'pequeno' }) {
+/**
+ * `Pablo (Bodegas Agrovello)` → `P`; `Centro de Negocios Inmobiliarios` → `CN`: las dos primeras
+ * palabras con mayúscula, sin las de enlace («de», «y»). Si no hay ninguna, la primera letra
+ */
+export function iniciales(nombre: string): string {
+  const palabras = nombreLimpio(nombre).replace(/\(.*?\)/g, ' ').split(/\s+/);
+  const conMayuscula = palabras.filter((parte) => /^\p{Lu}|^\d/u.test(parte));
+  if (conMayuscula.length) return conMayuscula.slice(0, 2).map((parte) => parte[0]).join('');
+  return nombreLimpio(nombre).match(/\p{L}|\p{N}/u)?.[0]?.toUpperCase() ?? '';
+}
+
+/**
+ * El círculo de una persona (o de un proyecto o un cliente): su inicial sobre su tinte. Sin fotos:
+ * no las hay. `dosLetras`, las iniciales de las dos primeras palabras (los clientes)
+ */
+export function Avatar({
+  nombre,
+  tamano = 'grande',
+  dosLetras = false,
+}: {
+  nombre: string;
+  /** 40, 32 o 28 px */
+  tamano?: 'grande' | 'pequeno' | 'mini';
+  dosLetras?: boolean;
+}) {
   const limpio = nombreLimpio(nombre);
-  const inicial = limpio.match(/\p{L}|\p{N}/u)?.[0]?.toUpperCase() ?? '·';
+  const texto = (dosLetras ? iniciales(limpio) : limpio.match(/\p{L}|\p{N}/u)?.[0]?.toUpperCase()) || '·';
   return (
     <span
       aria-hidden
       className={`tinte-${tinteDe(limpio)} flex shrink-0 items-center justify-center rounded-full bg-[var(--tinte-fondo)] font-semibold text-[var(--tinte-texto)] ${
-        tamano === 'grande' ? 'size-10 text-[15px]' : 'size-8 text-[13px]'
+        tamano === 'grande' ? 'size-10 text-[15px]' : tamano === 'pequeno' ? 'size-8 text-[13px]' : 'size-7 text-[12px]'
       }`}
     >
-      {inicial}
+      {texto}
     </span>
   );
 }

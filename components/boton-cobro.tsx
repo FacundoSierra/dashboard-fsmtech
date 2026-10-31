@@ -3,12 +3,12 @@
 import { useActionState, useState } from 'react';
 import { Check, Loader2, Undo2 } from 'lucide-react';
 import { cambiarCobro, type EstadoCobro } from '@/app/(panel)/economia/acciones';
-import { ZONA_TOQUE } from './estilos';
+import { BOTON_PEQUENO, ZONA_TOQUE } from './estilos';
 
 /** Lo del servidor y si este botón acaba de marcarlo */
 type EstadoBoton = EstadoCobro & { marcadoAqui?: boolean };
 
-const DESHACER = `${ZONA_TOQUE} inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-superficie-2 disabled:opacity-60`;
+const DESHACER = `${ZONA_TOQUE} inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-[13px] hover:bg-superficie-2 disabled:opacity-60`;
 
 /**
  * Marca un cobro desde el panel. Escribe en la nota de cobros y llega a Obsidian con la sincronización.
@@ -48,14 +48,14 @@ export function BotonCobro({
         <button
           type="submit"
           disabled={guardando}
-          className={`${ZONA_TOQUE} inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-acento-fuerte px-3 py-1 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60`}
+          className={BOTON_PEQUENO}
         >
           {icono(Check)}
           Marcar cobrado
         </button>
       ) : confirmando ? (
         // Del ancho de «Deshacer», para no apretar la fila en el móvil
-        <span className="inline-flex items-center gap-1 text-xs">
+        <span className="inline-flex items-center gap-1 text-[13px]">
           <button
             type="submit"
             autoFocus
@@ -82,7 +82,7 @@ export function BotonCobro({
         </button>
       )}
       {estado.error && (
-        <span role="alert" className="max-w-56 text-right text-xs text-critico-texto">
+        <span role="alert" className="max-w-56 text-right text-[13px] text-critico-texto">
           {estado.error}
         </span>
       )}

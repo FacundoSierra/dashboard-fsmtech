@@ -1,10 +1,10 @@
 import { Markdown } from '@/components/markdown';
 import { TareaEditable } from '@/components/tarea-editable';
-import { Chip, EstadoPildora, Tarjeta, Vacio } from '@/components/ui';
+import { Chip, Contador, EstadoPildora, Tarjeta, Vacio } from '@/components/ui';
 import { partesEspera, type PartesEspera } from '@/lib/boveda/espera';
 import type { Tarea } from '@/lib/boveda/tipos';
 import { diasEntre, esFechaValida } from '@/lib/fechas';
-import { Avatar } from './piezas';
+import { Avatar } from '@/components/piezas';
 
 /** La regla de la bóveda: lo que lleva más de una semana esperando se dice en voz alta */
 const DIAS_ESPERANDO_MUCHO = 7;
@@ -76,7 +76,7 @@ export function ALaEspera({
       titulo={
         <>
           A la espera
-          <span className="cifras ml-2 rounded-full bg-superficie-2 px-2 py-0.5 text-[13px] font-semibold text-tenue">{pendientes}</span>
+          <Contador>{pendientes}</Contador>
         </>
       }
       estirar

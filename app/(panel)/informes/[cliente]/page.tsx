@@ -12,7 +12,8 @@ import { duracion } from '@/lib/vigilancia/disponibilidad';
 import { estadoGeneral } from '@/lib/vigilancia/estado';
 
 const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
-const FLECHA = 'grid size-11 place-items-center rounded-lg border border-borde bg-superficie hover:text-acento';
+/** Las flechas del mes, redondas dentro de su píldora blanca, como las pestañas */
+const FLECHA = 'grid size-11 shrink-0 place-items-center rounded-full text-texto transition-colors hover:bg-superficie-2 hover:text-acento';
 
 export async function generateMetadata({ params }: PageProps<'/informes/[cliente]'>): Promise<Metadata> {
   const { cliente } = await params;
@@ -51,19 +52,19 @@ export default async function PaginaInforme({ params, searchParams }: PageProps<
 
   return (
     <>
-      <div className="no-imprimir mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
+      <div className="no-imprimir mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
+        <div className="flex items-center gap-1 rounded-full bg-superficie p-1">
           <Link href={`${ruta}?mes=${sumarMeses(mes, -1)}`} aria-label="Mes anterior" className={FLECHA}>
-            <ChevronLeft className="size-4" aria-hidden />
+            <ChevronLeft className="size-5" aria-hidden />
           </Link>
-          <span className="min-w-36 text-center text-sm font-medium first-letter:uppercase">{nombreMes(mes, true)}</span>
+          <span className="min-w-36 text-center text-sm font-semibold first-letter:uppercase">{nombreMes(mes, true)}</span>
           {mes < mesActual ? (
             <Link href={`${ruta}?mes=${sumarMeses(mes, 1)}`} aria-label="Mes siguiente" className={FLECHA}>
-              <ChevronRight className="size-4" aria-hidden />
+              <ChevronRight className="size-5" aria-hidden />
             </Link>
           ) : (
-            <span className="grid size-11 place-items-center rounded-lg border border-borde text-apagado opacity-50" aria-hidden>
-              <ChevronRight className="size-4" />
+            <span className="grid size-11 place-items-center rounded-full text-apagado opacity-50" aria-hidden>
+              <ChevronRight className="size-5" />
             </span>
           )}
         </div>
@@ -71,28 +72,31 @@ export default async function PaginaInforme({ params, searchParams }: PageProps<
       </div>
 
       {enCurso && (
-        <div className="no-imprimir mb-6">
+        <div className="no-imprimir mx-auto mb-4 max-w-3xl rounded-xl bg-superficie p-5 sm:mb-5 sm:p-6">
           <Pendiente titulo="Este mes todavía no ha terminado">Los datos son parciales, hasta hoy.</Pendiente>
         </div>
       )}
 
-      <article className="imprimir-plano mx-auto max-w-3xl rounded-xl border border-borde bg-superficie p-6 shadow-tarjeta sm:p-10">
+      {/* El documento que recibe el cliente: en pantalla, una tarjeta blanca; al imprimir, la hoja en
+          blanco, sin marco ni relleno de más (el margen lo pone `@page`) */}
+      <article className="mx-auto max-w-3xl rounded-xl bg-superficie p-6 sm:p-10 print:max-w-none print:rounded-none print:p-0">
         {/* En el móvil, la firma va arriba y en una fila: al lado del título, el nombre se partía en tres líneas */}
         <header className="flex flex-col-reverse gap-5 border-b border-borde pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight">{informe.cliente.titulo}</h1>
+            <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">{informe.cliente.titulo}</h1>
             <p className="mt-1 text-sm text-tenue">Informe de mantenimiento · {nombreMes(mes, true)}</p>
           </div>
+          {/* La marca del menú: las iniciales en blanco en su círculo azul, también en el papel */}
           <div className="flex shrink-0 items-center gap-2.5 sm:block sm:text-right">
             <div
-              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-acento-fuerte text-xs font-bold text-white [-webkit-print-color-adjust:exact] [print-color-adjust:exact] sm:ml-auto"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-acento-fuerte text-[12px] font-bold tracking-tight text-white [-webkit-print-color-adjust:exact] [print-color-adjust:exact] sm:ml-auto"
               aria-hidden
             >
               FS
             </div>
             <div>
-              <p className="text-xs font-semibold sm:mt-1.5">FSMTECH</p>
-              <p className="whitespace-nowrap text-xs text-tenue">Facundo Sierra Morales</p>
+              <p className="text-[13px] font-bold tracking-[-0.01em] sm:mt-1.5">FSMTECH</p>
+              <p className="whitespace-nowrap text-[13px] text-tenue">Facundo Sierra Morales</p>
             </div>
           </div>
         </header>
@@ -119,8 +123,8 @@ export default async function PaginaInforme({ params, searchParams }: PageProps<
 
         {informe.renovaciones.length > 0 && (
           <section className="border-t border-borde py-6">
-            <h2 className="text-sm font-semibold">Próximas renovaciones</h2>
-            <p className="mt-1 text-xs text-tenue">Servicios que conviene renovar a tiempo para que la web no se interrumpa.</p>
+            <h2 className="text-[17px] font-semibold tracking-[-0.01em]">Próximas renovaciones</h2>
+            <p className="mt-1 text-[13px] text-tenue">Servicios que conviene renovar a tiempo para que la web no se interrumpa.</p>
             <ul className="mt-3 space-y-1.5 text-sm">
               {informe.renovaciones.map((r) => (
                 <li key={`${r.fecha}-${r.concepto}`} className="flex justify-between gap-3">
@@ -134,7 +138,7 @@ export default async function PaginaInforme({ params, searchParams }: PageProps<
           </section>
         )}
 
-        <footer className="border-t border-borde pt-6 text-xs leading-relaxed text-apagado">
+        <footer className="border-t border-borde pt-6 text-[13px] leading-relaxed text-tenue">
           {informe.vigilanciaDesde ? (
             <p>
               La disponibilidad se comprueba cada hora desde el {fechaHoraCorta(informe.vigilanciaDesde)}; las caídas de menos
@@ -153,8 +157,8 @@ export default async function PaginaInforme({ params, searchParams }: PageProps<
 function Cifra({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
     <div>
-      <p className="text-xs text-tenue">{etiqueta}</p>
-      <p className="mt-1 text-xl font-semibold tracking-tight">{valor}</p>
+      <p className="text-[13px] text-tenue">{etiqueta}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-[-0.02em]">{valor}</p>
     </div>
   );
 }
@@ -168,8 +172,8 @@ function SeccionProyecto({ p, ahora }: { p: InformeProyecto; ahora: number }) {
   return (
     <section className="space-y-4 border-b border-borde py-6 last-of-type:border-b-0">
       <div>
-        <h2 className="text-base font-semibold">{nombre}</h2>
-        {p.web && <p className="text-xs text-tenue">{p.web.replace(/^https?:\/\//, '').replace(/\/$/, '')}</p>}
+        <h2 className="text-[17px] font-semibold tracking-[-0.01em]">{nombre}</h2>
+        {p.web && <p className="text-[13px] text-tenue">{p.web.replace(/^https?:\/\//, '').replace(/\/$/, '')}</p>}
       </div>
 
       {p.web && (
@@ -189,7 +193,7 @@ function SeccionProyecto({ p, ahora }: { p: InformeProyecto; ahora: number }) {
               nivel={diasCertificado > 30 ? 'bien' : diasCertificado >= 0 ? 'aviso' : 'critico'}
               texto={
                 diasCertificado >= 0
-                  ? `Conexión segura (HTTPS) con certificado válido hasta el ${fechaCorta(p.certificadoHasta!.slice(0, 10))}`
+                  ? `Conexión segura (HTTPS) con certificado válido hasta el ${fechaCorta(p.certificadoHasta!.slice(0, 10))} de ${p.certificadoHasta!.slice(0, 4)}`
                   : 'El certificado de seguridad ha caducado'
               }
             />
@@ -223,7 +227,7 @@ function SeccionProyecto({ p, ahora }: { p: InformeProyecto; ahora: number }) {
             <ListaCambios titulo="Correcciones" lista={p.cambios.correcciones} />
             <ListaCambios titulo="Seguridad" lista={p.cambios.seguridad} />
             {p.cambios.mantenimiento > 0 && (
-              <p className="text-xs text-tenue sm:col-span-2">
+              <p className="text-[13px] text-tenue sm:col-span-2">
                 Además, {p.cambios.mantenimiento} {p.cambios.mantenimiento === 1 ? 'tarea' : 'tareas'} de mantenimiento interno
                 (documentación, dependencias y ajustes).
               </p>
@@ -247,7 +251,7 @@ function ListaCambios({ titulo, lista }: { titulo: string; lista: string[] }) {
   if (lista.length === 0) return null;
   return (
     <div>
-      <h3 className="text-xs font-semibold text-tenue">
+      <h3 className="text-[13px] font-semibold text-tenue">
         {titulo} · {lista.length}
       </h3>
       <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm">
@@ -255,7 +259,7 @@ function ListaCambios({ titulo, lista }: { titulo: string; lista: string[] }) {
           <li key={i}>{cambio}</li>
         ))}
       </ul>
-      {lista.length > 8 && <p className="mt-1 text-xs text-tenue">y {lista.length - 8} más</p>}
+      {lista.length > 8 && <p className="mt-1 text-[13px] text-tenue">y {lista.length - 8} más</p>}
     </div>
   );
 }

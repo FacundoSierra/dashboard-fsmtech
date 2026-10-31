@@ -26,7 +26,7 @@ export default function BotonBorrar({
   const [trabajando, empezar] = useTransition();
 
   if (error) {
-    return <span className="text-xs text-critico-texto">{error}</span>;
+    return <span className="text-[13px] text-critico-texto">{error}</span>;
   }
 
   if (!confirmando) {
@@ -35,7 +35,7 @@ export default function BotonBorrar({
         type="button"
         onClick={() => setConfirmando(true)}
         aria-label={`${etiqueta}: ${descripcion}`}
-        className={`text-xs text-apagado underline-offset-4 hover:text-critico-texto hover:underline ${className}`}
+        className={`text-[13px] text-apagado underline-offset-4 hover:text-critico-texto hover:underline ${className}`}
       >
         {etiqueta}
       </button>
@@ -43,7 +43,7 @@ export default function BotonBorrar({
   }
 
   return (
-    <span className="flex items-center gap-2 text-xs">
+    <span className="flex items-center gap-2 text-[13px]">
       <button
         type="button"
         disabled={trabajando}

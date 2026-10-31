@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { SEGMENTOS, segmento } from '@/components/estilos';
 import { FormCliente, FormRequerimiento, FormReunion } from '@/components/formularios-crear';
 import { Encabezado, Tarjeta } from '@/components/ui';
 import {
@@ -64,14 +65,10 @@ export default async function PaginaCrear({ searchParams }: PageProps<'/crear'>)
     <div className="mx-auto max-w-3xl">
       <Encabezado titulo="Crear" subtitulo="Notas nuevas con las plantillas de la bóveda" />
 
-      <nav aria-label="Qué crear" className="mb-4 inline-flex rounded-xl border border-borde bg-fondo p-1">
+      {/* En píldora, como las pestañas de la Consultoría: la elegida, rellena del azul y en seminegrita */}
+      <nav aria-label="Qué crear" className={`mb-4 ${SEGMENTOS}`}>
         {(Object.keys(TIPOS) as Tipo[]).map((valor) => (
-          <Link
-            key={valor}
-            href={`/crear?tipo=${valor}`}
-            aria-current={tipo === valor ? 'page' : undefined}
-            className={`inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium ${tipo === valor ? 'bg-superficie text-texto shadow-sm' : 'text-tenue hover:text-texto'}`}
-          >
+          <Link key={valor} href={`/crear?tipo=${valor}`} aria-current={tipo === valor ? 'page' : undefined} className={segmento(tipo === valor)}>
             {TIPOS[valor]}
           </Link>
         ))}

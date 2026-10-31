@@ -20,7 +20,7 @@ export default function TablaProduccion({ produccion, companias }: { produccion:
 
   return (
     <>
-      <dl className="mt-5 grid grid-cols-2 gap-3 rounded-lg bg-fondo/70 p-4 text-sm sm:grid-cols-4">
+      <dl className="mt-5 grid grid-cols-2 gap-3 rounded-lg bg-superficie-2 p-4 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-apagado">Herramientas</dt>
           <dd className="cifras mt-0.5 text-lg font-semibold text-texto">
@@ -62,7 +62,7 @@ export default function TablaProduccion({ produccion, companias }: { produccion:
           <div className="mt-5 hidden 2xl:block">
             <table className="w-full table-fixed text-left text-sm">
               <caption className="sr-only">Herramientas de producción</caption>
-              <thead className="text-xs text-apagado">
+              <thead className="text-[13px] text-apagado">
                 <tr className="border-b border-borde">
                   <th scope="col" className="w-[14%] py-2 pr-3 font-medium">Cliente</th>
                   <th scope="col" className="w-[13%] py-2 pr-3 font-medium">Compañía y producto</th>
@@ -85,7 +85,7 @@ export default function TablaProduccion({ produccion, companias }: { produccion:
                   return (
                     <tr
                       key={h.id}
-                      className={`border-b border-borde align-top ${h.estado === 'prevista' ? 'bg-aviso/10' : ''} ${anulada ? 'text-apagado' : 'text-texto'}`}
+                      className={`border-b border-borde align-top ${h.estado === 'prevista' ? 'bg-superficie-2/60' : ''} ${anulada ? 'text-apagado' : 'text-texto'}`}
                     >
                       <td className="py-2.5 pr-3">
                         <Link
@@ -97,7 +97,7 @@ export default function TablaProduccion({ produccion, companias }: { produccion:
                       </td>
                       <td className="py-2.5 pr-3">
                         <span className="block truncate">{h.producto}</span>
-                        <span className="block truncate text-xs text-apagado">{nombreDeCompania(h.compania, companias)}</span>
+                        <span className="block truncate text-[13px] text-apagado">{nombreDeCompania(h.compania, companias)}</span>
                         {esApex(h) && (
                           <span className="mt-1 flex">
                             <InsigniaApex de={h.de} />
@@ -123,7 +123,7 @@ export default function TablaProduccion({ produccion, companias }: { produccion:
                       <td className="py-2.5 pr-3">
                         {mesCorto(h.fechaCobro)}
                         {h.fechasProvisionales && (
-                          <span className="block text-xs text-apagado" title="Las fechas salen de una regla sin confirmar">
+                          <span className="block text-[13px] text-apagado" title="Las fechas salen de una regla sin confirmar">
                             sin confirmar
                           </span>
                         )}
@@ -137,7 +137,7 @@ export default function TablaProduccion({ produccion, companias }: { produccion:
               </tbody>
             </table>
             {filas.some((h) => cobraPocoAPoco(h.tipoComision) && h.unidades === 0) && (
-              <p className="mt-2 text-xs text-apagado">* Unidades para el nivel: esa comisión no se cobra de una vez, llega recibo a recibo.</p>
+              <p className="mt-2 text-[13px] text-apagado">* Unidades para el nivel: esa comisión no se cobra de una vez, llega recibo a recibo.</p>
             )}
           </div>
         </>

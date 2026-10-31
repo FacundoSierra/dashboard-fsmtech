@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
-import { ZONA_TOQUE } from '@/components/estilos';
+import { BOTON_PEQUENO_SECUNDARIO, ZONA_TOQUE } from '@/components/estilos';
 import { Tarjeta, Vacio } from '@/components/ui';
 import { destinoEnlace, requerimientosPendientes, texto } from '@/lib/boveda/consultas';
 import type { Boveda } from '@/lib/boveda/tipos';
 import { esFechaValida } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
-import { Avatar } from './piezas';
+import { Avatar } from '@/components/piezas';
 
 const VISIBLES = 5;
 const FECHA = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -43,7 +43,7 @@ export function Requerimientos({ boveda }: { boveda: Boveda }) {
       accion={
         <Link
           href="/crear?tipo=requerimiento"
-          className={`${ZONA_TOQUE} inline-flex h-8 items-center gap-1 rounded-full border border-acento px-3 text-[13px] font-semibold text-texto transition-colors hover:bg-acento-suave`}
+          className={BOTON_PEQUENO_SECUNDARIO}
         >
           <Plus className="size-3.5" aria-hidden />
           Nueva

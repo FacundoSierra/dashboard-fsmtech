@@ -33,7 +33,7 @@ export default function AjustesCompanias({ companias, deSerie }: { companias: Da
               <FormularioCompania compania={c} alTerminar={() => setEditando(null)} />
             </li>
           ) : (
-            <li key={c.codigo} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg bg-fondo/60 px-3 py-2.5 text-sm">
+            <li key={c.codigo} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg bg-superficie-2 px-3 py-2.5 text-sm">
               <span className="min-w-0">
                 <span className="font-medium text-texto">{c.nombre}</span>
                 <span className="text-apagado"> · {c.codigo}</span>
@@ -97,7 +97,7 @@ function FormularioCompania({ compania, alTerminar }: { compania?: DatosCompania
   }
 
   return (
-    <form onSubmit={guardar} className="flex flex-col gap-3 rounded-lg border border-borde p-4">
+    <form onSubmit={guardar} className="flex flex-col gap-3 rounded-lg bg-superficie-2 p-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className={ETIQUETA}>
           Código

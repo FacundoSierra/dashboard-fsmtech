@@ -38,7 +38,7 @@ export default function FormularioAjustes({ ajustes, deSerie }: { ajustes: Ajust
             <input value={previas} onChange={(e) => setPrevias(e.target.value)} inputMode="decimal" className={`${CAMPO} pr-8`} />
             <span className="absolute top-1/2 right-3.5 -translate-y-1/2 text-apagado">u</span>
           </span>
-          <span className="mt-1 block text-xs font-normal text-apagado">Las producidas antes de la primera herramienta apuntada.</span>
+          <span className="mt-1 block text-[13px] font-normal text-apagado">Las producidas antes de la primera herramienta apuntada.</span>
         </label>
         <label className={ETIQUETA}>
           Reserva de cancelación de serie
@@ -46,7 +46,7 @@ export default function FormularioAjustes({ ajustes, deSerie }: { ajustes: Ajust
             <input value={pctHucha} onChange={(e) => setPctHucha(e.target.value)} inputMode="decimal" className={`${CAMPO} pr-8`} />
             <span className="absolute top-1/2 right-3.5 -translate-y-1/2 text-apagado">%</span>
           </span>
-          <span className="mt-1 block text-xs font-normal text-apagado">Cuando ni el producto ni la compañía dicen otra.</span>
+          <span className="mt-1 block text-[13px] font-normal text-apagado">Cuando ni el producto ni la compañía dicen otra.</span>
         </label>
         <label className={ETIQUETA}>
           IRPF
@@ -54,7 +54,7 @@ export default function FormularioAjustes({ ajustes, deSerie }: { ajustes: Ajust
             <input value={pctIrpf} onChange={(e) => setPctIrpf(e.target.value)} inputMode="decimal" className={`${CAMPO} pr-8`} />
             <span className="absolute top-1/2 right-3.5 -translate-y-1/2 text-apagado">%</span>
           </span>
-          <span className="mt-1 block text-xs font-normal text-apagado">Para las firmas nuevas y las reclamaciones.</span>
+          <span className="mt-1 block text-[13px] font-normal text-apagado">Para las firmas nuevas y las reclamaciones.</span>
         </label>
       </div>
       {aviso.error && (

@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Form from 'next/form';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, ZONA_TOQUE } from '@/components/estilos';
+import { Search } from 'lucide-react';
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO } from '@/components/estilos';
 import { Encabezado, Filtro, Tarjeta } from '@/components/ui';
 import { GRUPOS_BUSQUEDA, buscar, esGrupoBusqueda, sinTildes, type GrupoBusqueda } from '@/lib/boveda/busqueda';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
@@ -38,17 +39,21 @@ export default async function PaginaBuscar({ searchParams }: PageProps<'/buscar'
       <Encabezado titulo="Buscar" />
 
       {/* El buscador de la cabecera no sale en esta página: con los dos, uno vacío y otro con la consulta */}
+      {/* El de la cabecera, en grande: la píldora blanca con la lupa dentro */}
       <Form action="/buscar" className="mb-5 flex gap-2">
-        <input
-          type="search"
-          name="q"
-          defaultValue={consulta}
-          autoFocus={!consulta}
-          placeholder="Clientes, proyectos, tareas, ideas…"
-          aria-label="Buscar en las notas"
-          className="min-h-11 min-w-0 flex-1 rounded-lg border border-borde bg-superficie px-3 py-2 outline-none focus:border-acento focus:ring-2 focus:ring-acento/30"
-        />
-        <button type="submit" className={BOTON_PRINCIPAL}>
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-tenue" aria-hidden />
+          <input
+            type="search"
+            name="q"
+            defaultValue={consulta}
+            autoFocus={!consulta}
+            placeholder="Clientes, proyectos, tareas, ideas…"
+            aria-label="Buscar en las notas"
+            className="h-12 w-full min-w-0 rounded-full border border-borde-control bg-superficie pl-11 pr-4 text-[15px] outline-none placeholder:text-apagado focus:border-acento focus:ring-2 focus:ring-acento/25"
+          />
+        </div>
+        <button type="submit" className={`${BOTON_PRINCIPAL} min-h-12`}>
           Buscar
         </button>
       </Form>
@@ -76,23 +81,28 @@ export default async function PaginaBuscar({ searchParams }: PageProps<'/buscar'
         </p>
       )}
 
-      <ul className="space-y-3">
-        {resultados.map((resultado) => (
-          <li key={resultado.nota.ruta}>
-            <Tarjeta>
-              <Link href={hrefNota(resultado.nota.ruta)} className={`${ZONA_TOQUE} font-medium hover:text-acento`}>
-                <Resaltado texto={resultado.nota.titulo} terminos={resultado.terminos} />
-              </Link>
-              <p className="break-all font-mono text-xs text-tenue">{resultado.nota.ruta}</p>
-              {resultado.fragmento && (
-                <p className="mt-2 text-sm leading-relaxed">
-                  <Resaltado texto={resultado.fragmento} terminos={resultado.terminos} />
-                </p>
-              )}
-            </Tarjeta>
-          </li>
-        ))}
-      </ul>
+      {/* Una tarjeta con una fila por nota, como las listas de Hoy: la fila entera es el enlace */}
+      {resultados.length > 0 && (
+        <Tarjeta sinRelleno>
+          <ul className="divide-y divide-borde py-2">
+            {resultados.map((resultado) => (
+              <li key={resultado.nota.ruta}>
+                <Link href={hrefNota(resultado.nota.ruta)} className="group block px-5 py-3.5 hover:bg-superficie-2 sm:px-6">
+                  <span className="block text-[15px] font-semibold group-hover:text-acento">
+                    <Resaltado texto={resultado.nota.titulo} terminos={resultado.terminos} />
+                  </span>
+                  <span className="mt-0.5 block break-all font-mono text-[13px] text-tenue">{resultado.nota.ruta}</span>
+                  {resultado.fragmento && (
+                    <span className="mt-1.5 block text-sm leading-relaxed text-texto">
+                      <Resaltado texto={resultado.fragmento} terminos={resultado.terminos} />
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Tarjeta>
+      )}
 
       {deLaCarpeta.length > resultados.length && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -128,7 +138,7 @@ function Resaltado({ texto, terminos }: { texto: string; terminos: string[] }) {
     if (inicio < cursor) continue;
     if (inicio > cursor) partes.push(texto.slice(cursor, inicio));
     partes.push(
-      <mark key={inicio} className="rounded bg-acento-suave px-0.5 text-inherit">
+      <mark key={inicio} className="-mx-0.5 rounded-md bg-acento-suave px-0.5 text-inherit">
         {texto.slice(inicio, fin)}
       </mark>,
     );

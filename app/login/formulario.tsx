@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useId } from 'react';
+import { BOTON_PRINCIPAL, CAMPO, ETIQUETA } from '@/components/estilos';
 import { iniciarSesion } from './acciones';
 import type { EstadoLogin } from './estado';
 
@@ -15,7 +16,7 @@ export function FormularioLogin({ desde }: { desde: string }) {
           contraseña (y Chrome lo avisa sin él). No se envía al servidor: no tiene `name` */}
       <input type="text" autoComplete="username" value="fsmtech" readOnly hidden />
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium">Contraseña</span>
+        <span className={ETIQUETA}>Contraseña</span>
         <input
           type="password"
           name="password"
@@ -24,7 +25,7 @@ export function FormularioLogin({ desde }: { desde: string }) {
           autoComplete="current-password"
           aria-invalid={estado.error ? true : undefined}
           aria-describedby={estado.error ? idError : undefined}
-          className="min-h-11 w-full rounded-full border border-borde-control bg-superficie px-4 py-2 outline-none focus:border-acento focus:ring-2 focus:ring-acento/30 aria-[invalid=true]:border-critico-texto"
+          className={`${CAMPO} aria-[invalid=true]:border-critico-texto`}
         />
       </label>
       {estado.error && (
@@ -35,7 +36,7 @@ export function FormularioLogin({ desde }: { desde: string }) {
       <button
         type="submit"
         disabled={enviando}
-        className="min-h-11 w-full rounded-full bg-acento-fuerte px-4 py-2 font-semibold text-white hover:bg-acento-fuerte/90 disabled:opacity-60"
+        className={`${BOTON_PRINCIPAL} w-full`}
       >
         {enviando ? 'Entrando…' : 'Entrar'}
       </button>

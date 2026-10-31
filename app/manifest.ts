@@ -19,7 +19,8 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: '/iconos/192', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/iconos/512', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/iconos/512', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      // Android lo recorta a la forma del móvil: el azul llega a los bordes y las iniciales quedan en la zona segura
+      { src: '/iconos/maskable', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
     shortcuts: [
       { name: 'Apuntar', description: 'Guardar una idea, tarea o nota en el inbox', url: '/capturar' },

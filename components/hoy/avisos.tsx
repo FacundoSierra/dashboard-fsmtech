@@ -3,7 +3,7 @@ import { cache } from 'react';
 import { ListaAvisos } from '@/components/avisos';
 import { ZONA_TOQUE } from '@/components/estilos';
 import { ListaTareas } from '@/components/tareas';
-import { EnlaceAccion, Estado, Kpi, Tarjeta, type NivelEstado } from '@/components/ui';
+import { DeTotal, EnlaceAccion, Estado, Kpi, Tarjeta, type NivelEstado } from '@/components/ui';
 import { NIVEL_ESTADO, calcularAvisos, type NivelAviso } from '@/lib/avisos';
 import type { ResumenProyecto } from '@/lib/boveda/consultas';
 import type { Boveda, Tarea } from '@/lib/boveda/tipos';
@@ -11,7 +11,7 @@ import { economia } from '@/lib/economia';
 import { hrefNota } from '@/lib/rutas';
 import { estadoGeneral } from '@/lib/vigilancia/estado';
 import { reposLocales } from '@/lib/vigilancia/repos-locales';
-import { Plegable } from './plegable';
+import { Plegable } from '@/components/plegable';
 
 const IMPORTANTES_VISIBLES = 4;
 const ORDEN: NivelAviso[] = ['critico', 'grave', 'aviso', 'info'];
@@ -38,16 +38,6 @@ const avisosDeHoy = cache(async (boveda: Boveda, hoy: string) => {
 
 function avisosMenores(cuantos: number): string {
   return `${cuantos} ${cuantos === 1 ? 'aviso menor' : 'avisos menores'}`;
-}
-
-/** «12 de 15»: la segunda parte, más pequeña y en gris, como un denominador */
-function DeTotal({ valor, total }: { valor: number; total: number }) {
-  return (
-    <>
-      {valor}
-      <span className="ml-1.5 text-[0.5em] font-medium tracking-normal text-tenue">de {total}</span>
-    </>
-  );
 }
 
 /** Cuántas webs de los proyectos activos responden ahora. La flecha lleva a Estado */

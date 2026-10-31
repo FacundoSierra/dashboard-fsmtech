@@ -243,7 +243,7 @@ export function TareaEditable({
       )}
 
       {error && (
-        <div role="alert" className={`mt-1 flex flex-wrap items-center gap-x-3 text-xs text-critico-texto ${sangria}`}>
+        <div role="alert" className={`mt-1 flex flex-wrap items-center gap-x-3 text-[13px] text-critico-texto ${sangria}`}>
           <span>{error}</span>
           {/* En la app instalada no hay botón de recargar: este trae la nota como está ahora */}
           <button
@@ -326,21 +326,21 @@ export function NuevoObjetivo({ creaDiaria }: { creaDiaria: boolean }) {
 
       <div aria-live="polite">
         {enCamino ? (
-          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-tenue">
+          <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-tenue">
             <Loader2 className="size-3.5 shrink-0 motion-safe:animate-spin" aria-hidden />
             <span className="min-w-0 truncate">Apuntando «{enCamino}»</span>
           </p>
         ) : error ? (
-          <p role="alert" className="mt-1.5 text-xs text-critico-texto">
+          <p role="alert" className="mt-1.5 text-[13px] text-critico-texto">
             {error}
           </p>
         ) : apuntado ? (
-          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-tenue">
+          <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-tenue">
             <IconoEstado nivel="bien" className="size-3.5" />
             <span className="min-w-0 truncate">Apuntado al final de la lista: «{sinCorchetes(apuntado)}»</span>
           </p>
         ) : creaDiaria ? (
-          <p className="mt-1.5 text-xs text-apagado">Se crea la diaria de hoy con lo que quedó pendiente en la última, como la crea el PC.</p>
+          <p className="mt-1.5 text-[13px] text-apagado">Se crea la diaria de hoy con lo que quedó pendiente en la última, como la crea el PC.</p>
         ) : null}
       </div>
     </div>

@@ -20,13 +20,13 @@ export default function FichaClienteConsultoria({ ficha, companias, hoy }: { fic
   const sinDato = cliente.herramientas > 0 && cliente.aportacionMensual === 0 && cliente.aportacionUnica === 0;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <Link href="/consultoria/clientes" className={`${ENLACE_VOLVER} self-start px-1`}>
         Todos los clientes
       </Link>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] lg:items-start">
-        <section className="min-w-0 rounded-xl border border-borde bg-superficie p-4 shadow-tarjeta sm:p-5">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] lg:items-start">
+        <section className="min-w-0 rounded-xl bg-superficie p-5 sm:p-6">
           <h2 className="text-xl leading-tight font-semibold tracking-tight break-words text-texto">{cliente.nombre}</h2>
           <DatosClienteConsultoria cliente={cliente} sePuedeBorrar={herramientas.length === 0} />
         </section>
@@ -89,7 +89,7 @@ export default function FichaClienteConsultoria({ ficha, companias, hoy }: { fic
               const e = h.extorno;
               if (!e) return null;
               return (
-                <li key={e.id} className="rounded-lg bg-fondo/70 px-4 py-3.5 text-sm">
+                <li key={e.id} className="rounded-lg bg-superficie-2 px-4 py-3.5 text-sm">
                   <p className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <span className="min-w-0 font-medium text-texto">
                       {productoConApex(h)} · {aportacionDe(h)}

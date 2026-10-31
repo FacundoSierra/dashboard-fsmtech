@@ -1,6 +1,6 @@
 'use client';
 
-/** Botones de opción: dos o tres, del mismo ancho, con la elegida como los filtros del panel */
+/** Botones de opción: dos o tres, del mismo ancho, en píldora, con la elegida como los filtros del panel */
 export default function Opciones<T extends string>({
   nombre,
   valor,
@@ -17,8 +17,10 @@ export default function Opciones<T extends string>({
       {opciones.map((opcion) => (
         <label
           key={opcion.valor}
-          className={`flex min-h-11 cursor-pointer items-center justify-center rounded-lg border px-3 text-center text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-acento ${
-            valor === opcion.valor ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
+          className={`flex min-h-11 cursor-pointer items-center justify-center rounded-full border px-3 text-center text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-acento ${
+            valor === opcion.valor
+              ? 'border-acento-fuerte bg-acento-fuerte font-semibold text-white'
+              : 'border-borde-fuerte bg-superficie font-medium text-tenue hover:border-borde-control hover:text-texto'
           }`}
         >
           <input type="radio" name={nombre} value={opcion.valor} checked={valor === opcion.valor} onChange={() => alCambiar(opcion.valor)} className="sr-only" />

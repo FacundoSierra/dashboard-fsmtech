@@ -3,6 +3,7 @@ import { esApex } from '@/lib/consultoria/reglas';
 import type { Herramienta } from '@/lib/consultoria/tipos';
 import { euros, fechaCorta, mesCorto } from '@/lib/consultoria/formato';
 import EstadoHerramienta from './EstadoHerramienta';
+import { PREVISTA } from './estilos';
 import { aportacionDe, cobraPocoAPoco, cuantoFalta, unidades } from './formato';
 import InsigniaApex from './InsigniaApex';
 import ListaApex from './ListaApex';
@@ -90,7 +91,7 @@ export default function TarjetaHerramienta({
       <Link
         href={enlace}
         className={`flex flex-col gap-2 rounded-lg px-4 py-3.5 transition-colors ${foco} ${
-          prevista ? 'bg-aviso/10 hover:bg-aviso/20' : 'bg-fondo/70 hover:bg-fondo'
+          prevista ? PREVISTA : 'bg-superficie-2 hover:bg-borde'
         }`}
       >
         {contenido}
@@ -100,11 +101,11 @@ export default function TarjetaHerramienta({
 
   // Con APEX: una sola tarjeta con dos zonas, la herramienta arriba y sus APEX debajo
   return (
-    <div className={`flex flex-col rounded-lg ${prevista ? 'bg-aviso/10' : 'bg-fondo/70'}`}>
+    <div className={`flex flex-col rounded-lg ${prevista ? 'border border-dashed border-borde-control bg-superficie' : 'bg-superficie-2'}`}>
       <Link
         href={enlace}
         className={`flex flex-col gap-2 rounded-lg px-4 py-3.5 transition-colors ${foco} ${
-          prevista ? 'hover:bg-aviso/20' : 'hover:bg-fondo'
+          prevista ? 'hover:bg-superficie-2' : 'hover:bg-borde'
         }`}
       >
         {contenido}

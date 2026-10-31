@@ -37,7 +37,7 @@ export default function CuentaDeComisiones({
     <section className={TARJETA} aria-labelledby="cuenta-de-comisiones">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="cuenta-de-comisiones" className="text-base font-semibold tracking-tight text-texto">
+          <h2 id="cuenta-de-comisiones" className="text-[17px] font-semibold tracking-[-0.01em] text-texto">
             Cuenta de comisiones
           </h2>
           <p className="mt-0.5 text-sm text-apagado">Cargos y abonos que no son comisión. No pagan IRPF.</p>
@@ -49,7 +49,7 @@ export default function CuentaDeComisiones({
         )}
       </header>
 
-      <dl className="mt-4 grid grid-cols-1 gap-3 rounded-lg bg-fondo/70 p-4 text-sm sm:grid-cols-2">
+      <dl className="mt-4 grid grid-cols-1 gap-3 rounded-lg bg-superficie-2 p-4 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-apagado">Saldo que pasa a la siguiente liquidación</dt>
           <dd className="cifras mt-0.5 text-lg font-semibold text-texto">{conSigno(saldo)}</dd>
@@ -65,7 +65,7 @@ export default function CuentaDeComisiones({
       {recientes.length > 0 ? (
         <ul className="mt-4 flex flex-col gap-1.5">
           {recientes.map((m) => (
-            <li key={m.cargoId ?? m.extornoId ?? `${m.fecha}-${m.concepto}`} className="flex items-start justify-between gap-3 rounded-lg bg-fondo/60 px-3 py-2.5">
+            <li key={m.cargoId ?? m.extornoId ?? `${m.fecha}-${m.concepto}`} className="flex items-start justify-between gap-3 rounded-lg bg-superficie-2 px-3 py-2.5">
               <span className="min-w-0 flex-1">
                 <span className="block text-sm text-texto">{m.concepto}</span>
                 <span className="block text-sm text-tenue">

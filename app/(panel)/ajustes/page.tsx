@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Fingerprint, KeyRound } from 'lucide-react';
+import { Fingerprint } from 'lucide-react';
 import { RegistrarDispositivo } from '@/components/passkeys';
 import { Encabezado, FILA, TABLA, TD, TH, Tarjeta, Vacio } from '@/components/ui';
 import { fechaCorta, hoyMadrid } from '@/lib/fechas';
@@ -17,7 +17,7 @@ export default async function PaginaAjustes() {
     <>
       <Encabezado titulo="Ajustes" subtitulo="Cómo se entra al panel" />
 
-      <Tarjeta titulo="Entrar con huella o cara" icono={Fingerprint} sinRelleno>
+      <Tarjeta titulo="Entrar con huella o cara" sinRelleno>
         {passkeys.length ? (
           <div className="overflow-x-auto">
             <table className={TABLA}>
@@ -41,19 +41,19 @@ export default async function PaginaAjustes() {
             </table>
           </div>
         ) : (
-          <div className="p-4">
+          <div className="px-5 pb-4 sm:px-6">
             <Vacio icono={Fingerprint}>
               Todavía no hay ningún dispositivo. Registra este y podrás entrar con Touch ID, Windows Hello o Face ID.
             </Vacio>
           </div>
         )}
 
-        <div className="border-t border-borde p-4">
+        <div className="border-t border-borde px-5 py-5 sm:px-6 sm:pb-6">
           <RegistrarDispositivo />
         </div>
       </Tarjeta>
 
-      <Tarjeta className="mt-4" titulo="Cómo funciona" icono={KeyRound}>
+      <Tarjeta className="mt-3 sm:mt-4" titulo="Cómo funciona">
         <ul className="space-y-2 text-sm text-tenue">
           <li>
             La huella no sale del dispositivo: se queda en él una llave privada, y el panel solo guarda la parte pública, que no

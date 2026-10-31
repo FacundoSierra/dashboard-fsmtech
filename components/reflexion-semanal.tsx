@@ -3,9 +3,8 @@
 import { useState, useTransition, type FormEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { responderSemana } from '@/app/(panel)/semana/acciones';
+import { BOTON_PRINCIPAL, CAMPO, ETIQUETA } from './estilos';
 
-const CAMPO =
-  'w-full min-w-0 rounded-lg border border-borde bg-fondo px-3 py-2 text-sm outline-none focus:border-acento focus:ring-2 focus:ring-acento/30';
 
 /** Las preguntas de la reflexión que aún no tienen respuesta, para contestarlas desde el móvil */
 export function ReflexionSemanal({ ruta, preguntas }: { ruta: string; preguntas: string[] }) {
@@ -30,7 +29,7 @@ export function ReflexionSemanal({ ruta, preguntas }: { ruta: string; preguntas:
     <form onSubmit={enviar} className="space-y-3">
       {preguntas.map((pregunta) => (
         <label key={pregunta} className="block">
-          <span className="mb-1 block text-sm font-medium">{pregunta}</span>
+          <span className={ETIQUETA}>{pregunta}</span>
           <textarea
             value={respuestas[pregunta] ?? ''}
             onChange={(e) => setRespuestas((antes) => ({ ...antes, [pregunta]: e.target.value }))}
@@ -48,12 +47,12 @@ export function ReflexionSemanal({ ruta, preguntas }: { ruta: string; preguntas:
       <button
         type="submit"
         disabled={guardando || !Object.values(respuestas).some((r) => r.trim())}
-        className="inline-flex items-center gap-2 rounded-lg bg-acento-fuerte px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+        className={BOTON_PRINCIPAL}
       >
         {guardando && <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />}
         Guardar en la revisión
       </button>
-      <p className="text-xs text-apagado">Se puede responder una sola y dejar las demás para luego.</p>
+      <p className="text-[13px] text-tenue">Se puede responder una sola y dejar las demás para luego.</p>
     </form>
   );
 }

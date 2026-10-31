@@ -67,7 +67,7 @@ export default function FichaHerramienta({
       </header>
 
       {h.liquidada ? (
-        <p className="mt-4 flex items-start gap-2 rounded-lg border border-borde bg-fondo/70 px-3 py-2.5 text-sm text-texto">
+        <p className="mt-4 flex items-start gap-2 rounded-lg bg-superficie-2 px-3 py-2.5 text-sm text-texto">
           <IconoEstado nivel="bien" className="mt-0.5 size-4" />
           <span>
             Cobrada en la liquidación de {nombreDelMes(mesDeCobro)}.{' '}
@@ -91,7 +91,7 @@ export default function FichaHerramienta({
         <Dato etiqueta={pocoAPoco ? 'Unidades para el nivel' : 'Unidades'}>
           {pocoAPoco ? unidades(h.unidadesNivel ?? 0) : unidades(h.unidades)}
           {!pocoAPoco && h.unidadesNivel !== null && h.unidadesNivel !== h.unidades && (
-            <span className="block text-xs font-normal text-apagado">{unidades(h.unidadesNivel)} para el nivel</span>
+            <span className="block text-[13px] font-normal text-apagado">{unidades(h.unidadesNivel)} para el nivel</span>
           )}
         </Dato>
         <Dato etiqueta="€ por unidad">{euroPorUnidad(h.valorUnidad)}</Dato>
@@ -104,12 +104,12 @@ export default function FichaHerramienta({
         <Dato etiqueta="Efecto">{fechaCorta(h.fechaEfecto)}</Dato>
         <Dato etiqueta={h.liquidada ? 'Cobro' : 'Cobro estimado'}>
           {nombreDelMes(h.fechaCobro)}
-          {h.fechasProvisionales && <span className="block text-xs font-normal text-apagado">Fechas sin confirmar</span>}
+          {h.fechasProvisionales && <span className="block text-[13px] font-normal text-apagado">Fechas sin confirmar</span>}
         </Dato>
         {h.libreDeExtornoEl && (
           <Dato etiqueta="Libre de extorno el">
             {fechaCorta(h.libreDeExtornoEl)}
-            <span className="block text-xs font-normal text-apagado">{falta ?? 'Ya está libre'}</span>
+            <span className="block text-[13px] font-normal text-apagado">{falta ?? 'Ya está libre'}</span>
           </Dato>
         )}
         {h.anuladaEl && <Dato etiqueta="Anulada el">{fechaCorta(h.anuladaEl)}</Dato>}
@@ -152,7 +152,7 @@ export default function FichaHerramienta({
         </div>
       )}
       {h.procedencia && (
-        <p className="mt-4 text-xs text-apagado">
+        <p className="mt-4 text-[13px] text-apagado">
           {h.procedencia === 'historico' ? 'Viene del histórico de liquidaciones de OVB.' : 'Viene de una nota de producción.'}
         </p>
       )}

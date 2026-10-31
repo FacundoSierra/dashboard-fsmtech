@@ -62,7 +62,7 @@ function Desplegable({
         type="button"
         onClick={() => abrir(true)}
         aria-expanded={false}
-        className="-mx-2 -my-3 inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs text-tenue hover:text-acento"
+        className="-mx-3 inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-tenue hover:bg-superficie-2 hover:text-acento"
       >
         <Plus className="size-3.5" aria-hidden />
         {titulo}
@@ -75,7 +75,7 @@ function Desplegable({
       <p className="text-sm font-medium">{titulo}</p>
       {children}
       {error && (
-        <p role="alert" className="text-xs text-critico-texto">
+        <p role="alert" className="text-[13px] text-critico-texto">
           {error}
         </p>
       )}

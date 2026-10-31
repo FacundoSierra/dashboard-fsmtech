@@ -59,7 +59,7 @@ export default function FormularioNiveles({ niveles, deSerie }: { niveles: Nivel
         {deSerie && <p className="mb-2 text-sm text-apagado">Son los de serie del cuadro: al guardarlos, pasan a ser los tuyos.</p>}
         <ul className="flex flex-col gap-1.5">
           {niveles.map((n) => (
-            <li key={n.nombre} className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-lg bg-fondo/60 px-3 py-2.5 text-sm">
+            <li key={n.nombre} className="flex flex-wrap items-baseline justify-between gap-x-3 rounded-lg bg-superficie-2 px-3 py-2.5 text-sm">
               <span className="font-medium text-texto">{n.nombre}</span>
               <span className="text-tenue">
                 <span className="cifras font-medium text-texto">{euroPorUnidad(n.valorUnidad)}</span>
@@ -81,20 +81,20 @@ export default function FormularioNiveles({ niveles, deSerie }: { niveles: Nivel
     <div className="mt-4 flex flex-col gap-3">
       <ul className="flex flex-col gap-3">
         {filas.map((f) => (
-          <li key={f.clave} className="grid grid-cols-1 gap-2 rounded-lg border border-borde p-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-            <label className="text-xs font-medium text-tenue">
+          <li key={f.clave} className="grid grid-cols-1 gap-2 rounded-lg bg-superficie-2 p-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+            <label className="text-[13px] font-medium text-tenue">
               Nombre
               <input value={f.nombre} onChange={(e) => cambiar(f.clave, { nombre: e.target.value })} maxLength={40} className={`${CAMPO} mt-1`} />
             </label>
-            <label className="text-xs font-medium text-tenue">
+            <label className="text-[13px] font-medium text-tenue">
               €/unidad
               <input value={f.valorUnidad} onChange={(e) => cambiar(f.clave, { valorUnidad: e.target.value })} inputMode="decimal" className={`${CAMPO} mt-1`} />
             </label>
-            <label className="text-xs font-medium text-tenue">
+            <label className="text-[13px] font-medium text-tenue">
               Desde unidades
               <input value={f.desdeUnidades} onChange={(e) => cambiar(f.clave, { desdeUnidades: e.target.value })} inputMode="decimal" placeholder="A mano" className={`${CAMPO} mt-1`} />
             </label>
-            <label className="text-xs font-medium text-tenue">
+            <label className="text-[13px] font-medium text-tenue">
               O desde el mes
               <input type="month" value={f.desdeMes} onChange={(e) => cambiar(f.clave, { desdeMes: e.target.value })} placeholder="AAAA-MM" className={`${CAMPO} mt-1`} />
             </label>

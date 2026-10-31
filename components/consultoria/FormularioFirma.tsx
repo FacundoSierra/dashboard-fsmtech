@@ -356,13 +356,13 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
     <form
       onSubmit={guardar}
       noValidate
-      className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] lg:items-start [&_:is(input,select,textarea)]:scroll-mb-40 lg:[&_:is(input,select,textarea)]:scroll-mb-0"
+      className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] lg:items-start [&_:is(input,select,textarea)]:scroll-mb-40 lg:[&_:is(input,select,textarea)]:scroll-mb-0"
     >
-      <div className="flex min-w-0 flex-col gap-5">
+      <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
         {/* 1. Cliente */}
         <fieldset className={TARJETA}>
           <legend className="sr-only">Cliente</legend>
-          <h3 className="text-base font-semibold tracking-tight text-texto">Cliente</h3>
+          <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">Cliente</h3>
           {nuevo ? (
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className={ETIQUETA}>
@@ -376,7 +376,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
                 />
               </label>
               <label className={ETIQUETA}>
-                Referencia <span className="font-normal text-apagado">(opcional)</span>
+                Referencia <span className="font-normal text-apagado">· opcional</span>
                 <input
                   value={nuevo.referencia}
                   onChange={(e) => setNuevo({ ...nuevo, referencia: e.target.value })}
@@ -425,7 +425,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
                 ))}
               </select>
               {madre && (
-                <span className="mt-1 block text-xs font-normal text-apagado">
+                <span className="mt-1 block text-[13px] font-normal text-apagado">
                   Una APEX va con su herramienta: cuentan como una sola, y su comisión va aparte.
                 </span>
               )}
@@ -436,10 +436,10 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
         {/* 2 a 4. La herramienta */}
         <fieldset className={TARJETA}>
           <legend className="sr-only">{madre ? 'Aportación extraordinaria' : 'Herramienta'}</legend>
-          <h3 className="text-base font-semibold tracking-tight text-texto">{madre ? 'Aportación extraordinaria' : 'Herramienta'}</h3>
+          <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">{madre ? 'Aportación extraordinaria' : 'Herramienta'}</h3>
 
           {madre ? (
-            <div className="mt-4 rounded-lg bg-fondo/70 px-3.5 py-3">
+            <div className="mt-4 rounded-lg bg-superficie-2 px-3.5 py-3">
               <p className="text-sm font-medium break-words text-texto">
                 {datosCompania.nombre} · {madre.producto}
               </p>
@@ -485,7 +485,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
                   ))}
                 </datalist>
                 {producto.trim() && !delCuadro && (
-                  <span className="mt-1 block text-xs font-normal text-apagado">
+                  <span className="mt-1 block text-[13px] font-normal text-apagado">
                     No está en el cuadro {contexto.cuadro.version}: las unidades, a mano.
                   </span>
                 )}
@@ -504,9 +504,9 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
                 { valor: 'transferencia', etiqueta: 'Transferencia' },
               ]}
             />
-            {!porPago && <p className="mt-1 text-xs text-apagado">En {datosCompania.nombre}, el pago no cambia nada.</p>}
+            {!porPago && <p className="mt-1 text-[13px] text-apagado">En {datosCompania.nombre}, el pago no cambia nada.</p>}
             {porPago && madre && !original && (
-              <p className="mt-1 text-xs text-apagado">El de su herramienta: cámbialo si esta aportación se paga de otra forma.</p>
+              <p className="mt-1 text-[13px] text-apagado">El de su herramienta: cámbialo si esta aportación se paga de otra forma.</p>
             )}
           </fieldset>
 
@@ -605,7 +605,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
         {/* 4. Fechas y estado */}
         <fieldset className={TARJETA}>
           <legend className="sr-only">Fecha y estado</legend>
-          <h3 className="text-base font-semibold tracking-tight text-texto">Fecha y estado</h3>
+          <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">Fecha y estado</h3>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className={ETIQUETA}>
               {etiquetaFecha}
@@ -622,7 +622,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
                 ))}
               </select>
               {!estadoAMano && estado === 'prevista' && (
-                <span className="mt-1 block text-xs font-normal text-apagado">Prevista porque la fecha es posterior a hoy.</span>
+                <span className="mt-1 block text-[13px] font-normal text-apagado">Prevista porque la fecha es posterior a hoy.</span>
               )}
               {original?.estado === 'anulada' && estado !== 'anulada' && (
                 <AvisoConIcono como="span" className="mt-1 font-normal">Deja de estar anulada y vuelve a contar.</AvisoConIcono>
@@ -652,7 +652,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
 
         {/* En el móvil, lo esencial de lo que sale se queda a la vista mientras se rellenan los tres bloques */}
         <div
-          className="sticky z-10 rounded-lg bg-texto px-4 py-3 text-sm text-fondo shadow-lg lg:hidden"
+          className="sticky z-10 rounded-lg bg-texto px-4 py-3 text-sm text-fondo shadow-flotante lg:hidden"
           style={{ bottom: 'calc(80px + env(safe-area-inset-bottom))' }}
           aria-hidden
         >
@@ -664,9 +664,9 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
 
       {/* 5 y 6. Lo que sale, las notas y Guardar */}
       {/* Por debajo de la cabecera del panel, que también es fija */}
-      <div className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-20">
+      <div className="flex min-w-0 flex-col gap-3 sm:gap-4 lg:sticky lg:top-[6.75rem]">
         <section className={TARJETA} aria-labelledby="lo-que-sale" aria-live="polite">
-          <h3 id="lo-que-sale" className="text-base font-semibold tracking-tight text-texto">
+          <h3 id="lo-que-sale" className="text-[17px] font-semibold tracking-[-0.01em] text-texto">
             Lo que sale
           </h3>
           <p className="mt-0.5 text-sm text-apagado">Con el cuadro {propuesta.versionCuadro} y tus cierres. Cambia lo que no cuadre.</p>
@@ -674,7 +674,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
           {original && (
             <div className="mt-3">
               {antesDeRecalcular ? (
-                <div className="rounded-lg bg-fondo/70 px-3.5 py-3 text-sm">
+                <div className="rounded-lg bg-superficie-2 px-3.5 py-3 text-sm">
                   {cambios.length > 0 ? (
                     <>
                       <p className="font-medium text-texto">Recalculado hoy, cambiaría:</p>
@@ -800,14 +800,14 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
             </Calculado>
           </div>
 
-          <div className="mt-4 rounded-lg bg-fondo/70 p-4">
+          <div className="mt-4 rounded-lg bg-superficie-2 p-4">
             <div className="flex flex-col gap-1.5 text-sm">
               <Importe etiqueta="Comisión" valor={euros(importes.bruto)} fuerte />
               <Importe etiqueta={`RC (${pct(pctHucha)}, a la hucha)`} valor={importes.hucha === 0 ? euros(0) : `−${euros(importes.hucha)}`} />
               <Importe etiqueta={`IRPF aprox. (${pct(pctIrpf)})`} valor={importes.irpf === 0 ? euros(0) : `−${euros(importes.irpf)}`} />
               <Importe etiqueta="Neto aprox." valor={euros(importes.neto)} />
             </div>
-            <p className="mt-2 text-xs text-apagado">El IRPF de verdad va sobre el total de la liquidación: puede bailar un céntimo.</p>
+            <p className="mt-2 text-[13px] text-apagado">El IRPF de verdad va sobre el total de la liquidación: puede bailar un céntimo.</p>
           </div>
 
           {avisos.length > 0 && (
@@ -823,7 +823,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
 
         <section className={TARJETA}>
           <label className={`${ETIQUETA} block`}>
-            Notas <span className="font-normal text-apagado">(opcional)</span>
+            Notas <span className="font-normal text-apagado">· opcional</span>
             <textarea
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
@@ -832,7 +832,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
               placeholder="Efecto el día 8 por excepción"
               className={`${CAMPO} mt-1 resize-y`}
             />
-            <span className="mt-1 block text-xs font-normal text-apagado">Sin datos personales del cliente.</span>
+            <span className="mt-1 block text-[13px] font-normal text-apagado">Sin datos personales del cliente.</span>
           </label>
 
           {error && (
@@ -903,18 +903,18 @@ function unidadesDelCuadro(
 function PieDeUnidades({ unidadesDadas, propuestaCuadro, alVolver }: { unidadesDadas: boolean; propuestaCuadro: string | null; alVolver: () => void }) {
   if (!unidadesDadas) {
     return (
-      <p className="mt-1 text-xs text-apagado">
+      <p className="mt-1 text-[13px] text-apagado">
         {propuestaCuadro ? 'Las propone el cuadro: cámbialas si no cuadran.' : 'El cuadro no las propone sin la aportación (y la duración, si la pide): ponlas a mano.'}
       </p>
     );
   }
   return (
-    <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-apagado">
+    <p className="mt-1 flex flex-wrap items-center gap-x-3 text-[13px] text-apagado">
       <span>Puestas a mano{propuestaCuadro ? `; el cuadro propone ${propuestaCuadro}` : ''}.</span>
       <button
         type="button"
         onClick={alVolver}
-        className="inline-flex min-h-11 items-center text-xs font-medium text-acento underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-acento"
+        className="inline-flex min-h-11 items-center text-[13px] font-medium text-acento underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-acento"
       >
         Volver a lo calculado
       </button>
@@ -970,7 +970,7 @@ function Calculado({
             {aMano && <span className="text-apagado"> · a mano</span>}
           </span>
           <span className="cifras block text-sm font-medium text-texto">{valor}</span>
-          {detalle && <span className="block text-xs text-apagado">{detalle}</span>}
+          {detalle && <span className="block text-[13px] text-apagado">{detalle}</span>}
         </p>
         {alCambiar && !aMano && (
           <button
@@ -1097,7 +1097,7 @@ function CambiarCobrada({
 
   return (
     <form onSubmit={guardar} className={TARJETA}>
-      <h3 className="text-base font-semibold tracking-tight text-texto">Cambiar la herramienta</h3>
+      <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">Cambiar la herramienta</h3>
       <p className="mt-1 max-w-prose text-sm text-tenue">
         Ya se cobró en una liquidación: sus unidades, su €/unidad, sus porcentajes y su mes de cobro no se cambian. Para eso,
         deshaz antes la liquidación.
@@ -1113,7 +1113,7 @@ function CambiarCobrada({
               </option>
             ))}
           </select>
-          <span className="mt-1 block text-xs font-normal text-apagado">Es solo el enlace: no cambia ningún importe.</span>
+          <span className="mt-1 block text-[13px] font-normal text-apagado">Es solo el enlace: no cambia ningún importe.</span>
         </label>
       )}
       {h.estado === 'anulada' && !h.extorno && (
@@ -1128,7 +1128,7 @@ function CambiarCobrada({
       <label className={`${ETIQUETA} mt-4 block`}>
         Notas
         <textarea value={notas} onChange={(e) => setNotas(e.target.value)} maxLength={500} rows={4} className={`${CAMPO} mt-1 resize-y`} />
-        <span className="mt-1 block text-xs font-normal text-apagado">Sin datos personales del cliente.</span>
+        <span className="mt-1 block text-[13px] font-normal text-apagado">Sin datos personales del cliente.</span>
       </label>
       {error && (
         <p role="alert" className={`${ERROR} mt-3`}>

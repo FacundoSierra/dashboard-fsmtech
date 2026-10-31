@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Herramienta } from '@/lib/consultoria/tipos';
 import { euros, fechaCorta, mesCorto } from '@/lib/consultoria/formato';
 import EstadoHerramienta from './EstadoHerramienta';
+import { PREVISTA } from './estilos';
 import { unidades } from './formato';
 
 /**
@@ -28,8 +29,8 @@ export default function ListaApex({
         const fondo = dentroDeUnaTarjeta
           ? 'hover:bg-superficie/80'
           : a.estado === 'prevista'
-            ? 'bg-aviso/10 hover:bg-aviso/20'
-            : 'bg-fondo/60 hover:bg-fondo';
+            ? PREVISTA
+            : 'bg-superficie-2 hover:bg-borde';
         return (
           <li key={a.id}>
             <Link

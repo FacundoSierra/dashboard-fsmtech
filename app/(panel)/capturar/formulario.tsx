@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { BOTON_PRINCIPAL, CAMPO, ETIQUETA } from '@/components/estilos';
 import type { Opcion } from '@/lib/boveda/inbox';
 import { guardarCaptura } from './acciones';
 import type { EstadoCaptura } from './estado';
@@ -10,9 +11,6 @@ const TIPOS = [
   { valor: 'tarea', texto: 'Tarea' },
   { valor: 'nota', texto: 'Nota' },
 ];
-
-const CAMPO =
-  'min-h-11 w-full rounded-lg border border-borde bg-fondo px-3 py-2 outline-none focus:border-acento focus:ring-2 focus:ring-acento/30';
 
 export function FormularioCaptura({
   textoInicial,
@@ -32,12 +30,13 @@ export function FormularioCaptura({
   return (
     <form action={accion} className="space-y-5">
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">Tipo</legend>
-        <div className="inline-flex rounded-xl border border-borde bg-fondo p-1">
+        <legend className={ETIQUETA}>Tipo</legend>
+        {/* Las pestañas en píldora del panel, sobre el gris de dentro de la tarjeta: la elegida, rellena del azul */}
+        <div className="inline-flex max-w-full gap-1 rounded-full bg-superficie-2 p-1">
           {TIPOS.map(({ valor, texto }) => (
             <label
               key={valor}
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-4 text-sm font-medium text-tenue has-[:checked]:bg-superficie has-[:checked]:text-texto has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-acento/40"
+              className="inline-flex min-h-11 cursor-pointer items-center rounded-full px-5 text-sm font-medium text-tenue transition-colors hover:text-texto has-[:checked]:bg-acento-fuerte has-[:checked]:font-semibold has-[:checked]:text-white has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-acento"
             >
               <input type="radio" name="tipo" value={valor} defaultChecked={valor === tipoMarcado} className="sr-only" />
               {texto}
@@ -47,7 +46,7 @@ export function FormularioCaptura({
       </fieldset>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium">Qué quieres apuntar</span>
+        <span className={ETIQUETA}>Qué quieres apuntar</span>
         <textarea
           name="texto"
           required
@@ -61,8 +60,8 @@ export function FormularioCaptura({
       </label>
 
       <label className="block">
-        <span className="mb-1.5 block text-sm font-medium">
-          Relacionar con <span className="font-normal text-tenue">(opcional)</span>
+        <span className={ETIQUETA}>
+          Relacionar con <span className="font-normal text-apagado">· opcional</span>
         </span>
         <select name="relacionada" defaultValue={estado.relacionada ?? ''} className={CAMPO}>
           <option value="">Nada</option>
@@ -96,7 +95,7 @@ export function FormularioCaptura({
       <button
         type="submit"
         disabled={guardando}
-        className="min-h-11 w-full rounded-lg bg-acento-fuerte px-4 py-2.5 font-medium text-white disabled:opacity-60 sm:w-auto"
+        className={`${BOTON_PRINCIPAL} w-full sm:w-auto`}
       >
         {guardando ? 'Guardando…' : 'Guardar en el inbox'}
       </button>

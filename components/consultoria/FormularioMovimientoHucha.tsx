@@ -76,8 +76,8 @@ export default function FormularioMovimientoHucha({
   }
 
   return (
-    <form onSubmit={guardar} className="mt-4 flex flex-col gap-3 rounded-lg border border-borde p-4">
-      <h3 className="text-base font-semibold tracking-tight text-texto">{existente ? 'Cambiar el saldo de partida' : TITULO_DEL_TIPO[tipo]}</h3>
+    <form onSubmit={guardar} className="mt-4 flex flex-col gap-3 rounded-lg bg-superficie-2 p-4">
+      <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">{existente ? 'Cambiar el saldo de partida' : TITULO_DEL_TIPO[tipo]}</h3>
       {tipo === 'ajuste' && (
         <fieldset>
           <legend className={ETIQUETA}>El ajuste</legend>
@@ -107,7 +107,7 @@ export default function FormularioMovimientoHucha({
       </div>
 
       {tipo === 'reclamacion' && (
-        <div className="rounded-lg bg-fondo/70 p-4 text-sm">
+        <div className="rounded-lg bg-superficie-2 p-4 text-sm">
           <label className={`${ETIQUETA} block sm:max-w-xs`}>
             IRPF retenido <span className="font-normal text-apagado">(supuesto: el {pct(pctIrpf)} de Ajustes)</span>
             <span className="relative mt-1 block">
@@ -129,7 +129,7 @@ export default function FormularioMovimientoHucha({
       )}
 
       <label className={ETIQUETA}>
-        Notas <span className="font-normal text-apagado">(opcional)</span>
+        Notas <span className="font-normal text-apagado">· opcional</span>
         <input value={notas} onChange={(e) => setNotas(e.target.value)} maxLength={500} className={`${CAMPO} mt-1`} />
       </label>
 

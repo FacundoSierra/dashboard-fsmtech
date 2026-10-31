@@ -27,7 +27,7 @@ export function ListaAvisos({ avisos, limite, compacta = false }: { avisos: Avis
                 {aviso.titulo}
               </p>
               {aviso.detalle && (
-                <p className={`mt-0.5 text-xs leading-relaxed text-tenue ${compacta ? 'line-clamp-2' : ''}`}>{aviso.detalle}</p>
+                <p className={`mt-0.5 text-[13px] leading-relaxed text-tenue ${compacta ? 'line-clamp-2' : ''}`}>{aviso.detalle}</p>
               )}
             </div>
             {externo && <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-apagado" aria-hidden />}

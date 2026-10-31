@@ -32,7 +32,7 @@ export function BuscarLoQueFalta() {
 
   return (
     <>
-      <h1 className="text-lg font-semibold">{esNota ? 'Esa nota ya no está aquí' : 'Esta página no existe'}</h1>
+      <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em]">{esNota ? 'Esa nota ya no está aquí' : 'Esta página no existe'}</h1>
       <p className="mt-2 text-sm text-tenue">
         {esNota
           ? 'Puede que se haya renombrado o movido en Obsidian. Búscala por su nombre:'

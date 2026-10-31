@@ -32,7 +32,7 @@ export default function FormularioCargo({ hoy, alTerminar }: { hoy: string; alTe
   }
 
   return (
-    <form onSubmit={guardar} className="mt-4 flex flex-col gap-3 rounded-lg border border-borde p-4">
+    <form onSubmit={guardar} className="mt-4 flex flex-col gap-3 rounded-lg bg-superficie-2 p-4">
       <fieldset>
         <legend className={ETIQUETA}>Qué es</legend>
         <Opciones
@@ -62,7 +62,7 @@ export default function FormularioCargo({ hoy, alTerminar }: { hoy: string; alTe
           </span>
         </label>
       </div>
-      <p className="text-xs text-apagado">Entra en la siguiente liquidación que llegue. No paga IRPF.</p>
+      <p className="text-[13px] text-apagado">Entra en la siguiente liquidación que llegue. No paga IRPF.</p>
       {error && (
         <p role="alert" className={ERROR}>
           {error}

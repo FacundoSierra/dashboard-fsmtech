@@ -71,7 +71,7 @@ export default function AccionesDelMes({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-borde p-4 text-sm">
+    <div className="flex flex-col gap-3 rounded-lg bg-superficie-2 p-4 text-sm">
       <p className="text-texto">
         Sus herramientas vuelven a estar por cobrar y su reserva, {euros(mes.liquidacion.rc)}, sale de la hucha
         {huchaDespues < 0 ? `, que quedará en ${euros(huchaDespues)}` : ''}. Lo que pasó a otro mes al marcarla se queda allí.

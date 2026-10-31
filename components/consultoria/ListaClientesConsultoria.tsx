@@ -38,10 +38,10 @@ export default function ListaClientesConsultoria({ clientes, hoy }: { clientes: 
   }, [buscado, clientes]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3 sm:gap-4">
       {creando ? (
-        <section className="rounded-xl border border-borde bg-superficie p-4 shadow-tarjeta sm:p-5">
-          <h2 className="text-base font-semibold tracking-tight text-texto">Cliente nuevo</h2>
+        <section className="rounded-xl bg-superficie p-5 sm:p-6">
+          <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">Cliente nuevo</h2>
           <FormularioCliente
             alGuardar={(id) => router.push(`/consultoria/clientes/${id}`)}
             alCancelar={() => setCreando(false)}
@@ -49,10 +49,10 @@ export default function ListaClientesConsultoria({ clientes, hoy }: { clientes: 
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-borde bg-superficie p-4 shadow-tarjeta sm:p-5">
+      <section className="rounded-xl bg-superficie p-5 sm:p-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold tracking-tight text-texto">Tus clientes</h2>
+            <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">Tus clientes</h2>
             <p className="mt-0.5 text-sm text-apagado">
               {buscado ? `${filtrados.length} de ${clientes.length}` : cuantas(clientes.length, 'cliente', 'clientes')}
             </p>
@@ -107,7 +107,7 @@ function FilaCliente({ cliente, hoy }: { cliente: ClienteDeLaLista; hoy: string 
     <li>
       <Link
         href={`/consultoria/clientes/${cliente.id}`}
-        className="flex flex-col gap-2 rounded-lg bg-fondo/70 px-4 py-3.5 transition-colors hover:bg-fondo focus-visible:outline-2 focus-visible:outline-acento sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+        className="flex flex-col gap-2 rounded-lg bg-superficie-2 px-4 py-3.5 transition-colors hover:bg-borde focus-visible:outline-2 focus-visible:outline-acento sm:flex-row sm:items-start sm:justify-between sm:gap-4"
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-texto">{cliente.nombre}</span>

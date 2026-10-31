@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { Bell, Database, GitBranch, Globe, HardDrive, Rocket, Settings, ShieldCheck } from 'lucide-react';
+import { Rocket, ShieldCheck } from 'lucide-react';
 import { ListaAvisos } from '@/components/avisos';
 import { ZONA_TOQUE } from '@/components/estilos';
 import { FranjaDisponibilidad } from '@/components/graficos';
 import {
+  Contador,
+  DeTotal,
   Encabezado,
   Estado,
   FILA,
@@ -44,12 +46,12 @@ export default function PaginaEstado() {
 function Cargando() {
   return (
     <div className="space-y-4" aria-busy="true" aria-label="Comprobando las webs">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="h-[104px] motion-safe:animate-pulse rounded-xl border border-borde bg-superficie" />
+          <div key={i} className="h-[150px] rounded-xl bg-superficie motion-safe:animate-pulse" />
         ))}
       </div>
-      <div className="h-64 motion-safe:animate-pulse rounded-xl border border-borde bg-superficie" />
+      <div className="h-64 rounded-xl bg-superficie motion-safe:animate-pulse" />
     </div>
   );
 }
@@ -78,51 +80,76 @@ async function Contenido() {
   const inicioMes = Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1);
 
   return (
-    <div className="space-y-6">
-      <p className="-mt-3 text-xs text-apagado">
+    <div className="space-y-3 sm:space-y-4">
+      <p className="-mt-3 text-[13px] text-apagado">
         Comprobado {haceTiempo(estado.comprobado)} · las webs se vuelven a comprobar cada 2 minutos como mucho
       </p>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* Como las de Hoy: cada cifra con su flecha a su tabla. La primera, rellena del azul; su estado,
+          en un disco blanco (sobre el azul, el verde y el ámbar no se leían) */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Kpi
+          destacada
           etiqueta="Webs en línea"
-          valor={`${enLinea}/${conWeb.length}`}
+          valor={conWeb.length ? <DeTotal valor={enLinea} total={conWeb.length} /> : '—'}
+          href="#webs"
+          textoEnlace="Ir a las webs"
           estado={enLinea === conWeb.length ? 'bien' : 'critico'}
           detalle={enLinea === conWeb.length ? 'Todas responden' : `${conWeb.length - enLinea} sin responder`}
         />
         <Kpi
           etiqueta="Bases de datos"
-          valor={`${basesActivas}/${conBase.length}`}
+          valor={conBase.length ? <DeTotal valor={basesActivas} total={conBase.length} /> : '—'}
+          href="#bases"
+          textoEnlace="Ir a las bases de datos"
           estado={basesActivas === conBase.length ? 'bien' : 'critico'}
-          detalle={conBase.length ? 'Proyectos de Supabase activos' : 'Ningún proyecto con Supabase'}
+          detalle={
+            !conBase.length
+              ? 'Ningún proyecto con Supabase'
+              : basesActivas === conBase.length
+                ? 'Todas responden'
+                : `${conBase.length - basesActivas} ${conBase.length - basesActivas === 1 ? 'no responde' : 'no responden'}`
+          }
         />
         <Kpi
           etiqueta="Despliegues"
-          valor={estado.github === 'configurado' ? `${desplegados}/${conDespliegue.length}` : '—'}
+          valor={estado.github === 'configurado' ? <DeTotal valor={desplegados} total={conDespliegue.length} /> : '—'}
+          href="#github"
+          textoEnlace="Ir a GitHub"
           estado={estado.github !== 'configurado' ? 'sin-datos' : desplegados === conDespliegue.length ? 'bien' : 'grave'}
           detalle={estado.github === 'configurado' ? 'Último cambio publicado' : 'Falta el token de GitHub'}
         />
         <Kpi
           etiqueta="Vulnerabilidades serias"
           valor={alertasConocidas ? alertas : '—'}
+          href="#github"
+          textoEnlace="Ir a la seguridad de cada repo, en GitHub"
           estado={!alertasConocidas ? 'sin-datos' : alertas ? 'critico' : 'bien'}
           detalle={alertasConocidas ? 'Críticas y altas de Dependabot' : 'Sin acceso a las alertas'}
         />
       </div>
 
-      <Tarjeta titulo={`Avisos · ${avisos.length}`} icono={Bell} sinRelleno>
+      <Tarjeta
+        titulo={
+          <>
+            Avisos
+            <Contador>{avisos.length}</Contador>
+          </>
+        }
+        sinRelleno
+      >
         {avisos.length ? (
           <ListaAvisos avisos={avisos} />
         ) : (
-          <div className="p-4">
+          <div className="px-5 pb-5 sm:px-6 sm:pb-6">
             <Vacio>Todo en orden.</Vacio>
           </div>
         )}
       </Tarjeta>
 
-      <Tarjeta titulo="Webs" icono={Globe} sinRelleno>
+      <Tarjeta id="webs" titulo="Webs" sinRelleno>
         {conWeb.length === 0 ? (
-          <div className="p-4">
+          <div className="px-5 pb-5 sm:px-6 sm:pb-6">
             <Vacio>Ningún proyecto activo tiene web. Se añade con la propiedad `web` de la nota del proyecto.</Vacio>
           </div>
         ) : (
@@ -142,7 +169,7 @@ async function Contenido() {
                     <th className={`${TH} text-right`}>Respuesta</th>
                     <th className={TH}>Certificado</th>
                     <th className={TH}>Dominio</th>
-                    <th className={`${TH} min-w-44`}>Últimos 30 días</th>
+                    <th className={`${TH} min-w-64`}>Últimos 30 días</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -156,7 +183,7 @@ async function Contenido() {
         )}
         {!estado.vigilanciaDesde && (
           // En el móvil no se pinta la franja sin vigilancia (serían 30 días grises): la nota, tampoco
-          <p className="hidden border-t border-borde px-4 py-2.5 text-xs text-tenue sm:block">
+          <p className="hidden border-t border-borde px-5 py-3 text-[13px] text-tenue sm:block sm:px-6">
             La franja de 30 días se rellena con la vigilancia horaria, que todavía no está en marcha. Ver{' '}
             <a href="#configuracion" className="text-acento hover:underline">
               configuración
@@ -167,24 +194,24 @@ async function Contenido() {
       </Tarjeta>
 
       {/* `items-start`: cada tarjeta de su alto; estiradas, la de bases dejaba un hueco grande */}
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
-        <Tarjeta titulo="Bases de datos" icono={Database} sinRelleno>
+      <div className="grid grid-cols-1 items-start gap-3 sm:gap-4 xl:grid-cols-2">
+        <Tarjeta id="bases" titulo="Bases de datos" sinRelleno>
           {conBase.length === 0 ? (
-            <div className="p-4">
+            <div className="px-5 pb-5 sm:px-6 sm:pb-6">
               <Vacio>Se vigilan con la propiedad `supabase` de la nota del proyecto.</Vacio>
             </div>
           ) : (
             <>
             <ul className="divide-y divide-borde sm:hidden">
               {conBase.map(({ proyecto, supabase }) => (
-                <li key={proyecto.nota.ruta} className="px-4 py-3">
+                <li key={proyecto.nota.ruta} className="px-5 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <Link href={hrefNota(proyecto.nota.ruta)} className={`${ZONA_TOQUE} min-w-0 font-medium hover:text-acento`}>
                       <span className="block truncate">{nombreCorto(proyecto.nota.titulo)}</span>
                     </Link>
                     {supabase?.activa ? <Estado nivel="bien">Activa</Estado> : <Estado nivel="critico">No responde</Estado>}
                   </div>
-                  <p className="mt-0.5 text-xs text-tenue">
+                  <p className="mt-0.5 text-[13px] text-tenue">
                     {supabase?.activa ? (supabase.ms !== undefined ? `Responde en ${supabase.ms} ms` : 'Responde') : (supabase?.error ?? 'Sin respuesta')}
                   </p>
                 </li>
@@ -220,10 +247,9 @@ async function Contenido() {
           )}
         </Tarjeta>
 
-        <Tarjeta titulo="Repositorios en el PC" icono={HardDrive} sinRelleno>
-          <div id="repos-locales" className="scroll-mt-20" />
+        <Tarjeta id="repos-locales" titulo="Repositorios en el PC" sinRelleno>
           {!locales ? (
-            <div className="p-4">
+            <div className="px-5 pb-5 sm:px-6 sm:pb-6">
               <Pendiente titulo="Todavía no hay datos del PC">
                 Los escribe <code>.scripts/estado-repos.ps1</code> en <code>dashboards/repos-locales.md</code>, y la
                 sincronización de la bóveda lo lanza cada 2 minutos.
@@ -233,18 +259,18 @@ async function Contenido() {
             <>
               <ul className="divide-y divide-borde sm:hidden">
                 {locales.repos.map((repo) => (
-                  <li key={`${repo.grupo}/${repo.nombre}`} className="px-4 py-3">
+                  <li key={`${repo.grupo}/${repo.nombre}`} className="px-5 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <span className="min-w-0 truncate font-medium">{repo.nombre}</span>
                       {repo.sinSubir === undefined ? (
-                        <span className="shrink-0 text-xs text-apagado">sin remoto</span>
+                        <span className="shrink-0 text-[13px] text-apagado">sin remoto</span>
                       ) : repo.sinSubir ? (
                         <Estado nivel="aviso">{`${repo.sinSubir} sin subir`}</Estado>
                       ) : (
-                        <span className="shrink-0 text-xs text-apagado">nada sin subir</span>
+                        <span className="shrink-0 text-[13px] text-apagado">nada sin subir</span>
                       )}
                     </div>
-                    <p className="mt-0.5 text-xs text-tenue">
+                    <p className="mt-0.5 text-[13px] text-tenue">
                       <span className="font-mono">{repo.rama ?? 'sin rama'}</span> ·{' '}
                       {repo.sinCommit ? `${repo.sinCommit} ${repo.sinCommit === 1 ? 'archivo' : 'archivos'} sin guardar` : 'nada sin guardar'}
                     </p>
@@ -265,7 +291,7 @@ async function Contenido() {
                   {locales.repos.map((repo) => (
                     <tr key={`${repo.grupo}/${repo.nombre}`} className={FILA}>
                       <td className={`${TD} font-medium`}>{repo.nombre}</td>
-                      <td className={`${TD} font-mono text-xs text-tenue`}>{repo.rama ?? '—'}</td>
+                      <td className={`${TD} font-mono text-[13px] text-tenue`}>{repo.rama ?? '—'}</td>
                       <td className={`${TD} cifras text-right`}>
                         {repo.sinSubir === undefined ? (
                           <span className="text-apagado">sin remoto</span>
@@ -282,7 +308,7 @@ async function Contenido() {
               </table>
               </div>
               {locales.actualizado && (
-                <p className="border-t border-borde px-4 py-2.5 text-xs text-apagado">
+                <p className="border-t border-borde px-5 py-3 text-[13px] text-apagado sm:px-6">
                   Datos del PC del {fechaHoraCorta(locales.actualizado)}. Si el PC está apagado, no se actualizan.
                 </p>
               )}
@@ -291,9 +317,9 @@ async function Contenido() {
         </Tarjeta>
       </div>
 
-      <Tarjeta titulo="GitHub" icono={GitBranch} sinRelleno>
+      <Tarjeta id="github" titulo="GitHub" sinRelleno>
         {estado.github === 'sin-token' ? (
-          <div className="p-4">
+          <div className="px-5 pb-5 sm:px-6 sm:pb-6">
             <Pendiente titulo="Falta el token de lectura de GitHub">
               Con él se ven el último cambio, los despliegues, las pruebas y las alertas de seguridad de cada repo. Ver{' '}
               <a href="#configuracion" className="text-acento hover:underline">
@@ -327,8 +353,8 @@ async function Contenido() {
         )}
       </Tarjeta>
 
-      <Tarjeta titulo="Configuración" icono={Settings}>
-        <div id="configuracion" className="scroll-mt-20 space-y-3 text-sm">
+      <Tarjeta id="configuracion" titulo="Configuración">
+        <div className="space-y-4 text-sm">
           <Requisito
             ok={estado.github === 'configurado'}
             titulo="Token de lectura de GitHub"
@@ -389,28 +415,28 @@ function ItemWeb(props: PropsWeb) {
   const { nombre, diasCertificado, diasDominio, mes, dias } = datosWeb(props);
 
   return (
-    <li className="px-4 py-3">
+    <li className="px-5 py-3">
       <div className="flex items-center justify-between gap-3">
         <Link href={hrefNota(proyecto.nota.ruta)} className={`${ZONA_TOQUE} min-w-0 font-medium hover:text-acento`}>
           <span className="block truncate">{nombre}</span>
         </Link>
         <EstadoDeLaWeb web={web!} />
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-tenue">
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-tenue">
         <span className="cifras">
           {web!.ms !== undefined ? `${web!.ms} ms` : 'Sin respuesta'}
           {web!.arranqueEnFrio ? ` · en frío ${(web!.arranqueEnFrio / 1000).toFixed(1)} s` : ''}
         </span>
         {certificado && (
           <Estado nivel={nivelPlazo(diasCertificado, certificado.valido, 14, 30)}>
-            <span className="text-xs">
+            <span className="text-[13px]">
               Certificado {diasCertificado !== undefined ? `${diasCertificado} días` : (certificado.error ?? 'sin datos')}
             </span>
           </Estado>
         )}
         {dominio?.caduca ? (
           <Estado nivel={nivelPlazo(diasDominio, true, 30, 60)}>
-            <span className="text-xs">Dominio {diasDominio} días</span>
+            <span className="text-[13px]">Dominio {diasDominio} días</span>
           </Estado>
         ) : (
           dominio && <span title={dominio.error}>Dominio a mano</span>
@@ -421,7 +447,7 @@ function ItemWeb(props: PropsWeb) {
           <div className="min-w-0 flex-1">
             <FranjaDisponibilidad dias={dias} nombre={nombre} />
           </div>
-          <span className="cifras w-14 shrink-0 text-right text-xs text-tenue">
+          <span className="cifras w-14 shrink-0 text-right text-[13px] text-tenue">
             {mes ? `${mes.porcentaje.toFixed(mes.porcentaje === 100 ? 0 : 2)} %` : '—'}
           </span>
         </div>
@@ -440,7 +466,7 @@ function FilaWeb(props: PropsWeb) {
         <Link href={hrefNota(proyecto.nota.ruta)} className="font-medium hover:text-acento">
           {nombre}
         </Link>
-        <a href={web!.url} target="_blank" rel="noreferrer" className="block max-w-56 truncate text-xs text-apagado hover:text-acento">
+        <a href={web!.url} target="_blank" rel="noreferrer" className="block max-w-56 truncate text-[13px] text-apagado hover:text-acento">
           {web!.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
         </a>
       </td>
@@ -450,7 +476,7 @@ function FilaWeb(props: PropsWeb) {
       <td className={`${TD} cifras text-right text-tenue`}>
         {web!.ms !== undefined ? `${web!.ms} ms` : '—'}
         {web!.arranqueEnFrio && (
-          <span className="block text-xs text-apagado" title="La primera petición despertó la web; la segunda ya fue rápida">
+          <span className="block text-[13px] text-apagado" title="La primera petición despertó la web; la segunda ya fue rápida">
             en frío {(web!.arranqueEnFrio / 1000).toFixed(1)} s
           </span>
         )}
@@ -468,7 +494,7 @@ function FilaWeb(props: PropsWeb) {
         {dominio?.caduca ? (
           <Estado nivel={nivelPlazo(diasDominio, true, 30, 60)}>{`${diasDominio} días`}</Estado>
         ) : dominio ? (
-          <span className="text-xs text-apagado" title={dominio.error}>
+          <span className="text-[13px] text-apagado" title={dominio.error}>
             a mano
           </span>
         ) : (
@@ -477,10 +503,10 @@ function FilaWeb(props: PropsWeb) {
       </td>
       <td className={TD}>
         <div className="flex items-center gap-3">
-          <div className="min-w-32 flex-1">
+          <div className="min-w-48 flex-1">
             <FranjaDisponibilidad dias={dias} nombre={nombre} />
           </div>
-          <span className="cifras w-14 shrink-0 text-right text-xs text-tenue">
+          <span className="cifras w-14 shrink-0 text-right text-[13px] text-tenue">
             {mes ? `${mes.porcentaje.toFixed(mes.porcentaje === 100 ? 0 : 2)} %` : '—'}
           </span>
         </div>
@@ -520,13 +546,13 @@ function FilaRepo({ p }: { p: EstadoProyecto }) {
         <a href={repo.url} target="_blank" rel="noreferrer" className="font-medium hover:text-acento">
           {nombre}
         </a>
-        <span className="block font-mono text-xs text-apagado">{repo.rama}</span>
+        <span className="block font-mono text-[13px] text-apagado">{repo.rama}</span>
       </td>
       <td className={`${TD} max-w-72`}>
         {repo.ultimoCommit ? (
           <a href={repo.ultimoCommit.url} target="_blank" rel="noreferrer" className="block hover:text-acento">
             <span className="block truncate">{repo.ultimoCommit.mensaje}</span>
-            <span className="text-xs text-apagado">
+            <span className="text-[13px] text-apagado">
               {repo.ultimoCommit.autor} · {haceTiempo(repo.ultimoCommit.fecha)}
             </span>
           </a>
@@ -540,7 +566,7 @@ function FilaRepo({ p }: { p: EstadoProyecto }) {
             <Estado nivel={repo.despliegue.nivel}>{repo.despliegue.texto}</Estado>
           </span>
         ) : (
-          <span className="text-xs text-apagado">sin despliegue automático</span>
+          <span className="text-[13px] text-apagado">sin despliegue automático</span>
         )}
       </td>
       <td className={TD}>
@@ -549,7 +575,7 @@ function FilaRepo({ p }: { p: EstadoProyecto }) {
       <td className={`${TD} cifras text-right ${repo.prAbiertas ? '' : 'text-apagado'}`}>{repo.prAbiertas ?? '—'}</td>
       <td className={TD}>
         {repo.alertas === null || repo.alertas === undefined ? (
-          <span className="text-xs text-apagado" title="Sin permiso o con las alertas de Dependabot desactivadas">
+          <span className="text-[13px] text-apagado" title="Sin permiso o con las alertas de Dependabot desactivadas">
             sin acceso
           </span>
         ) : serias ? (

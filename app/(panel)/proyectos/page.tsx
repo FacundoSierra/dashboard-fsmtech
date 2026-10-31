@@ -3,8 +3,9 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { ExternalLink, GitBranch, Plus } from 'lucide-react';
 import { ZONA_TOQUE } from '@/components/estilos';
+import { Avatar } from '@/components/piezas';
 import { ListaTareas } from '@/components/tareas';
-import { EnlaceBoton, Encabezado, Estado, Medidor, Vacio, nivelEstadoProyecto } from '@/components/ui';
+import { Contador, EnlaceBoton, Encabezado, Estado, EstadoPildora, Medidor, TITULO_TARJETA, Vacio, nivelEstadoProyecto } from '@/components/ui';
 import { NIVEL_ESTADO, calcularAvisos, type Aviso, type NivelAviso } from '@/lib/avisos';
 import { obtenerBoveda, proyectos, type ResumenProyecto } from '@/lib/boveda/consultas';
 import type { Boveda } from '@/lib/boveda/tipos';
@@ -83,17 +84,18 @@ function Rejilla({
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {grupos.map((grupo) => {
         // Mientras llega la vigilancia, por pasos pendientes; al llegar, lo que tenga avisos sube
         const delGrupo = todos.filter((p) => p.estado === grupo).sort(porAtencion(avisos));
         return (
           <section key={grupo}>
-            <h2 className="mb-3 text-sm font-semibold capitalize text-tenue">
-              {grupo} · {delGrupo.length}
+            <h2 className="mb-3 text-lg font-semibold tracking-[-0.01em] first-letter:uppercase">
+              {grupo}
+              <Contador>{delGrupo.length}</Contador>
             </h2>
             {/* `items-start`: cada tarjeta de su alto; estiradas a la de la vecina dejaban huecos de 140 a 190 px */}
-            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 items-start gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
               {delGrupo.map((proyecto) => (
                 <TarjetaProyecto
                   key={proyecto.nota.ruta}
@@ -133,11 +135,13 @@ function TarjetaProyecto({
   const [nombre, descripcion] = nota.titulo.split(' — ');
 
   return (
-    <article className="flex flex-col rounded-xl border border-borde bg-superficie shadow-tarjeta">
-      <div className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="font-semibold leading-tight">
+    // Una tarjeta del panel, sin borde. El círculo, con el tinte de su nombre, como en las Peticiones de Hoy
+    <article className="flex flex-col rounded-xl bg-superficie">
+      <div className="space-y-3 px-5 pb-4 pt-5 sm:px-6">
+        <div className="flex items-start gap-3">
+          <Avatar nombre={nombre} tamano="pequeno" />
+          <div className="min-w-0 flex-1">
+            <h3 className={`leading-tight ${TITULO_TARJETA}`}>
               <Link href={hrefNota(nota.ruta)} className="hover:text-acento">
                 {nombre}
               </Link>
@@ -152,13 +156,13 @@ function TarjetaProyecto({
               )}
             </p>
           </div>
-          <Estado nivel={nivelEstadoProyecto(proyecto.estado)}>
+          <EstadoPildora nivel={nivelEstadoProyecto(proyecto.estado)}>
             <span className="capitalize">{proyecto.estado}</span>
-          </Estado>
+          </EstadoPildora>
         </div>
 
         {cargando ? (
-          <div className="h-5 w-40 motion-safe:animate-pulse rounded bg-superficie-2" aria-label="Comprobando el estado" />
+          <div className="h-5 w-40 rounded-full bg-superficie-2 motion-safe:animate-pulse" aria-label="Comprobando el estado" />
         ) : (
           estado && <Senales estado={estado} />
         )}
@@ -168,7 +172,7 @@ function TarjetaProyecto({
             {avisos.map((aviso) => (
               <li key={aviso.id}>
                 <Estado nivel={NIVEL_ESTADO[aviso.nivel]}>
-                  <span className="whitespace-normal text-xs">{sinNombre(aviso.titulo)}</span>
+                  <span className="whitespace-normal text-[13px]">{sinNombre(aviso.titulo)}</span>
                 </Estado>
               </li>
             ))}
@@ -176,15 +180,15 @@ function TarjetaProyecto({
         )}
 
         {/* El stack, en una línea de texto: como etiquetas ocupaba sitio y no se mira a diario */}
-        {stack.length > 0 && <p className="truncate text-xs text-apagado">{stack.join(' · ')}</p>}
+        {stack.length > 0 && <p className="truncate text-[13px] text-apagado">{stack.join(' · ')}</p>}
       </div>
 
-      <div className="mt-auto space-y-3 border-t border-borde p-4">
+      <div className="mt-auto space-y-3 border-t border-borde px-5 pb-5 pt-4 sm:px-6">
         <div>
-          <div className="mb-1.5 flex items-baseline justify-between text-xs">
+          <div className="mb-1.5 flex items-baseline justify-between text-[13px]">
             <span className="text-tenue">Próximos pasos</span>
             <span className="cifras text-apagado">
-              {abiertas.length} pendientes · {hechas} hechos
+              {abiertas.length} {abiertas.length === 1 ? 'pendiente' : 'pendientes'} · {hechas} {hechas === 1 ? 'hecho' : 'hechos'}
             </span>
           </div>
           {total > 0 && <Medidor valor={hechas} max={total} etiqueta={`Pasos hechos de ${nombre}`} />}
@@ -193,14 +197,14 @@ function TarjetaProyecto({
           <div className="text-sm">
             <ListaTareas tareas={principales.slice(0, TAREAS_VISIBLES)} rutas={boveda.rutas} titulos={boveda.titulos} compacta />
             {principales.length > TAREAS_VISIBLES && (
-              <Link href={hrefNota(nota.ruta)} className={`${ZONA_TOQUE} mt-2 inline-flex text-xs font-medium text-acento hover:underline`}>
+              <Link href={hrefNota(nota.ruta)} className={`${ZONA_TOQUE} mt-2 inline-flex text-[13px] font-medium text-acento hover:underline`}>
                 {principales.length - TAREAS_VISIBLES} más
               </Link>
             )}
           </div>
         )}
         {(web || remoto) && (
-          <div className="flex gap-5 text-xs">
+          <div className="flex gap-5 text-[13px]">
             {web && (
               <a href={web} target="_blank" rel="noreferrer" className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-tenue hover:text-acento`}>
                 <ExternalLink className="size-3.5" aria-hidden />
@@ -232,25 +236,25 @@ function Senales({ estado }: { estado: EstadoProyecto }) {
   if (!web && !supabase && !repo?.despliegue) return null;
 
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
       {web &&
         (web.responde ? (
           <Estado nivel={web.ms && web.ms > LENTA_MS ? 'aviso' : 'bien'}>
-            <span className="text-xs text-tenue">Web {web.ms !== undefined ? `· ${web.ms} ms` : ''}</span>
+            <span className="text-[13px] text-tenue">Web {web.ms !== undefined ? `· ${web.ms} ms` : ''}</span>
           </Estado>
         ) : (
           <Estado nivel="critico">
-            <span className="text-xs">Web caída</span>
+            <span className="text-[13px]">Web caída</span>
           </Estado>
         ))}
       {supabase && (
         <Estado nivel={supabase.activa ? 'bien' : 'critico'}>
-          <span className={`text-xs ${supabase.activa ? 'text-tenue' : ''}`}>{supabase.activa ? 'Base' : 'Base caída'}</span>
+          <span className={`text-[13px] ${supabase.activa ? 'text-tenue' : ''}`}>{supabase.activa ? 'Base' : 'Base caída'}</span>
         </Estado>
       )}
       {repo?.despliegue && (
         <Estado nivel={repo.despliegue.nivel}>
-          <span className={`text-xs ${repo.despliegue.nivel === 'bien' ? 'text-tenue' : ''}`}>{repo.despliegue.texto}</span>
+          <span className={`text-[13px] ${repo.despliegue.nivel === 'bien' ? 'text-tenue' : ''}`}>{repo.despliegue.texto}</span>
         </Estado>
       )}
     </div>

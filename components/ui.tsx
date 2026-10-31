@@ -36,7 +36,7 @@ export function Encabezado({
 export function Seccion({ titulo, extra, children }: { titulo: string; extra?: ReactNode; children: ReactNode }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 className="text-lg font-semibold tracking-[-0.01em]">{titulo}</h2>
         {extra}
       </div>
@@ -62,19 +62,22 @@ export function Tarjeta({
   className = '',
   sinRelleno = false,
   estirar = false,
+  id,
 }: {
   children: ReactNode;
   titulo?: ReactNode;
   icono?: Icono;
   accion?: ReactNode;
   className?: string;
+  /** Para llegar con un enlace (`#balance`): se queda por debajo de la cabecera fija */
+  id?: string;
   /** Para tablas y listas que llegan hasta el borde */
   sinRelleno?: boolean;
   /** Que la tarjeta llene el alto de su fila y su contenido, el de la tarjeta (para llevar algo al pie) */
   estirar?: boolean;
 }) {
   return (
-    <section className={`imprimir-plano rounded-xl bg-superficie ${estirar ? 'flex h-full flex-col' : ''} ${className}`}>
+    <section id={id} className={`imprimir-plano scroll-mt-24 rounded-xl bg-superficie ${estirar ? 'flex h-full flex-col' : ''} ${className}`}>
       {titulo && (
         <div className={`flex min-h-11 items-center justify-between gap-3 px-5 pt-4 sm:px-6 sm:pt-5 ${sinRelleno ? 'pb-2' : ''}`}>
           <h2 className={`flex min-w-0 items-center gap-2 ${TITULO_TARJETA}`}>
@@ -150,9 +153,14 @@ export function Filtro({ href, activo, children }: { href: string; activo: boole
  * Una cifra en su tarjeta, como las de arriba de la referencia: el nombre, la cifra grande y un
  * detalle. Con `href`, en la esquina, el botón redondo con la flecha en diagonal que lleva a su
  * sección (la tarjeta entera no es enlace: así no hay enlaces dentro de enlaces). `destacada`: la
- * primera de la pantalla, rellena del azul oscuro de la marca con el texto en blanco.
+ * primera de la pantalla, rellena del azul oscuro de la marca con el texto en blanco; si tiene
+ * estado, su icono va en un disco blanco (`.disco-estado`), porque sobre el azul no se leía.
  *
  * El valor va en cifras proporcionales (las tabulares dejan los números grandes con huecos).
+ *
+ * Va en una subrejilla de tres filas (nombre, cifra y detalle) de la rejilla que la contiene: así,
+ * si un nombre ocupa dos líneas («Margen de los clientes» en el móvil), las cifras de su fila
+ * siguen a la misma altura. Lo que vaya en la misma rejilla junto a las cifras, con `row-span-3`
  */
 export function Kpi({
   etiqueta,
@@ -180,26 +188,72 @@ export function Kpi({
   const esquina = href ? (
     <FlechaTarjeta href={href} texto={textoEnlace ?? `Ver ${etiqueta.toLowerCase()}`} destacada={destacada} />
   ) : estado ? (
-    <IconoEstado nivel={estado} className="size-5" />
+    destacada ? (
+      // Sobre el azul, en su disco blanco, del tamaño del de la flecha
+      <span className="disco-estado inline-flex size-9 shrink-0 items-center justify-center rounded-full">
+        <IconoEstado nivel={estado} className="size-5" />
+      </span>
+    ) : (
+      <IconoEstado nivel={estado} className="size-5" />
+    )
   ) : (
     IconoKpi && <IconoKpi className="size-5 text-apagado" aria-hidden />
   );
 
   return (
-    <div className={`imprimir-plano flex min-w-0 flex-col rounded-xl p-5 sm:p-6 ${destacada ? 'tema-marca' : 'bg-superficie'}`}>
+    // `gap-y-0`: el hueco entre las filas de la subrejilla lo ponen los márgenes, así una cifra sin
+    // detalle no deja el hueco de la rejilla de fuera debajo
+    <div
+      className={`imprimir-plano row-span-3 grid min-w-0 grid-rows-subgrid gap-y-0 rounded-xl p-5 sm:p-6 ${destacada ? 'tema-marca' : 'bg-superficie'}`}
+    >
       <div className="flex min-h-9 items-start justify-between gap-2">
         <span className="pt-1.5 text-[15px] font-semibold leading-snug tracking-[-0.01em] sm:text-base">{etiqueta}</span>
         {esquina}
       </div>
       <div className="mt-3 text-[30px] font-semibold leading-none tracking-[-0.03em] sm:text-[36px] xl:text-[44px]">{valor}</div>
-      {detalle && (
-        <div className="mt-3 flex items-center gap-1.5 text-[13px] text-tenue">
-          {href && estado && <IconoEstado nivel={estado} />}
-          <span className="min-w-0">{detalle}</span>
-        </div>
-      )}
-      {children && <div className="mt-3">{children}</div>}
+      <div>
+        {detalle && (
+          <div className="mt-3 flex items-center gap-1.5 text-[13px] text-tenue">
+            {href &&
+              estado &&
+              (destacada ? (
+                <span className="disco-estado inline-flex size-[18px] shrink-0 items-center justify-center rounded-full">
+                  <IconoEstado nivel={estado} className="size-3.5" />
+                </span>
+              ) : (
+                <IconoEstado nivel={estado} />
+              ))}
+            <span className="min-w-0">{detalle}</span>
+          </div>
+        )}
+        {children && <div className="mt-3">{children}</div>}
+      </div>
     </div>
+  );
+}
+
+/**
+ * «1.240,15 €» en una cifra grande: los decimales y la unidad, más pequeños, como el «%» del medidor
+ * de Hoy. Así caben en la mitad del móvil y lo que se lee de un vistazo es la parte entera
+ */
+export function CifraConDecimales({ texto }: { texto: string }) {
+  const coma = texto.lastIndexOf(',');
+  if (coma < 0) return <>{texto}</>;
+  return (
+    <>
+      {texto.slice(0, coma)}
+      <span className="text-[0.55em] tracking-normal">{texto.slice(coma)}</span>
+    </>
+  );
+}
+
+/** «12 de 15» en una cifra: la segunda parte, más pequeña y en gris, como un denominador */
+export function DeTotal({ valor, total }: { valor: ReactNode; total: ReactNode }) {
+  return (
+    <>
+      {valor}
+      <span className="ml-1.5 text-[0.5em] font-medium tracking-normal text-tenue">de {total}</span>
+    </>
   );
 }
 
@@ -287,12 +341,17 @@ export function EstadoPildora({ nivel, children }: { nivel: NivelEstado; childre
 
 // ── Etiquetas ────────────────────────────────────────────────────────────────
 
+/** El número junto al título de una tarjeta («A la espera 5», «Por cobrar 2»), en su píldora gris */
+export function Contador({ children }: { children: ReactNode }) {
+  return <span className="cifras ml-2 rounded-full bg-superficie-2 px-2 py-0.5 text-[13px] font-semibold text-tenue">{children}</span>;
+}
+
 export type Tono = 'neutro' | 'acento';
 
 export function Chip({ children, tono = 'neutro' }: { children: ReactNode; tono?: Tono }) {
   const clase = tono === 'acento' ? 'bg-acento-suave text-acento' : 'bg-superficie-2 text-tenue';
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${clase}`}>
+    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[13px] font-semibold ${clase}`}>
       {children}
     </span>
   );
@@ -316,12 +375,20 @@ export function Vacio({ children, icono: IconoVacio }: { children: ReactNode; ic
   );
 }
 
-/** Aviso de algo que falta configurar: dice qué y dónde, sin romper la página */
+/**
+ * Aviso de algo que falta configurar, dentro de su tarjeta: dice qué y dónde, sin romper la página.
+ * El círculo discontinuo es el icono de «sin datos»: lo que aún no está, no lo que va mal
+ */
 export function Pendiente({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-borde-control bg-superficie p-5 text-sm">
-      <p className="font-medium">{titulo}</p>
-      <div className="mt-1 text-tenue">{children}</div>
+    <div className="flex items-start gap-3 text-sm">
+      <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-superficie-2">
+        <CircleDashed className="size-5 text-apagado" />
+      </span>
+      <div className="min-w-0 pt-0.5">
+        <p className="font-semibold">{titulo}</p>
+        <div className="mt-1 text-tenue [&_code]:break-words">{children}</div>
+      </div>
     </div>
   );
 }
@@ -329,7 +396,7 @@ export function Pendiente({ titulo, children }: { titulo: string; children: Reac
 // ── Tablas ───────────────────────────────────────────────────────────────────
 
 export const TABLA = 'w-full text-sm';
-export const TH = 'px-5 py-2.5 text-left text-xs font-semibold text-apagado whitespace-nowrap sm:px-6';
+export const TH = 'px-5 py-2.5 text-left text-[13px] font-semibold text-apagado whitespace-nowrap sm:px-6';
 export const TD = 'px-5 py-3 align-middle sm:px-6';
 export const FILA = 'border-t border-borde';
 

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ExternalLink, Plus } from 'lucide-react';
-import { Chip, EnlaceAccion, Tarjeta, Vacio } from '@/components/ui';
+import { Chip, Contador, EnlaceAccion, Tarjeta, Vacio } from '@/components/ui';
 import type { Captura } from '@/lib/boveda/inbox';
 import type { Portal } from '@/lib/portales';
 import { hrefNota } from '@/lib/rutas';
@@ -16,7 +16,7 @@ export function InboxDeHoy({ capturas }: { capturas: Captura[] }) {
       titulo={
         <>
           Inbox
-          <span className="cifras ml-2 rounded-full bg-superficie-2 px-2 py-0.5 text-[13px] font-semibold text-tenue">{capturas.length}</span>
+          <Contador>{capturas.length}</Contador>
         </>
       }
       accion={

@@ -56,7 +56,7 @@ export default function CuadroVigente({ cuadro, cierres }: { cuadro: AjustesCons
       </p>
       <ul className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2">
         {cuadro.productos.map((p) => (
-          <li key={`${p.compania}-${p.periodicidad}-${p.nombres[0]}`} className="min-w-0 rounded-lg bg-fondo/60 px-4 py-3 text-sm">
+          <li key={`${p.compania}-${p.periodicidad}-${p.nombres[0]}`} className="min-w-0 rounded-lg bg-superficie-2 px-4 py-3 text-sm">
             <p className="text-sm font-medium text-texto">
               {p.compania} · {p.nombres.join(', ')}
             </p>
@@ -82,7 +82,7 @@ export default function CuadroVigente({ cuadro, cierres }: { cuadro: AjustesCons
         ))}
       </ul>
 
-      <h3 className="mt-6 text-base font-semibold tracking-tight text-texto">Cierres cargados</h3>
+      <h3 className="mt-6 text-[17px] font-semibold tracking-[-0.01em] text-texto">Cierres cargados</h3>
       {porMes.size === 0 ? (
         <p className="mt-2 text-sm text-tenue">
           No hay ninguno: cárgalos con <code>npm run consultoria:cierres</code>.
@@ -90,7 +90,7 @@ export default function CuadroVigente({ cuadro, cierres }: { cuadro: AjustesCons
       ) : (
         <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
           {[...porMes.entries()].map(([mes, delMes]) => (
-            <li key={mes} className="rounded-lg bg-fondo/60 px-3 py-2 text-sm">
+            <li key={mes} className="rounded-lg bg-superficie-2 px-3 py-2 text-sm">
               <span className="font-medium text-texto first-letter:uppercase">{nombreDelMes(mes)}</span>
               <span className="block text-tenue">
                 {delMes.map((c) => `${NOMBRE_CALENDARIO[c.calendario]} el ${Number(c.confirmarHasta.slice(8))}`).join(' · ')}

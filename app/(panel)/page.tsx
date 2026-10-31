@@ -96,7 +96,9 @@ export default async function PaginaHoy() {
           <PorCobrar boveda={boveda} hoy={hoy} />
         </div>
 
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-3 xl:col-start-10 xl:row-start-4 xl:grid-cols-1 xl:self-start">
+        {/* En el escritorio, el inbox y tus paneles llenan su fila hasta el pie de los objetivos: la última
+            tarjeta se estira y la columna acaba donde acaban ellos, sin el hueco gris de abajo a la derecha */}
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-3 xl:col-start-10 xl:row-start-4 xl:flex xl:flex-col xl:[&>:last-child]:flex-1">
           <InboxDeHoy capturas={capturas(boveda)} />
           <Paneles lista={portales(boveda)} />
         </div>

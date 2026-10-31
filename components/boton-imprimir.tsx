@@ -1,6 +1,7 @@
 'use client';
 
 import { Printer } from 'lucide-react';
+import { BOTON_PRINCIPAL } from './estilos';
 
 /** El navegador ofrece «Guardar como PDF» en el mismo diálogo */
 export function BotonImprimir() {
@@ -8,7 +9,7 @@ export function BotonImprimir() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-acento-fuerte px-3 text-sm font-medium text-white hover:opacity-90"
+      className={BOTON_PRINCIPAL}
     >
       <Printer className="size-4" aria-hidden />
       Imprimir o guardar en PDF

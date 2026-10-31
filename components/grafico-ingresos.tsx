@@ -15,10 +15,10 @@ export interface PuntoGrafico {
 }
 
 const ALTO_GRAFICO = 180;
-const ALTO_EJE_X = 26;
+const ALTO_EJE_X = 28;
 // Hueco para la etiqueta del último valor cuando está arriba del todo
 const MARGEN_SUPERIOR = 24;
-const ANCHO_EJE_Y = 52;
+const ANCHO_EJE_Y = 60;
 const MARGEN_DERECHO = 16;
 
 /** Divisiones limpias para el eje: 0, 100, 200… */
@@ -74,8 +74,8 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
   const linea = puntos.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.valor).toFixed(1)}`).join(' ');
   const area = `${linea} L${x(puntos.length - 1).toFixed(1)},${base} L${x(0).toFixed(1)},${base} Z`;
 
-  // Etiquetas del eje X sin que se pisen: como mucho una cada ~56 px
-  const cada = Math.max(1, Math.ceil(puntos.length / Math.max(1, Math.floor(anchoPlot / 56))));
+  // Etiquetas del eje X sin que se pisen: como mucho una cada ~60 px
+  const cada = Math.max(1, Math.ceil(puntos.length / Math.max(1, Math.floor(anchoPlot / 60))));
   const ultimo = puntos.length - 1;
 
   function alMover(evento: PointerEvent<SVGSVGElement>) {
@@ -115,7 +115,7 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
         {ticks.map((tick) => (
           <g key={tick}>
             <line x1={ANCHO_EJE_Y} x2={ancho - MARGEN_DERECHO} y1={y(tick)} y2={y(tick)} stroke="var(--rejilla)" strokeWidth={1} />
-            <text x={ANCHO_EJE_Y - 8} y={y(tick)} dy="0.32em" textAnchor="end" className="cifras fill-apagado text-[11px]">
+            <text x={ANCHO_EJE_Y - 8} y={y(tick)} dy="0.32em" textAnchor="end" className="cifras fill-apagado text-[13px]">
               {formatoEje.format(tick)} €
             </text>
           </g>
@@ -127,7 +127,7 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
           .map((p, i) => ({ p, i }))
           .filter(({ i }) => i % cada === 0 || i === ultimo)
           .map(({ p, i }, k, visibles) => (
-            <text key={p.etiqueta} x={x(i)} y={base + 18} textAnchor="middle" className="fill-apagado text-[11px]">
+            <text key={p.etiqueta} x={x(i)} y={base + 18} textAnchor="middle" className="fill-apagado text-[13px]">
               {k === 0 || visibles[k - 1].p.anio !== p.anio ? `${p.eje} ${p.anio}` : p.eje}
             </text>
           ))}
@@ -155,7 +155,7 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
             // Encima del punto; si no cabe, debajo, para que nunca se corte
             y={y(puntos[ultimo].valor) - 12 < 12 ? y(puntos[ultimo].valor) + 20 : y(puntos[ultimo].valor) - 12}
             textAnchor="end"
-            className="fill-texto text-[12px] font-semibold"
+            className="fill-texto text-[13px] font-semibold"
           >
             {puntos[ultimo].texto}
           </text>
@@ -165,7 +165,7 @@ export function GraficoIngresos({ puntos, titulo }: { puntos: PuntoGrafico[]; ti
       {seleccionado && activo !== null && (
         <div
           role="status"
-          className="pointer-events-none absolute top-0 rounded-lg border border-borde bg-superficie px-2.5 py-1.5 text-xs shadow-tarjeta"
+          className="pointer-events-none absolute top-0 rounded-lg bg-superficie px-3 py-2 text-[13px] shadow-flotante"
           style={{
             left: Math.min(Math.max(x(activo) - 60, 0), ancho - 130),
           }}

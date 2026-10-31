@@ -60,7 +60,7 @@ export default function FormularioCliente({
           />
         </label>
         <label className="text-sm font-medium text-tenue">
-          Referencia <span className="font-normal text-apagado">(opcional)</span>
+          Referencia <span className="font-normal text-apagado">· opcional</span>
           <input
             value={referencia}
             onChange={(e) => setReferencia(e.target.value)}
@@ -72,11 +72,11 @@ export default function FormularioCliente({
         </label>
       </div>
       <label className="text-sm font-medium text-tenue sm:max-w-xs">
-        Próxima revisión <span className="font-normal text-apagado">(opcional)</span>
+        Próxima revisión <span className="font-normal text-apagado">· opcional</span>
         <input type="date" value={revision} onChange={(e) => setRevision(e.target.value)} className={`${CAMPO} mt-1`} />
       </label>
       <label className="text-sm font-medium text-tenue">
-        Notas <span className="font-normal text-apagado">(opcional)</span>
+        Notas <span className="font-normal text-apagado">· opcional</span>
         <textarea
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
@@ -84,7 +84,7 @@ export default function FormularioCliente({
           rows={3}
           className={`${CAMPO} mt-1 resize-y`}
         />
-        <span className="mt-1 block text-xs font-normal text-apagado">
+        <span className="mt-1 block text-[13px] font-normal text-apagado">
           Sin datos personales: ni DNI, ni cuentas, ni salud, ni teléfono, correo o dirección.
         </span>
       </label>

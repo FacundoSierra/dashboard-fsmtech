@@ -22,17 +22,17 @@ export default async function AjustesConsultoriaPage() {
   if (datos.pendiente) return <FaltaMigracion migracion={datos.falta} />;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <h2 className="px-1 text-lg font-semibold tracking-tight">Ajustes</h2>
       <Bloque titulo="Punto de partida y porcentajes" periodo="Lo apuntado no cambia: cada herramienta guarda los suyos">
         <FormularioAjustes ajustes={datos.ajustes} deSerie={datos.deSerie.ajustes} />
       </Bloque>
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 xl:items-start">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2 xl:items-start">
         <Bloque titulo="Niveles" periodo="Vale el de mayor €/unidad de los alcanzados">
           <FormularioNiveles niveles={datos.niveles} deSerie={datos.deSerie.niveles} />
         </Bloque>
         {/* La cabecera del panel es fija: el ancla deja sitio para que no tape el título */}
-        <div id="companias" className="scroll-mt-20">
+        <div id="companias" className="scroll-mt-24">
           <Bloque titulo="Compañías" periodo="Su regla de fechas, su calendario y su reserva">
             <AjustesCompanias companias={datos.companias} deSerie={datos.deSerie.companias} />
           </Bloque>

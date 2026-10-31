@@ -8,7 +8,7 @@ import type { ResumenHoy } from '@/lib/boveda/consultas';
 import { ultimaSubidaDelPc } from '@/lib/boveda/sincronizacion';
 import { cuandoEs, fechaLarga, haceTiempo } from '@/lib/fechas';
 import { hrefNota } from '@/lib/rutas';
-import { Plegable } from './plegable';
+import { Plegable } from '@/components/plegable';
 
 /**
  * Los objetivos de la diaria de hoy, lo que más se toca: la tarjeta grande de Hoy. Arriba, el
@@ -32,7 +32,7 @@ export function Objetivos({
   const pendientesAnteriores = anteriores.reduce((total, dia) => total + dia.tareas.length, 0);
 
   return (
-    <section id="objetivos" aria-labelledby="titulo-objetivos" className="imprimir-plano scroll-mt-24 rounded-xl bg-superficie">
+    <section id="objetivos" aria-labelledby="titulo-objetivos" className="imprimir-plano h-full scroll-mt-24 rounded-xl bg-superficie">
       <div className="px-5 pt-4 sm:px-6 sm:pt-5">
         <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
           <h2 id="titulo-objetivos" className={TITULO_TARJETA}>

@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Download, ExternalLink, FileText, Upload } from 'lucide-react';
-import { ZONA_TOQUE } from '@/components/estilos';
+import { Download, ExternalLink } from 'lucide-react';
+import { BOTON_PEQUENO_SECUNDARIO } from '@/components/estilos';
 import { FiltroDesplegable } from '@/components/filtro-desplegable';
 import { SubirDocumento } from '@/components/subir-documento';
-import { Chip, Encabezado, Filtro, Pendiente, Tarjeta, Vacio, euros } from '@/components/ui';
+import { Chip, Contador, Encabezado, Filtro, Pendiente, Tarjeta, Vacio, euros } from '@/components/ui';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
 import { almacenConfigurado } from '@/lib/documentos/almacen';
 import { tipoParaServir } from '@/lib/documentos/archivos';
@@ -56,8 +56,8 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
       />
 
       {/* grid-cols-1 es minmax(0, 1fr): sin él, en el móvil la columna crecía con el título más largo y ensanchaba la página */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <div className="min-w-0 space-y-4 xl:col-span-3">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-5">
+        <div className="min-w-0 space-y-3 sm:space-y-4 xl:col-span-3">
           {/* El cliente, en un desplegable: como etiquetas, con los de la categoría, eran cinco filas del móvil */}
           <FiltroDesplegable
             etiqueta="Cliente"
@@ -78,22 +78,31 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
             ))}
           </nav>
 
-          <Tarjeta titulo={`${visibles.length} ${visibles.length === 1 ? 'documento' : 'documentos'}`} icono={FileText} sinRelleno>
+          <Tarjeta
+            titulo={
+              <>
+                Documentos
+                <Contador>{visibles.length}</Contador>
+              </>
+            }
+            sinRelleno
+          >
             {visibles.length === 0 ? (
-              <div className="p-4">
+              <div className="px-5 pb-5 sm:px-6 sm:pb-6">
                 <Vacio>{todos.length ? 'Ningún documento con estos filtros.' : 'Todavía no hay documentos subidos desde el panel.'}</Vacio>
               </div>
             ) : (
-              <ul className="divide-y divide-borde">
+              <ul className="divide-y divide-borde pb-2">
                 {visibles.map((d) => {
                   const { enLinea } = d.archivo ? tipoParaServir(d.archivo) : { enLinea: false };
                   return (
-                    <li key={d.nota.ruta} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
-                      <div className="min-w-0">
-                        <Link href={hrefNota(d.nota.ruta)} className={`${ZONA_TOQUE} block text-sm font-medium hover:text-acento`}>
+                    <li key={d.nota.ruta} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3 sm:px-6">
+                      {/* Que crezca y se corte: si no, según lo largo del título, la etiqueta caía a la derecha o debajo */}
+                      <div className="min-w-0 flex-1 basis-48">
+                        <Link href={hrefNota(d.nota.ruta)} className="flex min-h-11 items-center text-[15px] font-semibold hover:text-acento">
                           <span className="block truncate">{d.nota.titulo}</span>
                         </Link>
-                        <p className="mt-0.5 text-xs text-tenue">
+                        <p className="-mt-1.5 text-[13px] text-tenue">
                           {tituloDe.get(d.cliente) ?? d.cliente}
                           {d.fecha && ` · ${fechaCorta(d.fecha)} ${d.fecha.slice(0, 4)}`}
                           {d.importe !== undefined && ` · ${euros(d.importe, true)}`}
@@ -103,12 +112,7 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
                       <div className="flex shrink-0 items-center gap-3">
                         <Chip>{CATEGORIAS[d.categoria]}</Chip>
                         {d.archivo && (
-                          <a
-                            href={hrefArchivo(d)}
-                            target={enLinea ? '_blank' : undefined}
-                            rel="noreferrer"
-                            className={`${ZONA_TOQUE} inline-flex items-center gap-1 text-xs text-tenue hover:text-acento`}
-                          >
+                          <a href={hrefArchivo(d)} target={enLinea ? '_blank' : undefined} rel="noreferrer" className={BOTON_PEQUENO_SECUNDARIO}>
                             {enLinea ? <ExternalLink className="size-3.5" aria-hidden /> : <Download className="size-3.5" aria-hidden />}
                             {enLinea ? 'Abrir' : 'Descargar'}
                           </a>
@@ -120,14 +124,14 @@ export default async function PaginaDocumentos({ searchParams }: PageProps<'/doc
               </ul>
             )}
           </Tarjeta>
-          <p className="text-xs text-apagado">
+          <p className="text-[13px] text-tenue">
             Los archivos que ya estaban en <code>clientes/*/documentos/</code> de la bóveda siguen allí y se abren desde Obsidian.
           </p>
         </div>
 
         <div className="min-w-0 xl:col-span-2">
-          <div id="subir" className="scroll-mt-20">
-            <Tarjeta titulo="Subir un documento" icono={Upload}>
+          <div id="subir" className="scroll-mt-24">
+            <Tarjeta titulo="Subir un documento">
               {!configurado ? (
                 <Pendiente titulo="Falta conectar el almacén de documentos">
                   <p>

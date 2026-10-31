@@ -11,10 +11,10 @@ import { BuscarLoQueFalta } from '@/components/buscar-lo-que-falta';
  */
 export default function NoEncontrada() {
   return (
-    <div className="mx-auto max-w-md rounded-xl border border-borde bg-superficie p-6 text-center shadow-tarjeta">
+    <div className="mx-auto mt-4 max-w-md rounded-xl bg-superficie p-6 text-center sm:mt-10 sm:p-8">
       <BuscarLoQueFalta />
       <p className="mt-4 text-sm">
-        <Link href="/" className="inline-flex min-h-11 items-center font-medium text-acento hover:underline">
+        <Link href="/" className="inline-flex min-h-11 items-center font-semibold text-acento hover:underline">
           Volver a Hoy
         </Link>
       </p>

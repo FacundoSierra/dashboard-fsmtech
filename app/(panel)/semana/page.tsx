@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, NotebookPen } from 'lucide-react';
-import { ZONA_TOQUE } from '@/components/estilos';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { BOTON_SECUNDARIO, ZONA_TOQUE } from '@/components/estilos';
 import { Markdown } from '@/components/markdown';
+import { Plegable } from '@/components/plegable';
 import { ReflexionSemanal } from '@/components/reflexion-semanal';
 import { ListaTareas } from '@/components/tareas';
-import { Chip, EnlaceAccion, Encabezado, Estado, Kpi, Medidor, Tarjeta } from '@/components/ui';
+import { Chip, DeTotal, EnlaceAccion, Encabezado, Estado, EstadoPildora, Kpi, Medidor, TITULO_TARJETA, Tarjeta } from '@/components/ui';
 import { obtenerBoveda } from '@/lib/boveda/consultas';
 import { resumenSemana, revisionHasta, semanasDesde, type DiaSemana, type RevisionSemanal } from '@/lib/boveda/semana';
 import type { Boveda } from '@/lib/boveda/tipos';
@@ -14,8 +15,7 @@ import { hrefNota } from '@/lib/rutas';
 
 export const metadata: Metadata = { title: 'Semana' };
 
-const BOTON =
-  'inline-flex min-h-11 items-center gap-1 rounded-full border border-borde-fuerte bg-superficie px-4 font-semibold hover:border-acento hover:text-acento';
+const BOTON = `${BOTON_SECUNDARIO} px-4`;
 
 export default async function PaginaSemana({ searchParams }: PageProps<'/semana'>) {
   const boveda = await obtenerBoveda();
@@ -33,7 +33,7 @@ export default async function PaginaSemana({ searchParams }: PageProps<'/semana'
     <>
       <Encabezado titulo="Semana" subtitulo={`Del ${fechaCorta(semana.lunes)} al ${fechaCorta(semana.domingo)}`} />
 
-      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm sm:mb-5">
         <Link href={`/semana?fecha=${sumarDias(lunes, -7)}`} className={BOTON}>
           <ChevronLeft className="size-4" aria-hidden />
           Anterior
@@ -56,12 +56,13 @@ export default async function PaginaSemana({ searchParams }: PageProps<'/semana'
       </div>
 
       {/* Cinco cifras en dos columnas dejaban una sola en la última fila: en el móvil, la de objetivos ocupa la fila entera */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <div className="col-span-2 sm:col-span-1">
+      <div className="mb-3 grid grid-cols-2 gap-3 sm:mb-4 sm:grid-cols-5 sm:gap-4">
+        {/* Una subrejilla también: así su cifra sigue a la altura de las demás */}
+        <div className="col-span-2 row-span-3 grid grid-rows-subgrid gap-y-0 sm:col-span-1">
           <Kpi
             destacada
             etiqueta="Objetivos hechos"
-            valor={`${totales.objetivosHechos}/${totales.objetivosTotales}`}
+            valor={<DeTotal valor={totales.objetivosHechos} total={totales.objetivosTotales} />}
             detalle="Sin repetir lo arrastrado"
           >
             {totales.objetivosTotales > 0 && (
@@ -72,7 +73,7 @@ export default async function PaginaSemana({ searchParams }: PageProps<'/semana'
         <Kpi etiqueta="Completado en dailies" valor={totales.completado} />
         <Kpi etiqueta="Hecho en proyectos" valor={totales.enNotas} />
         <Kpi etiqueta="Reuniones" valor={totales.reuniones} />
-        <Kpi etiqueta="Dailies" valor={`${totales.dailies}/7`} />
+        <Kpi etiqueta="Dailies" valor={<DeTotal valor={totales.dailies} total={7} />} />
       </div>
 
       {revision &&
@@ -132,9 +133,8 @@ function Revision({ revision, boveda }: { revision: RevisionSemanal; boveda: Bov
   return (
     <Tarjeta
       titulo={`Revisión de la semana ${Number(revision.semana.slice(-2))}${sinResponder ? ' · reflexión sin responder' : ''}`}
-      icono={NotebookPen}
       accion={<EnlaceAccion href={hrefNota(revision.nota.ruta)}>Abrir la revisión</EnlaceAccion>}
-      className="mb-6"
+      className="mb-3 sm:mb-4"
     >
       <ContenidoRevision revision={revision} boveda={boveda} responder />
     </Tarjeta>
@@ -147,22 +147,22 @@ function Revision({ revision, boveda }: { revision: RevisionSemanal; boveda: Bov
  */
 function RevisionAntigua({ revision, antiguedad, boveda }: { revision: RevisionSemanal; antiguedad?: number; boveda: Boveda }) {
   return (
-    <details className="group mb-6 rounded-xl border border-borde bg-superficie shadow-tarjeta">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
-        <NotebookPen className="size-4 shrink-0 text-apagado" aria-hidden />
-        <span className="min-w-0 flex-1">
-          <span className="font-medium">
+    // Una tarjeta plegada, con el chevrón de los plegables de Hoy
+    <div className="mb-3 rounded-xl bg-superficie px-5 sm:mb-4 sm:px-6">
+      <Plegable
+        titulo={
+          <>
             La última revisión es de hace {antiguedad === undefined ? 'más de dos años' : `${antiguedad} semanas`}
-          </span>
-          <span className="text-tenue"> · semana {Number(revision.semana.slice(-2))}</span>
-        </span>
-        <ChevronRight className="size-4 shrink-0 text-apagado transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
-      </summary>
-      <div className="space-y-4 border-t border-borde p-4">
-        <ContenidoRevision revision={revision} boveda={boveda} responder={false} />
-        <EnlaceAccion href={hrefNota(revision.nota.ruta)}>Abrir la revisión</EnlaceAccion>
-      </div>
-    </details>
+            <span className="font-normal text-tenue"> · semana {Number(revision.semana.slice(-2))}</span>
+          </>
+        }
+      >
+        <div className="space-y-4 border-t border-borde pt-4">
+          <ContenidoRevision revision={revision} boveda={boveda} responder={false} />
+          <EnlaceAccion href={hrefNota(revision.nota.ruta)}>Abrir la revisión</EnlaceAccion>
+        </div>
+      </Plegable>
+    </div>
   );
 }
 
@@ -182,13 +182,14 @@ function TarjetaDia({
   const completo = dia.objetivosTotales > 0 && dia.objetivosHechos === dia.objetivosTotales;
 
   return (
-    <Tarjeta className={`${esHoy ? 'ring-2 ring-acento/40' : ''} ${futuro ? 'opacity-60' : ''}`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-semibold first-letter:uppercase">
+    // Hoy, con el canto del azul de la marca; los días que no han llegado, con el título en gris
+    <Tarjeta className={esHoy ? 'ring-2 ring-acento' : ''}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className={`first-letter:uppercase ${TITULO_TARJETA} ${futuro ? 'text-tenue' : ''}`}>
           {fechaLarga(dia.fecha)}
-          {esHoy && <span className="font-normal text-acento"> · hoy</span>}
+          {esHoy && <span className="font-medium text-acento"> · hoy</span>}
         </h2>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {dia.daily ? (
             <Link href={hrefNota(dia.daily.ruta)} className={`${ZONA_TOQUE} inline-flex`}>
               <Chip tono="acento">Daily</Chip>
@@ -197,11 +198,9 @@ function TarjetaDia({
             !futuro && <Chip>Sin daily</Chip>
           )}
           {dia.objetivosTotales > 0 && (
-            <Estado nivel={completo ? 'bien' : 'neutro'}>
-              <span className="text-xs">
-                {dia.objetivosHechos}/{dia.objetivosTotales} objetivos
-              </span>
-            </Estado>
+            <EstadoPildora nivel={completo ? 'bien' : 'neutro'}>
+              {dia.objetivosHechos} de {dia.objetivosTotales} objetivos
+            </EstadoPildora>
           )}
         </div>
       </div>
@@ -222,17 +221,13 @@ function TarjetaDia({
             </ul>
           )}
           {dia.completado.length > 0 && (
-            <details>
-              <summary className="cursor-pointer py-3 text-tenue hover:text-texto">Completado en la daily ({dia.completado.length})</summary>
-              <div className="pb-2">
-                <ListaTareas tareas={dia.completado} rutas={rutas} titulos={titulos} />
-              </div>
-            </details>
+            <Plegable titulo={`Completado en la daily · ${dia.completado.length}`} pequeno>
+              <ListaTareas tareas={dia.completado} rutas={rutas} titulos={titulos} />
+            </Plegable>
           )}
           {dia.enNotas.length > 0 && (
-            <details>
-              <summary className="cursor-pointer py-3 text-tenue hover:text-texto">Hecho en proyectos y notas ({dia.enNotas.length})</summary>
-              <ul className="space-y-1.5 pb-2">
+            <Plegable titulo={`Hecho en proyectos y notas · ${dia.enNotas.length}`} pequeno>
+              <ul className="space-y-1.5">
                 {dia.enNotas.map((hecho, i) => (
                   <li key={i}>
                     <Markdown texto={hecho.texto} rutas={rutas} titulos={titulos} enLinea />{' '}
@@ -242,7 +237,7 @@ function TarjetaDia({
                   </li>
                 ))}
               </ul>
-            </details>
+            </Plegable>
           )}
         </div>
       )}

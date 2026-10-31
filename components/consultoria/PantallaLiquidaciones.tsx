@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { textoDelRecuento } from '@/lib/consultoria/reglas';
 import type { CuentaConsultoria, DetalleDelMes, LiquidacionesDelAnio, MesLiquidacion } from '@/lib/consultoria/tipos';
-import { Estado } from '@/components/ui';
+import { EstadoPildora, Filtro } from '@/components/ui';
 import { euros, fechaCorta } from '@/lib/consultoria/formato';
 import Aviso from './Aviso';
 import CuentaDeComisiones from './CuentaDeComisiones';
@@ -41,20 +41,13 @@ export default function PantallaLiquidaciones({
   const abiertoFueraDelAnio = abierto && detalle?.mes && !meses.some((m) => m.mes === abierto) ? detalle.mes : null;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3 px-1">
         <nav aria-label="Años" className="flex flex-wrap gap-2">
           {(anios.length ? anios : [anio]).map((a) => (
-            <Link
-              key={a}
-              href={`/consultoria/liquidaciones?anio=${a}`}
-              aria-current={a === anio ? 'page' : undefined}
-              className={`inline-flex min-h-11 items-center rounded-lg border px-4 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-acento ${
-                a === anio ? 'border-acento bg-acento-suave font-medium text-acento' : 'border-borde text-tenue hover:border-borde-fuerte hover:text-texto'
-              }`}
-            >
+            <Filtro key={a} href={`/consultoria/liquidaciones?anio=${a}`} activo={a === anio}>
               {a}
-            </Link>
+            </Filtro>
           ))}
         </nav>
         <Link href="/consultoria/hucha" className="inline-flex min-h-11 items-center text-sm font-medium text-acento underline-offset-4 hover:underline">
@@ -63,7 +56,7 @@ export default function PantallaLiquidaciones({
       </div>
 
       <section className={TARJETA} aria-labelledby="totales-del-anio">
-        <h2 id="totales-del-anio" className="text-base font-semibold tracking-tight text-texto">
+        <h2 id="totales-del-anio" className="text-[17px] font-semibold tracking-[-0.01em] text-texto">
           {anio}
         </h2>
         <p className="mt-0.5 text-sm text-apagado">Lo que ha llegado este año, lo que falta y lo sacado de la hucha</p>
@@ -148,10 +141,10 @@ function TarjetaDelMes({
 
   return (
     // La cabecera del panel es fija: el ancla deja sitio para que no tape el título del mes
-    <article id={`mes-${clave}`} className={`${TARJETA} scroll-mt-20`} aria-labelledby={`titulo-${clave}`}>
+    <article id={`mes-${clave}`} className={`${TARJETA} scroll-mt-24`} aria-labelledby={`titulo-${clave}`}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 id={`titulo-${clave}`} className="text-base font-semibold tracking-tight text-texto">
+          <h3 id={`titulo-${clave}`} className="text-[17px] font-semibold tracking-[-0.01em] text-texto">
             {mesConMayuscula(mes.mes)}
           </h3>
           <p className="mt-0.5 text-sm text-apagado">
@@ -163,12 +156,12 @@ function TarjetaDelMes({
           </p>
         </div>
         <span className="shrink-0">
-          <Estado nivel={llegado ? 'bien' : 'neutro'}>{llegado ? 'Ha llegado' : 'Por llegar'}</Estado>
+          <EstadoPildora nivel={llegado ? 'bien' : 'neutro'}>{llegado ? 'Ha llegado' : 'Por llegar'}</EstadoPildora>
         </span>
       </header>
 
-      <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <div className="rounded-lg bg-fondo/70 p-4">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-lg bg-superficie-2 p-4">
           <DesgloseLiquidacion mes={mes} pctIrpf={pctIrpf} />
         </div>
         <div className="flex flex-col gap-2 text-sm">
