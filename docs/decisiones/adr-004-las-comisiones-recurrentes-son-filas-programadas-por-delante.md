@@ -1,7 +1,7 @@
 # ADR-004: Las comisiones recurrentes son una serie: la herramienta y una fila por cuota, programadas unos meses por delante
 
 - Fecha: 2026-11-01
-- Estado: propuesta
+- Estado: aceptada
 - Requerimiento: REQ-002
 
 > Numeración de este repo. Los «ADR-004», «ADR-005» y «ADR-006» que citan los comentarios de `lib/consultoria/reglas.ts` son los de FSM-Finance, de donde vino la consultoría.

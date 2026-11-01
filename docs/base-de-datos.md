@@ -2,6 +2,8 @@
 
 **Estado (2026-10-28):** la `0001_consultoria.sql` está ejecutada en `fsmtech` y los datos copiados de FSM-Finance con «todo igual». El cambio se hizo el 2026-10-27 a las 13:27 (`fuente_desde` puesto): la base del panel es la fuente. Lo que sigue de REQ-001, en la sección 13 de `docs/specs/req-001-consultoria-en-el-panel.md`.
 
+**Estado (2026-11-01):** la `0002_cuotas_recurrentes.sql` (REQ-002) está ejecutada en `fsmtech` y comprobada: todas sus comprobaciones salieron como se esperaba (las 11 de solo lectura, las doce situaciones de la prueba grande paradas con su mensaje y `anon` y `authenticated` rechazados).
+
 ## Motor
 - Supabase (Postgres), proyecto `fsmtech`, West EU (Irlanda, `eu-west-1`), plan gratuito: sin copias de seguridad (la exportación semanal es la 13.3 de la spec)
 - Sin ORM: el servidor del panel entra con `@supabase/supabase-js` por `baseDeDatos()` (`lib/base/cliente.ts`), y los scripts del PC por `scripts/consultoria-comun.mjs`. Por qué y con qué clave: ADR-001 y ADR-002, y la sección «Base de datos: la consultoría» de `docs/arquitectura.md`
@@ -34,6 +36,19 @@ Dinero en `numeric(12,2)` (las unidades, en `numeric(10,2)`), fechas contables e
   - Vistas: `select` solo a `service_role`
   - Funciones: las dos de las liquidaciones, solo `service_role`; las de los disparadores, nadie
   - Lo que se cree después en `public`: sin permisos por defecto para `anon` ni `authenticated` (tablas, secuencias y funciones). El `execute` de `public` en las funciones nuevas no se quita así: **cada función lleva su `revoke … from public`**
+
+## La 0002: las comisiones recurrentes (REQ-002)
+Una herramienta que se cobra por recibo trimestral o semestral es una **serie**, y cada cuota es una fila más de `consultoria_herramientas`. Solo añade: ninguna tabla nueva, «Ha llegado» y «Deshacer» no cambian y no toca ningún dato. Por qué: ADR-004. Diseño y comprobaciones: `docs/specs/req-002-comisiones-recurrentes.md`, sección 4. Migración: `supabase/migraciones/0002_cuotas_recurrentes.sql`.
+
+| Qué | Nombres |
+|---|---|
+| Columnas nuevas de `consultoria_herramientas` | `cuotas_cada_meses` (`smallint`, 3 o 6; en la serie), `unidades_cuota` (`numeric(10,2)`; en la serie), `cuota_de` (`uuid`; en la cuota) y `cuota_periodo` (`date`, el día 1 de su periodo natural; en la cuota) |
+| Restricciones | `consultoria_herramientas_serie` y `consultoria_herramientas_cuota` (`check`, escritos para no dar nunca NULL), `consultoria_herramientas_cuota_fk` (`on delete restrict`: una herramienta con cuotas no se borra) e índice único `consultoria_herramientas_cuota_unica (cuota_de, cuota_periodo)` |
+| Disparador | `consultoria_herramienta_cuota`, con la función `consultoria_proteger_cuota()`: la cuota es del mismo cliente y consultor que su serie, una cobrada no cambia de periodo, y una serie con cuotas no deja de serlo ni cambia de cliente |
+| Función | `consultoria_programar_cuotas(p_consultor, p_herramienta, p_periodos, p_cobros, p_pct_irpf)`: crea las cuotas que faltan y devuelve cuántas; relanzarla no duplica. Solo `service_role`. No repite la regla: la recibe de `reglas.ts` |
+| Vista | `consultoria_lineas` gana `cuota_de` y `cuota_periodo` al final, con `security_invoker = on` |
+
+Una cuota copia de su serie el cliente, la compañía, el producto, el mes de producción, el efecto, el €/unidad y la hucha. Lleva `unidades` = `unidades_cuota`, `unidades_nivel` 0, `aportacion` nula y el IRPF de Ajustes del momento en que se programa.
 
 ## Migraciones
 - En `supabase/migraciones/NNNN_titulo.sql`, numeradas desde `0001`, con un comentario arriba que dice qué y por qué, y sus comprobaciones

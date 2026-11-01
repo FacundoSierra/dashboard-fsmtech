@@ -4,6 +4,7 @@
 - Rama: `req-002-comisiones-recurrentes`
 - Requerimiento (qué y por qué): `proyectos/dashboard-fsmtech/requerimientos/req-002-comisiones-recurrentes-de-los-seguros.md` de la bóveda
 - Decisión: [ADR-004](../decisiones/adr-004-las-comisiones-recurrentes-son-filas-programadas-por-delante.md)
+- Estado (2026-11-01): hecha en la rama. La 0002 está ejecutada en `fsmtech` y comprobada (F1). Faltan el push (F2) y convertir el RC con la n.º 6 (F3)
 - Parte de la 0001 (`supabase/migraciones/0001_consultoria.sql`) y de la spec de REQ-001. **«Ha llegado» y «Deshacer» no cambian**
 
 > **Protección de datos, también aquí**: ni nombres de clientes ni números de póliza en el código, las pruebas, los ejemplos, los commits ni este documento. Las cifras de la n.º 6 son los totales del documento de OVB. Ninguna de ellas lleva datos de nadie.
@@ -92,7 +93,7 @@ Copian el mes de producción y el efecto de su herramienta, como trae el documen
   Sin predicado: los NULL son distintos en un índice único (`NULLS DISTINCT` es lo de serie, postgresql.org/docs/current/sql-createindex.html), así que las filas que no son cuotas no chocan entre sí. Un índice único sin predicado se infiere en `on conflict (cuota_de, cuota_periodo)` (postgresql.org/docs/current/sql-insert.html)
 
 ### 4.4 Disparador: `consultoria_proteger_cuota()`
-`before insert or update of cuota_de, cuota_periodo, cliente_id, cuotas_cada_meses`, `for each row`, `set search_path = public`. Los errores son P0001 en español, **con el producto y nunca con el cliente**:
+Se llama `consultoria_herramienta_cuota`. `before insert or update of cuota_de, cuota_periodo, cliente_id, cuotas_cada_meses`, `for each row`, `set search_path = public`. Los errores son P0001 en español, **con el producto y nunca con el cliente**:
 - **Si es una cuota** (`new.cuota_de` no nulo), su herramienta:
   - existe y es del mismo consultor;
   - es del mismo cliente;
@@ -137,7 +138,7 @@ consultoria_programar_cuotas(p_consultor uuid, p_herramienta uuid, p_periodos da
 Con `revoke execute on function … from public, anon, authenticated;` y `grant execute … to service_role;`. El `execute` de `public` no lo quita el `alter default privileges` de la 0001.
 
 ### 4.6 La vista `consultoria_lineas`
-`create or replace view public.consultoria_lineas with (security_invoker = on) as …`, igual que en la 0001, con **`h.cuota_de` y `h.cuota_periodo` al final**. Postgres deja añadir columnas al final, y conserva el dueño y los permisos. Pero el `with (…)` se toma del comando nuevo, así que **`security_invoker = on` se vuelve a escribir** (postgresql.org/docs/current/sql-createview.html, «Notes»). Después, el `revoke all … from public, anon, authenticated, service_role` y el `grant select … to service_role` de la vista, que dejan lo mismo.
+`create or replace view public.consultoria_lineas with (security_invoker = on) as …`, igual que en la 0001, con **`h.cuota_de` y `h.cuota_periodo` al final**. Postgres deja añadir columnas al final, y conserva el dueño y los permisos. Pero el `with (…)` se toma del comando nuevo, así que **`security_invoker = on` se vuelve a escribir** (postgresql.org/docs/current/sql-createview.html, «Notes»). Después, el `revoke all … from public, anon, authenticated` (sin `service_role`, para que el panel no se quede sin la vista ni un instante si el editor no lo ejecuta todo de una vez; cambio del `revisor-migraciones`, `4086c27`) y el `grant select … to service_role` de la vista, que dejan lo mismo.
 
 ### 4.7 Lo que no cambia
 - **Las funciones de «Ha llegado» (`consultoria_liquidar_mes`) y de «Deshacer» (`consultoria_deshacer_liquidacion`)**:
@@ -184,6 +185,20 @@ export type CuotasCadaMeses = 3 | 6;
 export const CUOTAS_CADA_MESES: readonly CuotasCadaMeses[] = [3, 6];
 /** Se guardan las cuotas que se cobran hasta este número de meses después del de hoy */
 export const MESES_DE_CUOTAS_POR_DELANTE = 6;
+/** La página de una serie enseña las que se cobran hasta este número de meses después del de hoy */
+export const MESES_DE_CUOTAS_A_LA_VISTA = 12;
+/** Para los textos: 3 → trimestral/trimestre · 6 → semestral/semestre */
+export const NOMBRE_DE_CADA_MESES: Readonly<Record<CuotasCadaMeses, { serie: string; periodo: string }>>;
+/** El aviso de la regla semestral deducida (`dato_provisional`); exportado para `FormularioFirma` */
+export const AVISO_SEMESTRAL: Aviso;
+/** «julio-septiembre de 2026» */
+export function nombreDelPeriodo(periodo: string, cadaMeses: CuotasCadaMeses): string;
+/** «jul-sep» */
+export function periodoCorto(periodo: string, cadaMeses: CuotasCadaMeses): string;
+/** 1 la del periodo del efecto, 2 la siguiente… */
+export function numeroDeLaCuota(serie: Pick<SerieDeCuotas, "fechaEfecto" | "cuotasCadaMeses">, periodo: string): number;
+/** `desde`: el mes siguiente a la última liquidación (null si no hay); `hasta`: hoy + `MESES_DE_CUOTAS_POR_DELANTE` */
+export function ventanaDeProgramacion(hoy: string, ultimaLiquidacion: string | null): { desde: string | null; hasta: string };
 
 /** El día 1 del trimestre o del semestre natural que contiene la fecha: 2026-05-15 → 2026-04-01 (trimestral) */
 export function periodoNatural(fecha: string, cadaMeses: CuotasCadaMeses): string;
@@ -229,7 +244,7 @@ export function cuotasQueSeCortan<T extends { periodo: string; cobrada: boolean 
   - **sin cuotas, todo sale exactamente igual que hoy**: las pruebas de `apex.test.mjs` no se tocan, y los tipos que reciben `cuotas` lo aceptan opcional (`?? 0`).
 
 ### 5.1 Pruebas: `lib/consultoria/cuotas.test.mjs` (nuevo)
-`node:test`, sin dependencias. `npm test` lo recoge solo, y las 105 de hoy siguen en verde sin cambiar.
+`node:test`, sin dependencias. `npm test` lo recoge solo: las 116 de antes (105 de reglas y APEX) siguen en verde sin cambiar, y `cuotas.test.mjs` añade 34 (150 en total).
 - **Los cuatro trimestres**:
   - del 2026-04-01 al 2026-06-30 (días 1, 15 y 30, el último del mes) → 2026-07-31;
   - julio-septiembre → 2026-10-31;
@@ -265,8 +280,8 @@ cuotasCadaMeses: CuotasCadaMeses | null;  // es una serie
 unidadesCuota: number | null;
 cuotaDe: string | null;                   // es una cuota
 cuotaPeriodo: string | null;
-/** En una cuota, su herramienta, para «Cuota de RC Integral» con su enlace; null en las demás */
-serieDe: { id: string; producto: string } | null;
+/** En una cuota, su herramienta y cada cuánto cobra la serie, para «Cuota de julio-septiembre de 2026 de RC Integral» con su enlace; null en las demás */
+serieDe: { id: string; producto: string; cadaMeses: CuotasCadaMeses } | null;
 
 // HerramientaConAportaciones, dos más
 /** Sus cuotas guardadas, por periodo; vacío si no es una serie */
@@ -302,9 +317,10 @@ export interface CuotaVista {
   esLaFirma: boolean;
 }
 
-// LineaLiquidacion, dos más
+// LineaLiquidacion, tres más
 cuotaDe: string | null;
 cuotaPeriodo: string | null;
+cuotaCadaMeses: CuotasCadaMeses | null;  // para rotular «RC Integral · cuota jul-sep» (`periodoCorto`)
 
 // MesLiquidacion, una más
 cuotas: number;   // el recuento: «1 herramienta y 1 cuota»
@@ -336,14 +352,14 @@ Todas como hasta ahora: `verificarSesion()` fuera del `try` y `unstable_rethrow`
    - `desde`: el mes siguiente a esa liquidación;
    - `hasta`: el mes de hoy más `MESES_DE_CUOTAS_POR_DELANTE`
 3. Llama, por serie con algo que guardar, a `rpc('consultoria_programar_cuotas', { p_consultor, p_herramienta, p_periodos, p_cobros, p_pct_irpf })`. Las listas van como los `uuid[]` de «Ha llegado»: un array de JSON es un array de Postgres
-4. Devuelve `{ programadas, sinProgramar, meses }`
+4. Devuelve `{ programadas, cobros, sinProgramar, avisos }`
 
 | Acción | Qué cambia | Mensajes |
 |---|---|---|
 | **`programarCuotas(herramientaId?: string): Promise<Resultado>`** (nueva) | El ayudante, de una serie o de todas | ok: «Programadas 2 cuotas: octubre de 2026 y enero de 2027.» o «No faltaba ninguna.»; los errores de la función tal cual (P0001/P0002, `conPunto`) |
-| **`guardarFirma`** | Valida `cuotasCadaMeses` (`unoDe` 3 o 6) y `unidadesCuota` (`cantidad` mayor que 0): las dos o ninguna. Además:<br>• solo con `sobre_recibo` o `sobre_saldo`;<br>• ni con `aportacionDe` ni en una cuota;<br>• **una serie nueva lleva 0 u para cobrar**.<br>Al cambiar una que ya tiene unidades para cobrar (el RC), se quedan: es su primera cuota.<br>Después de guardar una serie:<br>• si es nueva, o le cambian `cuotasCadaMeses` o el efecto, borra las cuotas sin cobrar y llama a `programar` de esa serie;<br>• si solo cambia `unidadesCuota`, actualiza las `unidades` de las que no se han cobrado;<br>• si pasa de prevista a otro estado, o al revés, actualiza el de sus cuotas sin cobrar.<br>Una cuota se puede cambiar como cualquier herramienta (las unidades de un trimestre, sus notas), pero no se le pone serie | «Elige cada cuánto cobra: trimestral o semestral.» · «Pon las unidades que cobra cada cuota: tienen que ser mayores que cero.» · «Solo una comisión sobre recibo (o sobre saldo) cobra en cuotas. Si el recibo es mensual, la comisión va anualizada, de una vez: elige “Anualizada”.» · «Una cuota no lleva serie: la serie es la de su herramienta.» · «Una serie nueva no cobra en la firma: cada periodo es su cuota. Deja a 0 las unidades para cobrar.» · ok: «Firma apuntada, con 3 cuotas programadas.» |
-| **`marcarLiquidacion`** | Después de la `rpc`, el ayudante de todas las series | ok: «Liquidación apuntada.», y si se programa alguna, « Programadas N cuotas.». Si falla: «Liquidación apuntada, pero no se han podido programar las próximas cuotas: hazlo desde su herramienta.» |
-| **`anularHerramienta`** | Si es una serie, después de anularla borra sus cuotas sin cobrar con `cuota_periodo > anulada_el` (`.delete().eq('cuota_de', id).is('liquidacion_id', null).gt('cuota_periodo', anuladaEl)`). El extorno, como hoy | ok: «… Se han cortado 2 cuotas sin cobrar.» Si falla el borrado: «Anulada, pero no se han podido cortar sus cuotas: bórralas desde la herramienta.» |
+| **`guardarFirma`** | Valida `cuotasCadaMeses` (`unoDe` 3 o 6) y `unidadesCuota` (`cantidad` mayor que 0): las dos o ninguna. Además:<br>• solo con `sobre_recibo` o `sobre_saldo`;<br>• ni con `aportacionDe` ni en una cuota;<br>• **una serie nueva lleva 0 u para cobrar**.<br>Al cambiar una que ya tiene unidades para cobrar (el RC), se quedan: es su primera cuota.<br>Después de guardar una serie:<br>• si es nueva, o le cambian `cuotasCadaMeses` o el efecto, borra las cuotas sin cobrar y llama a `programar` de esa serie;<br>• si no, pone al día en las que no se han cobrado ni están anuladas las unidades, el estado (prevista o confirmada) y lo que copian de la serie (`COPIADO_DE_LA_SERIE`), salvo el IRPF (decisión 4 de la sección 14).<br>Una cuota se puede cambiar como cualquier herramienta (las unidades de un trimestre, sus notas), pero no se le pone serie | «Elige cada cuánto cobra: trimestral o semestral.» · «Pon las unidades que cobra cada cuota: tienen que ser mayores que cero.» · «Solo una comisión sobre recibo (o sobre saldo) cobra en cuotas. Si el recibo es mensual, la comisión va anualizada, de una vez: elige “Anualizada”.» · «Una cuota no lleva serie: la serie es la de su herramienta.» · «Una serie nueva no cobra en la firma: cada periodo es su cuota. Deja a 0 las unidades para cobrar.» · ok: «Firma apuntada, con 3 cuotas programadas.»; al cambiar una, «Herramienta guardada. Programadas 3 cuotas: octubre de 2026, enero de 2027 y abril de 2027.»; si programar falla, «…, pero no se han podido programar sus cuotas: hazlo desde su herramienta.» |
+| **`marcarLiquidacion`** | Después de la `rpc`, el ayudante de todas las series | ok: «Liquidación apuntada.», y si se programa alguna, « Programadas N cuotas.». Si falla: «Liquidación apuntada, pero no se han podido programar las próximas cuotas: hazlo desde su herramienta.». Si el mes tenía una cuota sin programar: «Ojo: la cuota de … de «…» se cobraría en esta liquidación y no estaba programada. Si llegó en ella, deshazla, programa las cuotas desde su herramienta y vuelve a marcar «Ha llegado»; si no, apúntala a mano.» |
+| **`anularHerramienta`** | Si es una serie, después de anularla borra sus cuotas sin cobrar con `cuota_periodo > anulada_el` (`.delete().eq('cuota_de', id).is('liquidacion_id', null).gt('cuota_periodo', anuladaEl)`). El extorno, como hoy | ok: «… Se han cortado 2 cuotas sin cobrar.» Si falla el borrado, se añade: «Pero no se han podido cortar sus cuotas sin cobrar: bórralas desde la herramienta.» |
 | **`borrarHerramienta`** | Si es una serie: con alguna cuota cobrada, no se borra; si no, borra antes sus cuotas y después ella | «Tiene cuotas cobradas: anúlala.» · `consultoria_herramientas_cuota_fk` → «Tiene cuotas: bórralas antes.» (hoy un `23503` dice «Tiene un extorno»: hay que distinguirlo por la restricción) |
 | `deshacerLiquidacion`, el resto | Nada | — |
 
@@ -390,6 +406,15 @@ Con las reglas de aspecto del `CLAUDE.md`:
 | **Producción** (`TablaProduccion`) | Sin las cuotas. La serie lleva debajo del producto «Recurrente · trimestral», en texto |
 | **La ficha del cliente** (`TarjetaHerramienta`) | La serie, con «Recurrente · trimestral · 2 cuotas cobradas». Las cuotas no salen sueltas |
 | **`FaltaMigracion`** | Sabe decir «ejecuta la 0002» |
+
+### Lo que ha salido distinto de lo escrito (`frontend`, 2026-11-01)
+- **El recuento de cada mes enseña también las unidades, en todos los meses** («1 herramienta · 90,00 u»), en Liquidaciones y en el Resumen, no solo cuando hay cuotas. Como la línea de la casilla de OVB
+- **En la lista de cuotas, la fila de la propia firma no es un enlace** (es la misma página); las cobradas llevan además «Ver la liquidación de …»
+- **«Recurrente · trimestral» va debajo del dato «Tipo de comisión»** de la página de la herramienta, no en la cabecera; además hay un dato «Unidades por cuota», y en una serie la comisión se llama «Comisión de la firma»
+- **En una serie, el cobro no se cambia a mano**: cada periodo es su cuota y la fecha la fija la regla. La pregunta de la APEX no sale en una serie ni en una cuota
+- **El icono de los mensajes `ok`** lo elige `MensajeHecho.tsx` leyendo el texto con una expresión regular (`pero no se ha`, `no se programa(n) sola(s)`, `apúntala a mano`, `Ojo:`). Si las acciones cambian esas frases, hay que tocarla. Mejor sería, más adelante, que `Resultado` trajera el aviso aparte
+- **`HaLlegado.tsx`**: `min-w-0` en los `fieldset` (un nombre largo sacaba el importe de la hoja a 390 px, y ya pasaba antes) y la línea del producto parte en vez de truncarse (la de una cuota, «cuota jul-sep · 1,52 u», perdía las unidades). Lo mismo en `DetalleLiquidacion.tsx`
+- `AVISO_SEMESTRAL` se exporta de `reglas.ts` para que lo use `FormularioFirma.tsx` al cambiar una herramienta ya cobrada
 
 ## 8. Cómo entran el RC y la n.º 6 (después de publicar)
 
@@ -442,7 +467,7 @@ Horas de agente: unas 14. Con el paralelo, unas 8 de reloj. De Facundo, unos 45 
 | 1 | `backend` | La 0002 de la sección 4, con sus comprobaciones y el resultado esperado de cada una | `supabase/migraciones/0002_cuotas_recurrentes.sql` | — | • Ejecutarla dos veces deja lo mismo<br>• Ningún dato<br>• Ninguna línea de `liquidar_mes` ni de `deshacer` cambia<br>• Ningún `check` puede dar NULL con datos válidos o inválidos |
 | 2 | `revisor-migraciones` | Revisa la 0002 contra la base con datos reales (solo lee) | la 0002 | 1 | Visto bueno o cambios, sin ejecutar nada |
 | **F1** | Facundo | Ejecuta la 0002 en el editor SQL de `fsmtech` y las comprobaciones de 4.8. **Puede ir ya**: el código de hoy sigue funcionando | editor SQL | 2 | • Los resultados esperados de 4.8<br>• `/consultoria` en producción igual que antes, con octubre como ahora |
-| 3 | `backend` | Lo de la sección 5 y sus pruebas (`cuotas.test.mjs`), y lo de la 6 | `lib/consultoria/{reglas,tipos,validar,consultas,acciones}.ts`, `lib/consultoria/cuotas.test.mjs`, `scripts/consultoria-{firma,comun}.mjs` | 1 (los nombres). Para ver datos en local, F1 | • `npm test`: las 105 de hoy y las nuevas, en verde, sin tocar las de hoy<br>• `npx tsc --noEmit` y `npm run lint` limpios<br>• `grep -r SUPABASE_SECRET_KEY app components lib` solo da `lib/base/cliente.ts`<br>• `consultoria:firma` en vista previa con `--compania PLU --producto "RC Integral" --cuotas trimestral --unidades-cuota 1.52 --unidades-nivel 37 --efecto 2027-04-01 …`: primera cuota en 2027-07, sin `--guardar` |
+| 3 | `backend` | Lo de la sección 5 y sus pruebas (`cuotas.test.mjs`), y lo de la 6 | `lib/consultoria/{reglas,tipos,validar,consultas,acciones}.ts`, `lib/consultoria/cuotas.test.mjs`, `scripts/consultoria-{firma,comun}.mjs` | 1 (los nombres). Para ver datos en local, F1 | • `npm test`: las 116 de antes y las 34 nuevas, en verde, sin tocar las de antes<br>• `npx tsc --noEmit` y `npm run lint` limpios<br>• `grep -r SUPABASE_SECRET_KEY app components lib` solo da `lib/base/cliente.ts`<br>• `consultoria:firma` en vista previa con `--compania PLU --producto "RC Integral" --cuotas trimestral --unidades-cuota 1.52 --unidades-nivel 37 --efecto 2027-04-01 …`: primera cuota en 2027-07, sin `--guardar` |
 | 4 | `frontend` | La sección 7. Puede empezar con los tipos de 6.1 mientras el `backend` acaba | `components/consultoria/{FichaHerramienta,FormularioFirma,AnularHerramienta,HaLlegado,DetalleLiquidacion,TablaProduccion,TarjetaHerramienta,FaltaMigracion,formato}.ts(x)`, una `InsigniaCuota.tsx`, `app/(panel)/consultoria/produccion/[id]/page.tsx` (`hoy` a `herramienta()`) | 3 para compilar | • `npm run build` limpio<br>• Con la base real, tras F1, en `npm run dev` y **sin guardar nada**: la página del RC ofrece «¿Cobra cada periodo?»; Producción no cambia; octubre, como hoy<br>• A 390 px nada ensancha la página, también la lista de cuotas y «Ha llegado»<br>• Modo oscuro legible<br>• La lista de qué mirar, para Facundo |
 | 5 | Sesión principal | `npm test`, `tsc`, lint y build. La skill `web-design-guidelines` sobre lo nuevo. Revisa que ninguna acción nueva escriba sin `verificarSesion()` fuera del `try` | — | 3 y 4 | Todo lo anterior. Ningún nombre de cliente en código, pruebas ni mensajes de error |
 | 6 | `guardian-docs` | Pone al día:<br>• `CLAUDE.md`: el comando de la firma con `--cuotas` y `--unidades-cuota`, y en Estructura, `cuotas.test.mjs`;<br>• `docs/base-de-datos.md`: la 0002;<br>• la consultoría en `docs/arquitectura.md`;<br>• la sección 11 de la spec de REQ-001: la «tarea 4», el recibo con `--repetida`, la sustituye REQ-002;<br>• y la nota del proyecto | docs del panel | 5 | Nada contradice al código |

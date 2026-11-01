@@ -290,7 +290,7 @@ Ahora que las dos cosas están en el panel, lo mejor más adelante es que Econom
   2. lo que traiga y no esté en la base, como firma con su cobro en octubre; los cargos y abonos nuevos, con «Añadir cargo o abono»;
   3. «Ha llegado»;
   4. la casilla de octubre de OVB, con `— cobrado AAAA-MM-DD`.
-- **Tarea 4, el recibo de septiembre del RC Integral** (1,52 u para cobrar y 0 para el nivel, sin hucha): no necesita código. «Nueva firma» ya enseña «Unidades para cobrar» y «Unidades para el nivel» en una comisión sobre recibo como esta, y `consultoria:firma` tiene `--unidades 1.52 --unidades-nivel 0`. Se apunta con la n.º 6, en el sitio donde se marque. Octubre pasaría a esperar unos 127,43 €
+- **Tarea 4, el recibo de septiembre del RC Integral**: la sustituye el [REQ-002](req-002-comisiones-recurrentes.md) (2026-11-01). Ya no se apunta como una firma suelta con `--repetida`: el RC pasa a ser una serie trimestral (1,52 u por cuota, 0 para el nivel, sin hucha) y la cuota de julio-septiembre entra en la n.º 6, que sube a 140,28 €. El orden: primero convertir el RC (sección 8 de esa spec) y después «Ha llegado»
 - **Tareas 1 a 3, después y solo en el panel** (13.2): ninguna cambia el dinero de la n.º 6 y, hechas antes del cambio, harían que la comparación de la copia no cuadrara con FSM-Finance. FSM-Finance no recibe ninguna
 
 ## 12. El plan, por pasos y por agente

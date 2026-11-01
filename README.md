@@ -32,7 +32,7 @@ La sección Consultoría (`/consultoria`) necesita además `SUPABASE_URL` y `SUP
 
 ## Base de datos
 
-Un proyecto de Supabase propio, `fsmtech` (West EU, Irlanda), cerrado a todo salvo al servidor del panel. Sus migraciones están en `supabase/migraciones/`, empezando por `0001_consultoria.sql`. **Las ejecuta Facundo** en el editor SQL de ese proyecto, después de que las revise el `revisor-migraciones`; nunca se ejecutan desde el código. Qué hay y por qué: [docs/base-de-datos.md](docs/base-de-datos.md).
+Un proyecto de Supabase propio, `fsmtech` (West EU, Irlanda), cerrado a todo salvo al servidor del panel. Sus migraciones están en `supabase/migraciones/`, empezando por `0001_consultoria.sql` (la `0002_cuotas_recurrentes.sql` también está ejecutada). **Las ejecuta Facundo** en el editor SQL de ese proyecto, después de que las revise el `revisor-migraciones`; nunca se ejecutan desde el código. Qué hay y por qué: [docs/base-de-datos.md](docs/base-de-datos.md).
 
 ## Instalar en el móvil
 - **Android (Chrome):** menú ⋮ → "Instalar app". Aparece en "Compartir" como destino para enviar textos y enlaces al inbox.
@@ -42,3 +42,4 @@ Arquitectura, escritura, caché y seguridad: [docs/arquitectura.md](docs/arquite
 Vigilancia, avisos e informes, y cómo ponerlos en marcha: [docs/vigilancia.md](docs/vigilancia.md).
 Economía y formato de las cuotas: [docs/economia.md](docs/economia.md).
 La consultoría en el panel: [docs/specs/req-001-consultoria-en-el-panel.md](docs/specs/req-001-consultoria-en-el-panel.md).
+Las comisiones recurrentes de los seguros: [docs/specs/req-002-comisiones-recurrentes.md](docs/specs/req-002-comisiones-recurrentes.md).
