@@ -3,9 +3,11 @@
  * el efecto, el cobro estimado, las unidades, el €/unidad del nivel, la reserva de cancelación (la
  * hucha) y los importes; de cada liquidación, el IRPF sobre el total y el importe, y la cuenta de
  * comisiones con su saldo (ADR-005); de la hucha, el saldo y el reparto de un extorno (ADR-004); y
- * del cuadro de comisiones de OVB (ADR-006), lo que dice de cada producto. Lo de las firmas y los
+ * del cuadro de comisiones de OVB (ADR-006), lo que dice de cada producto; y de las comisiones
+ * recurrentes (REQ-002 del panel), qué cuotas tiene cada serie y cuándo se cobran. Lo de las firmas y los
  * extornos son **propuestas**: quien llama las enseña y se pueden cambiar a mano antes de guardar.
- * La especificación es `docs/specs/req-001-consultoria.md`, sección 3.
+ * La especificación es `docs/specs/req-001-consultoria.md`, sección 3; la de las cuotas, la
+ * `docs/specs/req-002-comisiones-recurrentes.md` del panel, sección 5.
  *
  * Lo usan igual la pantalla (en el navegador, al teclear), las acciones del servidor y los scripts
  * (`import … from "../src/lib/consultoria/reglas.ts"`, sin compilar). Por eso:
@@ -159,6 +161,11 @@ export interface EntradaFirma {
   propio?: boolean;
   /** Obligatorio en la práctica para «sin calendario»; en las demás, fuerza el efecto */
   fechaEfecto?: string;
+  /**
+   * Una comisión recurrente (REQ-002): cada cuántos meses cobra. Con ella, el cobro es el de su
+   * primera cuota (`cobroDeLaCuota`), no el del producto. Sin decir (o null), como siempre
+   */
+  cuotasCadaMeses?: CuotasCadaMeses | null;
 }
 
 export type CodigoAviso =
@@ -177,7 +184,8 @@ export type CodigoAviso =
   | "falta_duracion" // el producto necesita la duración para proponer las unidades
   | "duracion_maxima" // la duración pasa de lo que cuenta el cuadro: se proponen las del máximo
   | "reserva_por_tramo" // contrato propio o grande: la reserva sube
-  | "dato_provisional"; // algo del cuadro (o de cómo se aplica) sin confirmar
+  | "dato_provisional" // algo del cuadro (o de cómo se aplica) sin confirmar
+  | "cuotas_sin_programar"; // una cuota que se cobraría antes de la última liquidación que llegó: a mano
 
 export interface Aviso {
   codigo: CodigoAviso;
@@ -945,22 +953,30 @@ export function mesesDeLiquidacion(entrada: {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Lo que hace falta de una línea (o de una herramienta) para contarla: si está prevista y de qué
- * herramienta es aportación extraordinaria (`aportacionDe`, la columna `aportacion_de` de la 0016)
+ * Lo que hace falta de una línea (o de una herramienta) para contarla: si está prevista, de qué
+ * herramienta es aportación extraordinaria (`aportacionDe`, la columna `aportacion_de` de la 0016) y
+ * de qué herramienta es cuota (`cuotaDe`, la columna `cuota_de` de la 0002 del panel)
  */
 export interface LineaParaContar {
   prevista: boolean;
   /** Nulo o sin decir: es una herramienta. Una aportación única sin enlace (las de antes) también lo es */
   aportacionDe?: string | null;
+  /** Nulo o sin decir: no es una cuota. Una cuota no es una herramienta más: es la comisión de un periodo de la suya */
+  cuotaDe?: string | null;
 }
 
-/** El recuento de un mes: «4 herramientas y 1 APEX · 2 previstas» */
+/** El recuento de un mes: «4 herramientas y 1 APEX · 2 previstas», «1 herramienta y 1 cuota» */
 export interface RecuentoDelMes {
-  /** Las líneas que no son APEX (una APEX sin enlace cuenta aquí, como hasta ahora) */
+  /** Las líneas que no son APEX ni cuotas (una APEX sin enlace cuenta aquí, como hasta ahora) */
   herramientas: number;
   /** Las aportaciones extraordinarias enlazadas a su herramienta: con ella son una sola herramienta */
   apex: number;
-  /** Todas las previstas, **también las APEX**: un mes con una herramienta y su APEX previstas dice 2 */
+  /**
+   * Las cuotas de una comisión recurrente (REQ-002). **Solo está si hay alguna**: sin cuotas, el
+   * recuento es exactamente el de antes. Quien lo lea, con `?? 0`
+   */
+  cuotas?: number;
+  /** Todas las previstas, **también las APEX y las cuotas**: un mes con una herramienta y su APEX previstas dice 2 */
   previstas: number;
 }
 
@@ -969,20 +985,29 @@ export function esApex(h: { aportacionDe?: string | null }): boolean {
   return h.aportacionDe !== null && h.aportacionDe !== undefined;
 }
 
+/** Una cuota es la que cuelga de su serie (`cuotaDe` no nulo) */
+export function esCuota(h: { cuotaDe?: string | null }): boolean {
+  return h.cuotaDe !== null && h.cuotaDe !== undefined;
+}
+
 /**
- * Cuántas herramientas, APEX y previstas hay en esas líneas. Donde se habla de comisiones son líneas
- * distintas (como las paga OVB); donde se habla de herramientas, la APEX va con la suya
+ * Cuántas herramientas, APEX, cuotas y previstas hay en esas líneas. Donde se habla de comisiones son
+ * líneas distintas (como las paga OVB); donde se habla de herramientas, la APEX va con la suya y la
+ * cuota se cuenta aparte. La herramienta que cobra ella misma su primera cuota (el RC de antes) es
+ * una herramienta. Sin cuotas, sale lo mismo que antes, sin `cuotas`
  */
 export function recuentoDelMes(lineas: LineaParaContar[]): RecuentoDelMes {
   let herramientas = 0;
   let apex = 0;
+  let cuotas = 0;
   let previstas = 0;
   for (const linea of lineas) {
-    if (esApex(linea)) apex++;
+    if (esCuota(linea)) cuotas++;
+    else if (esApex(linea)) apex++;
     else herramientas++;
     if (linea.prevista) previstas++;
   }
-  return { herramientas, apex, previstas };
+  return cuotas > 0 ? { herramientas, apex, cuotas, previstas } : { herramientas, apex, previstas };
 }
 
 /** `1 herramienta`, `4 herramientas` */
@@ -991,20 +1016,204 @@ function cuantas(n: number, una: string, varias: string): string {
 }
 
 /**
- * «4 herramientas y 1 APEX», «1 herramienta», «2 APEX» o «sin herramientas». Sin APEX, sin «y 0
- * APEX»; «APEX» no cambia en plural
+ * «4 herramientas y 1 APEX», «1 herramienta y 1 cuota», «4 herramientas, 1 APEX y 2 cuotas», «1
+ * herramienta», «2 APEX», «2 cuotas» o «sin herramientas». Sin APEX ni cuotas, sin «y 0 APEX»;
+ * «APEX» no cambia en plural
  */
-export function textoDeHerramientas(recuento: Pick<RecuentoDelMes, "herramientas" | "apex">): string {
+export function textoDeHerramientas(recuento: Pick<RecuentoDelMes, "herramientas" | "apex" | "cuotas">): string {
   const partes: string[] = [];
   if (recuento.herramientas > 0) partes.push(cuantas(recuento.herramientas, "herramienta", "herramientas"));
   if (recuento.apex > 0) partes.push(`${recuento.apex} APEX`);
-  return partes.length ? partes.join(" y ") : "sin herramientas";
+  const cuotas = recuento.cuotas ?? 0;
+  if (cuotas > 0) partes.push(cuantas(cuotas, "cuota", "cuotas"));
+  if (partes.length === 0) return "sin herramientas";
+  return partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
 }
 
 /** El recuento para las pantallas: «4 herramientas y 1 APEX · 2 previstas»; sin previstas, solo lo primero */
 export function textoDelRecuento(recuento: RecuentoDelMes): string {
   const herramientas = textoDeHerramientas(recuento);
   return recuento.previstas > 0 ? `${herramientas} · ${cuantas(recuento.previstas, "prevista", "previstas")}` : herramientas;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Comisiones recurrentes: las cuotas de una serie (REQ-002; ADR-004 del panel)
+// ---------------------------------------------------------------------------------------------
+//
+// Un seguro que se cobra por recibo trimestral o semestral (el RC Integral) se apunta una vez, como
+// **serie** (`cuotas_cada_meses` y `unidades_cuota`), y cada **cuota** es una fila más, colgada de su
+// herramienta (`cuota_de`) y con el día 1 de su periodo natural (`cuota_periodo`). La regla de
+// Facundo (2026-11-01): cada periodo natural, empezando por el que contiene el efecto, se cobra **el
+// mes siguiente a su último mes** (abril-junio en julio; octubre-diciembre en enero). La semestral
+// está deducida y se avisa. Los recibos mensuales no son recurrentes: van anualizados, de una vez.
+// La fila la arma `consultoria_programar_cuotas` de la 0002, que no repite la regla: la recibe de aquí.
+
+/** Cada cuántos meses cobra una comisión recurrente: trimestral o semestral. Los recibos mensuales no: van anualizados, de una vez */
+export type CuotasCadaMeses = 3 | 6;
+export const CUOTAS_CADA_MESES: readonly CuotasCadaMeses[] = [3, 6];
+/** Se guardan las cuotas que se cobran hasta este número de meses después del de hoy */
+export const MESES_DE_CUOTAS_POR_DELANTE = 6;
+/** La página de una serie enseña las que se cobran hasta este número de meses después del de hoy */
+export const MESES_DE_CUOTAS_A_LA_VISTA = 12;
+
+/** Para los textos: «trimestral» y «trimestre»; «semestral» y «semestre» */
+export const NOMBRE_DE_CADA_MESES: Readonly<Record<CuotasCadaMeses, { serie: string; periodo: string }>> = {
+  3: { serie: "trimestral", periodo: "trimestre" },
+  6: { serie: "semestral", periodo: "semestre" },
+};
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** La regla de los semestrales no se ha visto aún en una liquidación (Facundo, 2026-11-01) */
+const AVISO_SEMESTRAL: Aviso = {
+  codigo: "dato_provisional",
+  texto:
+    "Los semestrales se cobran el mes siguiente a su semestre (enero-junio en julio y julio-diciembre en enero): " +
+    "deducido de los trimestrales y sin verlo aún en una liquidación. Compruébalo con la primera que llegue.",
+};
+
+export interface SerieDeCuotas {
+  fechaEfecto: string;
+  cuotasCadaMeses: CuotasCadaMeses;
+  /** La herramienta cobra ella misma la cuota de su primer periodo (`unidades > 0`): la del RC de antes */
+  laFirmaCobraLaPrimera: boolean;
+}
+
+export interface CuotaDeLaSerie {
+  /** 1 = la del periodo del efecto */
+  numero: number;
+  /** El día 1 del periodo */
+  periodo: string;
+  /** El último día del mes de cobro */
+  fechaCobro: string;
+}
+
+/** 3 o 6; otra cosa es un error de programación (quien llama valida antes) */
+function comoCadaMeses(cadaMeses: number): CuotasCadaMeses {
+  if (cadaMeses !== 3 && cadaMeses !== 6) {
+    throw new RangeError(`Cada cuántos meses no válido: «${String(cadaMeses)}». Se espera 3 (trimestral) o 6 (semestral).`);
+  }
+  return cadaMeses;
+}
+
+/** El día 1 del trimestre o del semestre natural que contiene la fecha: 2026-05-15 → 2026-04-01 (trimestral) */
+export function periodoNatural(fecha: string, cadaMeses: CuotasCadaMeses): string {
+  const cada = comoCadaMeses(cadaMeses);
+  const [anio, mes] = partes(fecha);
+  return aIso(anio, Math.floor((mes - 1) / cada) * cada + 1, 1);
+}
+
+/**
+ * La regla de Facundo (2026-11-01): el último día del mes siguiente al último mes del periodo.
+ * 2026-04-01 → 2026-07-31; 2026-10-01 → 2027-01-31. Una fecha de dentro del periodo vale igual
+ */
+export function cobroDeLaCuota(periodo: string, cadaMeses: CuotasCadaMeses): string {
+  return ultimoDiaDelMes(mesMas(periodoNatural(periodo, cadaMeses), cadaMeses));
+}
+
+/** «julio-septiembre de 2026»; un semestre, «enero-junio de 2027». Como lo escribe la base en sus mensajes */
+export function nombreDelPeriodo(periodo: string, cadaMeses: CuotasCadaMeses): string {
+  const [anio, mes] = partes(periodoNatural(periodo, cadaMeses));
+  return `${MESES[mes - 1]}-${MESES[mes + cadaMeses - 2]} de ${anio}`;
+}
+
+/** «jul-sep»: para la línea de una cuota («RC Integral · cuota jul-sep») */
+export function periodoCorto(periodo: string, cadaMeses: CuotasCadaMeses): string {
+  const [, mes] = partes(periodoNatural(periodo, cadaMeses));
+  return `${MESES_CORTOS[mes - 1]}-${MESES_CORTOS[mes + cadaMeses - 2]}`;
+}
+
+/** El número de la cuota de ese periodo en su serie: 1 la del efecto, 2 la siguiente… (0 o menos, antes del efecto) */
+export function numeroDeLaCuota(serie: Pick<SerieDeCuotas, "fechaEfecto" | "cuotasCadaMeses">, periodo: string): number {
+  const cada = comoCadaMeses(serie.cuotasCadaMeses);
+  const meses = mesesEntre(periodoNatural(serie.fechaEfecto, cada), periodoNatural(periodo, cada));
+  return Math.floor(meses / cada) + 1;
+}
+
+/** Las de la serie, de la primera (la del periodo del efecto) a la última que se cobra hasta `hasta` (un mes, incluido) */
+export function cuotasDeLaSerie(serie: SerieDeCuotas, hasta: string): CuotaDeLaSerie[] {
+  const cada = comoCadaMeses(serie.cuotasCadaMeses);
+  const tope = primerDiaDelMes(hasta);
+  const cuotas: CuotaDeLaSerie[] = [];
+  for (let periodo = periodoNatural(serie.fechaEfecto, cada), numero = 1; ; periodo = mesMas(periodo, cada), numero++) {
+    const fechaCobro = cobroDeLaCuota(periodo, cada);
+    if (primerDiaDelMes(fechaCobro) > tope) return cuotas;
+    cuotas.push({ numero, periodo, fechaCobro });
+  }
+}
+
+/**
+ * Desde y hasta qué mes se programan cuotas: `desde`, el mes siguiente a la última liquidación que
+ * llegó (null si no ha llegado ninguna); `hasta`, el de hoy más `MESES_DE_CUOTAS_POR_DELANTE`
+ */
+export function ventanaDeProgramacion(hoy: string, ultimaLiquidacion: string | null): { desde: string | null; hasta: string } {
+  return {
+    desde: ultimaLiquidacion ? mesMas(ultimaLiquidacion, 1) : null,
+    hasta: mesMas(hoy, MESES_DE_CUOTAS_POR_DELANTE),
+  };
+}
+
+/** «abril-junio de 2026 y julio-septiembre de 2026» */
+function enLista(textos: string[]): string {
+  return textos.length <= 1 ? (textos[0] ?? "") : `${textos.slice(0, -1).join(", ")} y ${textos[textos.length - 1]}`;
+}
+
+/**
+ * Las que hay que guardar: las de la serie hasta `hasta` que no están en `guardadas` (sus
+ * `cuota_periodo`), sin la de la propia firma si la cobra ella. Las que se cobrarían antes de
+ * `desde` (el mes siguiente a la última liquidación que llegó) no se guardan: van en `sinProgramar`,
+ * con el aviso `cuotas_sin_programar`, porque la base no deja programar en un mes ya liquidado. Con 6
+ * meses (semestral), el aviso `dato_provisional` de la regla deducida
+ */
+export function cuotasQueFaltan(
+  serie: SerieDeCuotas,
+  opciones: { desde: string | null; hasta: string; guardadas: string[] },
+): { cuotas: CuotaDeLaSerie[]; sinProgramar: CuotaDeLaSerie[]; avisos: Aviso[] } {
+  const cada = comoCadaMeses(serie.cuotasCadaMeses);
+  const guardadas = new Set(opciones.guardadas.map((periodo) => primerDiaDelMes(periodo)));
+  const desde = opciones.desde === null ? null : primerDiaDelMes(opciones.desde);
+  const cuotas: CuotaDeLaSerie[] = [];
+  const sinProgramar: CuotaDeLaSerie[] = [];
+  for (const cuota of cuotasDeLaSerie(serie, opciones.hasta)) {
+    if (cuota.numero === 1 && serie.laFirmaCobraLaPrimera) continue;
+    if (guardadas.has(cuota.periodo)) continue;
+    if (desde !== null && primerDiaDelMes(cuota.fechaCobro) < desde) sinProgramar.push(cuota);
+    else cuotas.push(cuota);
+  }
+
+  const avisos: Aviso[] = [];
+  if (sinProgramar.length > 0 && desde !== null) {
+    const hastaLaUltima = nombreDelMes(mesMas(desde, -1));
+    const periodos = enLista(sinProgramar.map((c) => nombreDelPeriodo(c.periodo, cada)));
+    const cobros = enLista(sinProgramar.map((c) => nombreDelMes(c.fechaCobro)));
+    // El orden bueno es apuntar (o convertir) la serie antes de marcar «Ha llegado» de ese mes
+    avisos.push({
+      codigo: "cuotas_sin_programar",
+      texto:
+        sinProgramar.length === 1
+          ? `La cuota de ${periodos} se cobraría en ${cobros}, y las liquidaciones hasta ${hastaLaUltima} ya han llegado: no se programa sola. ` +
+            "Si llegó en esa liquidación, deshazla, programa las cuotas de la serie y vuelve a marcar «Ha llegado»; si no, apúntala a mano."
+          : `Las cuotas de ${periodos} se cobrarían en ${cobros}, y las liquidaciones hasta ${hastaLaUltima} ya han llegado: no se programan solas. ` +
+            "Si llegaron en esas liquidaciones, deshazlas, programa las cuotas de la serie y vuelve a marcar «Ha llegado»; si no, apúntalas a mano.",
+    });
+  }
+  if (cada === 6) avisos.push(AVISO_SEMESTRAL);
+  return { cuotas, sinProgramar, avisos };
+}
+
+/**
+ * Al anular el día `anuladaEl`: las que se cortan, sin cobrar y de un periodo que **empieza después**
+ * (Facundo, 2026-11-01, provisional: la del periodo en que cae la anulación se queda pendiente, y en
+ * la liquidación se da por cobrada o se quita). Si un día resulta que esa no llega nunca, aquí y en
+ * el borrado de `anularHerramienta` pasa a «empieza el día de la anulación o después» (`>=` sobre el
+ * periodo que la contiene). Una cobrada no se corta nunca
+ */
+export function cuotasQueSeCortan<T extends { periodo: string; cobrada: boolean }>(cuotas: T[], anuladaEl: string): T[] {
+  partes(anuladaEl);
+  return cuotas.filter((cuota) => {
+    partes(cuota.periodo);
+    return !cuota.cobrada && cuota.periodo > anuladaEl;
+  });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1330,14 +1539,31 @@ function sinRepetir(avisos: Aviso[]): Aviso[] {
  * reserva del cuadro, IRPF de Ajustes, importes, tipo de comisión y versión del cuadro.
  * Si se dan las unidades, mandan; las de nivel, si no se dan, solo se proponen cuando tampoco se
  * dieron las unidades. Sin unidades (null), los importes salen a 0.
+ *
+ * **Con `cuotasCadaMeses`** (una comisión recurrente, REQ-002), el cobro es el de su primera cuota:
+ * el mes siguiente al final del periodo natural que contiene el efecto (efecto el 2026-04-01
+ * trimestral: julio, no mayo). El aviso del cobro sin confirmar de su compañía no sale, porque la
+ * regla de las cuotas es de Facundo; en una semestral, el de la regla deducida
  */
 export function proponerFirma(entrada: EntradaFirma, contexto: ContextoReglas): Propuesta {
   const cuadro = cuadroDe(contexto.cuadro);
   const producto = entrada.producto ?? "";
   const periodicidad = entrada.periodicidad ?? "mensual";
   const delCuadro = productoDelCuadro(entrada.compania, producto, periodicidad, cuadro);
+  const cuotasCadaMeses =
+    entrada.cuotasCadaMeses === undefined || entrada.cuotasCadaMeses === null ? null : comoCadaMeses(entrada.cuotasCadaMeses);
 
-  const fechas = fechasDeLaFirma(entrada, contexto);
+  const deLaFirma = fechasDeLaFirma(entrada, contexto);
+  const fechas = cuotasCadaMeses
+    ? {
+        ...deLaFirma,
+        fechaCobro: cobroDeLaCuota(periodoNatural(deLaFirma.fechaEfecto, cuotasCadaMeses), cuotasCadaMeses),
+        avisos: [
+          ...deLaFirma.avisos.filter((a) => a.codigo !== "cobro_sin_confirmar"),
+          ...(cuotasCadaMeses === 6 ? [AVISO_SEMESTRAL] : []),
+        ],
+      }
+    : deLaFirma;
   const valor = valorUnidadDelMes(fechas.mesProduccion, contexto);
 
   const propuestas = unidadesPropuestas(
