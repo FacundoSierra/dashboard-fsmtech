@@ -1064,8 +1064,8 @@ export const NOMBRE_DE_CADA_MESES: Readonly<Record<CuotasCadaMeses, { serie: str
 
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-/** La regla de los semestrales no se ha visto aún en una liquidación (Facundo, 2026-11-01) */
-const AVISO_SEMESTRAL: Aviso = {
+/** La regla de los semestrales no se ha visto aún en una liquidación (Facundo, 2026-11-01). La pantalla de una herramienta cobrada también lo enseña */
+export const AVISO_SEMESTRAL: Aviso = {
   codigo: "dato_provisional",
   texto:
     "Los semestrales se cobran el mes siguiente a su semestre (enero-junio en julio y julio-diciembre en enero): " +

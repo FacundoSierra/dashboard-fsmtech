@@ -5,8 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
 import { guardarFirma } from '@/lib/consultoria/acciones';
 import {
+  AVISO_SEMESTRAL,
+  NOMBRE_DE_CADA_MESES,
   calcularImportes,
+  cobroDeLaCuota,
+  cuotasDeLaSerie,
   datosDeCompania,
+  esApex,
+  esCuota,
+  nombreDelPeriodo,
   primerDiaDelMes,
   productoDelCuadro,
   proponerFirma,
@@ -15,6 +22,7 @@ import {
   valorUnidadDelMes,
   type Aviso,
   type ContextoReglas,
+  type CuotasCadaMeses,
   type DatosCompania,
   type EntradaFirma,
   type EstadoHerramienta,
@@ -41,6 +49,8 @@ import {
   leerNumero,
   nombreDeCompania,
   pct,
+  periodoSinAnio,
+  soloElMes,
   unidades as textoUnidades,
   type MadrePosible,
 } from './formato';
@@ -101,6 +111,34 @@ function mesesEntre(desde: string, hasta: string, incluir: string): string[] {
   return lista.sort();
 }
 
+/** «¿Cobra cada periodo?» (REQ-002): las opciones van como texto; la serie, como 3 o 6 */
+type CadaElegido = 'no' | '3' | '6';
+const OPCIONES_DE_CADA: { valor: CadaElegido; etiqueta: string }[] = [
+  { valor: 'no', etiqueta: 'No' },
+  { valor: '3', etiqueta: 'Trimestral' },
+  { valor: '6', etiqueta: 'Semestral' },
+];
+const deCada = (valor: CadaElegido): CuotasCadaMeses | null => (valor === '3' ? 3 : valor === '6' ? 6 : null);
+const aCada = (cada: CuotasCadaMeses | null): CadaElegido => (cada === 3 ? '3' : cada === 6 ? '6' : 'no');
+
+/**
+ * La primera cuota de una serie y las tres siguientes (dos en una semestral), con `cuotasDeLaSerie`:
+ * «julio de 2026 (abril-junio)» y «Después, cada trimestre: octubre, enero, abril…». Si la cobró (o
+ * la cobra) la propia firma, su cobro es el de la firma
+ */
+function textoDeLasCuotas(fechaEfecto: string, cada: CuotasCadaMeses, laFirma: { cobro: string } | null) {
+  const hasta = sumarMeses(cobroDeLaCuota(fechaEfecto, cada), cada * 3);
+  const [primera, ...siguientes] = cuotasDeLaSerie({ fechaEfecto, cuotasCadaMeses: cada, laFirmaCobraLaPrimera: laFirma !== null }, hasta);
+  if (!primera) return null;
+  const periodo = periodoSinAnio(primera.periodo, cada);
+  const meses = siguientes.slice(0, cada === 3 ? 3 : 2).map((c) => soloElMes(c.fechaCobro));
+  return {
+    primera: `${nombreDelMes(laFirma?.cobro ?? primera.fechaCobro)} (${periodo}${laFirma ? ', esta firma' : ''})`,
+    despues: `Después, cada ${NOMBRE_DE_CADA_MESES[cada].periodo}: ${meses.join(', ')}…`,
+    periodo,
+  };
+}
+
 interface Props {
   contexto: ContextoReglas;
   clientes: ClienteDeLaLista[];
@@ -113,8 +151,11 @@ interface Props {
   herramienta?: HerramientaConAportaciones;
   /** Las herramientas de las que puede colgar una APEX (`madresPosibles`), de todos los clientes */
   madres?: MadrePosible[];
-  /** Al cambiar una: cuando se guarda o se cancela */
-  alTerminar?: () => void;
+  /**
+   * Al cambiar una: cuando se guarda (con lo que dice la acción, que en una serie puede avisar aunque
+   * se haya guardado) o se cancela (sin nada)
+   */
+  alTerminar?: (mensaje?: string) => void;
 }
 
 /**
@@ -128,8 +169,13 @@ interface Props {
  * herramienta que ya tiene?» (spec 11.3): con una elegida, la compañía y el producto son los suyos, el
  * pago empieza siendo el suyo y la aportación es única; lo demás se calcula igual.
  *
- * Una herramienta ya cobrada solo cambia sus notas (y, si está anulada, su estado) y el enlace con su
- * herramienta si es una APEX: lo demás lo protege la base de datos.
+ * Con una comisión sobre recibo o sobre saldo, «¿Cobra cada periodo?» (REQ-002, spec 7): con
+ * trimestral o semestral es una serie, y en vez de las unidades para cobrar en la firma (0) van las de
+ * cada cuota, y el cobro es el de la primera. En una cuota no se pregunta: es la de su serie.
+ *
+ * Una herramienta ya cobrada solo cambia sus notas (y, si está anulada, su estado), el enlace con su
+ * herramienta si es una APEX y, si es sobre recibo o sobre saldo, si cobra cada periodo (el RC de
+ * antes, que ya cobró su primera cuota): lo demás lo protege la base de datos.
  */
 export default function FormularioFirma(props: Props) {
   if (props.herramienta?.liquidada) {
@@ -169,8 +215,14 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
   const [aMano, setAMano] = useState<AMano>(original ? comoSeGuardo(original) : CALCULADO);
   /** Tras «Recalcular», lo que había, para poder volver */
   const [antesDeRecalcular, setAntesDeRecalcular] = useState<AMano | null>(null);
+  /** La serie (REQ-002): cada cuánto cobra y las unidades de cada cuota, como se han tecleado */
+  const [cadaElegido, setCadaElegido] = useState<CadaElegido>(aCada(original?.cuotasCadaMeses ?? null));
+  const [unidadesCuota, setUnidadesCuota] = useState(aCampo(original?.unidadesCuota));
 
   const cambiar = (cambios: Partial<AMano>) => setAMano((actual) => ({ ...actual, ...cambios }));
+
+  // Una cuota de una serie se cambia como cualquier herramienta, pero no lleva serie ni es una APEX
+  const esCuotaOriginal = original !== undefined && esCuota(original);
 
   // La APEX: las herramientas del cliente de las que puede colgar (ella misma no)
   const madresDelCliente = nuevo ? [] : madres.filter((m) => m.clienteId === clienteId && m.id !== original?.id);
@@ -180,9 +232,15 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
   const producto = madre?.producto ?? productoEscrito;
   const periodicidad: Periodicidad = madre ? 'unica' : periodicidadElegida;
   // En una firma nueva se pregunta siempre que haya de qué colgarla; al cambiar una, si es única (o ya
-  // es una APEX) y no tiene APEX propias, porque una herramienta con APEX no pasa a ser una
+  // es una APEX) y no tiene APEX propias, porque una herramienta con APEX no pasa a ser una. Ni una
+  // cuota ni una serie lo son
   const tieneApex = (original?.aportaciones.length ?? 0) > 0;
-  const preguntarApex = madresDelCliente.length > 0 && !tieneApex && (!original || periodicidad === 'unica' || Boolean(original.aportacionDe));
+  const preguntarApex =
+    madresDelCliente.length > 0 &&
+    !tieneApex &&
+    !esCuotaOriginal &&
+    !original?.cuotasCadaMeses &&
+    (!original || periodicidad === 'unica' || Boolean(original.aportacionDe));
 
   function elegirCliente(id: string) {
     setClienteId(id);
@@ -229,7 +287,13 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
     ...(numUnidadesNivel !== null ? { unidadesNivel: numUnidadesNivel } : {}),
     ...(efectoDado ? { fechaEfecto: efectoDado } : {}),
   };
-  const propuesta = compania ? proponer(entrada, contexto) : null;
+  const sinSerie = compania ? proponer(entrada, contexto) : null;
+  // La serie solo cabe en una sobre recibo o sobre saldo (el tipo no depende de ella), y ni una APEX ni una cuota lo son
+  const tipoSinSerie = aMano.tipoComision ?? sinSerie?.tipoComision;
+  const puedeSerSerie = tipoSinSerie !== undefined && cobraPocoAPoco(tipoSinSerie) && !madre && !esCuotaOriginal;
+  const cada = puedeSerSerie ? deCada(cadaElegido) : null;
+  // Con serie, el cobro es el de su primera cuota y, en una semestral, va el aviso de la regla deducida
+  const propuesta = sinSerie && cada !== null ? proponer({ ...entrada, cuotasCadaMeses: cada }, contexto) : sinSerie;
 
   if (!propuesta) {
     return (
@@ -257,13 +321,23 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
   const pctHucha = aMano.pctHucha !== null ? (numPctHucha ?? 0) : propuesta.pctHucha;
   const pctIrpf = original?.pctIrpf ?? propuesta.pctIrpf;
   const fechaEfecto = propuesta.fechaEfecto;
+  // La que ya cobra ella la cuota de su primer periodo (como el RC de antes): sus unidades y su cobro se quedan
+  const laFirmaCobra = cada !== null && original !== undefined && original.unidades > 0;
   const cobroManual = mesONulo(aMano.cobro);
-  const fechaCobro = cobroManual ? ultimoDiaDelMes(cobroManual) : propuesta.fechaCobro;
+  // En las demás series, el cobro es el de la regla: el de su primera cuota
+  const fechaCobro = cobroManual && (cada === null || laFirmaCobra) ? ultimoDiaDelMes(cobroManual) : propuesta.fechaCobro;
   const tipoComision = aMano.tipoComision ?? propuesta.tipoComision;
   const pocoAPoco = cobraPocoAPoco(tipoComision);
-  const unidades = unidadesDadas ? numUnidades : propuesta.unidades;
+  // En una serie, la firma no cobra (0 u), salvo la que ya cobra su primera cuota
+  const unidades = cada !== null ? (laFirmaCobra && original ? original.unidades : 0) : unidadesDadas ? numUnidades : propuesta.unidades;
   const unidadesNivel = nivelDadas ? numUnidadesNivel : propuesta.unidadesNivel;
-  const importes = calcularImportes(unidades ?? 0, Math.min(valorUnidad, 9999.99), Math.min(pctHucha, 100), pctIrpf);
+  const numUnidadesCuota = cada !== null ? noNegativo(leerNumero(unidadesCuota)) : null;
+  // En una serie, lo que sale es lo de cada cuota, con el IRPF de Ajustes: el que llevará al programarse
+  const importes =
+    cada !== null
+      ? calcularImportes(numUnidadesCuota ?? 0, Math.min(valorUnidad, 9999.99), Math.min(pctHucha, 100), propuesta.pctIrpf)
+      : calcularImportes(unidades ?? 0, Math.min(valorUnidad, 9999.99), Math.min(pctHucha, 100), pctIrpf);
+  const lasCuotas = cada !== null ? textoDeLasCuotas(fechaEfecto, cada, laFirmaCobra ? { cobro: fechaCobro } : null) : null;
   const estado = estadoAMano ?? (fechaValida && fechaValida > hoy ? 'prevista' : 'confirmada');
   const avisos = sinRepetir([...propuesta.avisos, ...nivel.avisos]);
   const provisionales = propuesta.fechasProvisionales;
@@ -290,6 +364,10 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
     if (pideDuracion && duracion.trim() && duracionValida === null) return 'La duración va de 1 a 99 años, sin decimales.';
     if (!fechaValida && !original) return 'Pon la fecha de confirmación.';
     if (sinCalendario && !efectoDado) return `Pon la fecha de efecto: ${datosCompania.nombre} no tiene calendario.`;
+    if (cada !== null && !(numUnidadesCuota !== null && numUnidadesCuota > 0))
+      return 'Pon las unidades que cobra cada cuota: tienen que ser mayores que cero.';
+    if (numUnidadesCuota !== null && !conDosDecimales(numUnidadesCuota)) return 'Las unidades por cuota, con dos decimales como mucho.';
+    if (cada !== null && unidades === 0 && !((unidadesNivel ?? 0) > 0)) return 'Pon las unidades para el nivel: tienen que ser mayores que cero.';
     if (unidades === null) return 'Pon las unidades: el cuadro no sabe proponerlas para este producto.';
     if (!(unidades > 0 || (unidadesNivel ?? 0) > 0)) return 'Las unidades tienen que ser mayores que cero.';
     if (!conDosDecimales(unidades) || (unidadesNivel !== null && !conDosDecimales(unidadesNivel))) return 'Las unidades, con dos decimales como mucho.';
@@ -309,6 +387,10 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
     const cambiaronFechas =
       !original || original.fechaEfecto !== fechaEfecto || original.fechaCobro !== fechaCobro || original.mesProduccion !== mesProduccion;
     const enlace = madreId || null;
+    // La serie solo se manda si cambia: sin decirla, no se toca (y una cuota no la lleva nunca)
+    const cadaOriginal = original?.cuotasCadaMeses ?? null;
+    const cambiaLaSerie =
+      !esCuotaOriginal && (cada !== cadaOriginal || (cada !== null && numUnidadesCuota !== (original?.unidadesCuota ?? null)));
     const firma: FirmaAGuardar = {
       id: original?.id,
       ...(nuevo ? { clienteNuevo: { nombre: nuevo.nombre, referencia: nuevo.referencia || null } } : { clienteId }),
@@ -334,6 +416,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
       estado,
       fechasProvisionales: cambiaronFechas ? provisionales : (original?.fechasProvisionales ?? false),
       notas: notas.trim() || null,
+      ...(cambiaLaSerie ? { cuotasCadaMeses: cada, unidadesCuota: cada !== null ? numUnidadesCuota : null } : {}),
     };
     empezar(async () => {
       const resultado = await guardarFirma(firma);
@@ -341,7 +424,9 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
         setError(resultado.error);
         return;
       }
-      if (original) alTerminar?.();
+      // Al cambiar una, lo que dice la acción se enseña junto a sus botones. Una nueva va a su página,
+      // que enseña sus cuotas, el botón de programarlas si faltan y los avisos
+      if (original) alTerminar?.(resultado.ok);
       else if (resultado.id) router.push(`/consultoria/produccion/${resultado.id}`);
     });
   }
@@ -413,7 +498,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
               {nuevo ? 'Elegir uno que ya está' : 'Es un cliente nuevo'}
             </button>
           )}
-          {preguntarApex && (
+          {preguntarApex && cada === null && (
             <label className={`${ETIQUETA} mt-3 block`}>
               ¿Es una aportación extraordinaria a una herramienta que ya tiene?
               <select value={madreId} onChange={(e) => elegirMadre(e.target.value)} className={`${CAMPO} mt-1`}>
@@ -511,20 +596,23 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
           </fieldset>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className={ETIQUETA}>
-              Aportación
-              <span className="relative mt-1 block">
-                <input
-                  value={aportacion}
-                  onChange={(e) => setAportacion(e.target.value)}
-                  inputMode="decimal"
-                  placeholder={original?.aportacion === null ? 'Sin dato' : '100'}
-                  autoComplete="off"
-                  className={`${CAMPO} pr-8`}
-                />
-                <span className="absolute top-1/2 right-3.5 -translate-y-1/2 text-apagado">€</span>
-              </span>
-            </label>
+            {/* Una cuota no lleva aportación: es la de su serie */}
+            {!esCuotaOriginal && (
+              <label className={ETIQUETA}>
+                Aportación
+                <span className="relative mt-1 block">
+                  <input
+                    value={aportacion}
+                    onChange={(e) => setAportacion(e.target.value)}
+                    inputMode="decimal"
+                    placeholder={original?.aportacion === null ? 'Sin dato' : '100'}
+                    autoComplete="off"
+                    className={`${CAMPO} pr-8`}
+                  />
+                  <span className="absolute top-1/2 right-3.5 -translate-y-1/2 text-apagado">€</span>
+                </span>
+              </label>
+            )}
             {madre ? (
               <div>
                 <p className={ETIQUETA}>Cada cuánto</p>
@@ -571,35 +659,74 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
           </label>
 
           {/* Las unidades: propuestas con el cuadro y editables. Manda lo que se ponga */}
-          {pocoAPoco ? (
+          {esCuotaOriginal && original ? (
             <div className="mt-4">
-              <p className="text-sm text-tenue">
-                Esta comisión es {NOMBRE_TIPO_COMISION[tipoComision].toLowerCase()}: no se cobra de una vez, llega recibo a recibo en
-                su liquidación. La firma lleva 0 u para cobrar y las de producción, que cuentan para el nivel.
-              </p>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <CampoUnidades
-                  etiqueta="Unidades para cobrar"
-                  valor={aMano.unidades ?? aCampo(propuesta.unidades)}
-                  alCambiar={(valor) => cambiar({ unidades: valor, unidadesNivel: aMano.unidadesNivel ?? aCampo(propuesta.unidadesNivel) })}
-                />
-                <CampoUnidades
-                  etiqueta="Unidades para el nivel"
-                  valor={aMano.unidadesNivel ?? aCampo(propuesta.unidadesNivel)}
-                  alCambiar={(valor) => cambiar({ unidadesNivel: valor, unidades: aMano.unidades ?? aCampo(propuesta.unidades) })}
-                />
+              <p className="text-sm text-tenue">{textoDeLaCuota(original)}: cobra sus unidades y no cuenta para el nivel.</p>
+              <div className="mt-3 sm:max-w-xs">
+                <CampoUnidades etiqueta="Unidades" valor={aMano.unidades ?? aCampo(propuesta.unidades)} alCambiar={(valor) => cambiar({ unidades: valor })} />
               </div>
+            </div>
+          ) : pocoAPoco ? (
+            <div className="mt-4 flex flex-col gap-3">
+              {puedeSerSerie && (
+                <fieldset>
+                  <legend className={ETIQUETA}>¿Cobra cada periodo?</legend>
+                  <Opciones nombre="cada" valor={cadaElegido} alCambiar={setCadaElegido} opciones={OPCIONES_DE_CADA} />
+                  <p className="mt-1 text-[13px] text-apagado">Si el recibo es mensual, la comisión va anualizada, de una vez: elige el tipo “Anualizada”.</p>
+                </fieldset>
+              )}
+              {cada !== null ? (
+                <>
+                  <p className="text-sm text-tenue">
+                    Cada {NOMBRE_DE_CADA_MESES[cada].periodo} cobra su cuota, que se programa sola.
+                    {laFirmaCobra ? '' : ' La firma no cobra nada: cuenta para el nivel.'}
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <CampoUnidades etiqueta="Unidades por cuota" valor={unidadesCuota} alCambiar={setUnidadesCuota} />
+                    <CampoUnidades
+                      etiqueta="Unidades para el nivel"
+                      valor={aMano.unidadesNivel ?? aCampo(propuesta.unidadesNivel)}
+                      alCambiar={(valor) => cambiar({ unidadesNivel: valor })}
+                    />
+                  </div>
+                  {laFirmaCobra && original && lasCuotas && (
+                    <UnidadesDeLaFirma unidades={original.unidades} periodo={lasCuotas.periodo} cobrada={original.liquidada} />
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-tenue">
+                    Esta comisión es {NOMBRE_TIPO_COMISION[tipoComision].toLowerCase()}: no se cobra de una vez, llega recibo a recibo en
+                    su liquidación. La firma lleva 0 u para cobrar y las de producción, que cuentan para el nivel.
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <CampoUnidades
+                      etiqueta="Unidades para cobrar"
+                      valor={aMano.unidades ?? aCampo(propuesta.unidades)}
+                      alCambiar={(valor) => cambiar({ unidades: valor, unidadesNivel: aMano.unidadesNivel ?? aCampo(propuesta.unidadesNivel) })}
+                    />
+                    <CampoUnidades
+                      etiqueta="Unidades para el nivel"
+                      valor={aMano.unidadesNivel ?? aCampo(propuesta.unidadesNivel)}
+                      alCambiar={(valor) => cambiar({ unidadesNivel: valor, unidades: aMano.unidades ?? aCampo(propuesta.unidades) })}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="mt-4 sm:max-w-xs">
               <CampoUnidades etiqueta="Unidades" valor={aMano.unidades ?? aCampo(propuesta.unidades)} alCambiar={(valor) => cambiar({ unidades: valor })} />
             </div>
           )}
-          <PieDeUnidades
-            unidadesDadas={unidadesDadas || nivelDadas}
-            propuestaCuadro={unidadesDelCuadro(compania, producto, periodicidad, aportacionValida, duracionValida, contexto)}
-            alVolver={() => cambiar({ unidades: null, unidadesNivel: null })}
-          />
+          {/* Las de una cuota son las de su serie: el cuadro no las propone */}
+          {!esCuotaOriginal && (
+            <PieDeUnidades
+              unidadesDadas={unidadesDadas || nivelDadas}
+              propuestaCuadro={unidadesDelCuadro(compania, producto, periodicidad, aportacionValida, duracionValida, contexto)}
+              alVolver={() => cambiar({ unidades: null, unidadesNivel: null })}
+            />
+          )}
         </fieldset>
 
         {/* 4. Fechas y estado */}
@@ -657,7 +784,9 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
           aria-hidden
         >
           <span className="cifras">
-            Efecto {fechaCorta(fechaEfecto)} · cobro {mesCorto(fechaCobro)} · {euros(importes.bruto)}
+            {lasCuotas
+              ? `Efecto ${fechaCorta(fechaEfecto)} · 1.ª cuota ${mesCorto(fechaCobro)} · ${euros(importes.bruto)}/cuota`
+              : `Efecto ${fechaCorta(fechaEfecto)} · cobro ${mesCorto(fechaCobro)} · ${euros(importes.bruto)}`}
           </span>
         </div>
       </div>
@@ -671,7 +800,8 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
           </h3>
           <p className="mt-0.5 text-sm text-apagado">Con el cuadro {propuesta.versionCuadro} y tus cierres. Cambia lo que no cuadre.</p>
 
-          {original && (
+          {/* Una cuota no se recalcula: sus fechas son las de su serie, y el cobro, el de su periodo */}
+          {original && !esCuotaOriginal && (
             <div className="mt-3">
               {antesDeRecalcular ? (
                 <div className="rounded-lg bg-superficie-2 px-3.5 py-3 text-sm">
@@ -744,22 +874,27 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
               </Calculado>
             )}
 
-            <Calculado
-              etiqueta="Cobro estimado"
-              valor={`${nombreDelMes(fechaCobro)}`}
-              detalle={propuesta.fechasProvisionales ? 'Sin confirmar' : undefined}
-              aMano={aMano.cobro !== null}
-              alCambiar={() => cambiar({ cobro: fechaCobro.slice(0, 7) })}
-              alVolver={() => cambiar({ cobro: null })}
-            >
-              <select aria-label="Mes de cobro" value={fechaCobro.slice(0, 7)} onChange={(e) => cambiar({ cobro: e.target.value })} className={CAMPO}>
-                {mesesCobro.map((mes) => (
-                  <option key={mes} value={mes.slice(0, 7)}>
-                    {nombreDelMes(mes)}
-                  </option>
-                ))}
-              </select>
-            </Calculado>
+            {/* En una serie, el cobro es el de la regla de las cuotas: no se cambia a mano */}
+            {lasCuotas ? (
+              <Calculado etiqueta="Primera cuota" valor={lasCuotas.primera} detalle={lasCuotas.despues} />
+            ) : (
+              <Calculado
+                etiqueta="Cobro estimado"
+                valor={`${nombreDelMes(fechaCobro)}`}
+                detalle={propuesta.fechasProvisionales ? 'Sin confirmar' : undefined}
+                aMano={aMano.cobro !== null}
+                alCambiar={() => cambiar({ cobro: fechaCobro.slice(0, 7) })}
+                alVolver={() => cambiar({ cobro: null })}
+              >
+                <select aria-label="Mes de cobro" value={fechaCobro.slice(0, 7)} onChange={(e) => cambiar({ cobro: e.target.value })} className={CAMPO}>
+                  {mesesCobro.map((mes) => (
+                    <option key={mes} value={mes.slice(0, 7)}>
+                      {nombreDelMes(mes)}
+                    </option>
+                  ))}
+                </select>
+              </Calculado>
+            )}
 
             <Calculado
               etiqueta="Nivel y €/unidad"
@@ -802,9 +937,12 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
 
           <div className="mt-4 rounded-lg bg-superficie-2 p-4">
             <div className="flex flex-col gap-1.5 text-sm">
-              <Importe etiqueta="Comisión" valor={euros(importes.bruto)} fuerte />
+              <Importe etiqueta={lasCuotas ? 'Comisión de cada cuota' : 'Comisión'} valor={euros(importes.bruto)} fuerte />
               <Importe etiqueta={`RC (${pct(pctHucha)}, a la hucha)`} valor={importes.hucha === 0 ? euros(0) : `−${euros(importes.hucha)}`} />
-              <Importe etiqueta={`IRPF aprox. (${pct(pctIrpf)})`} valor={importes.irpf === 0 ? euros(0) : `−${euros(importes.irpf)}`} />
+              <Importe
+                etiqueta={`IRPF aprox. (${pct(lasCuotas ? propuesta.pctIrpf : pctIrpf)})`}
+                valor={importes.irpf === 0 ? euros(0) : `−${euros(importes.irpf)}`}
+              />
               <Importe etiqueta="Neto aprox." valor={euros(importes.neto)} />
             </div>
             <p className="mt-2 text-[13px] text-apagado">El IRPF de verdad va sobre el total de la liquidación: puede bailar un céntimo.</p>
@@ -846,7 +984,7 @@ function Formulario({ contexto, clientes, productosUsados, hoy, clienteInicial, 
               {guardando ? 'Guardando…' : original ? 'Guardar cambios' : 'Guardar la firma'}
             </button>
             {original && (
-              <button type="button" onClick={alTerminar} className={BOTON_SECUNDARIO}>
+              <button type="button" onClick={() => alTerminar?.()} className={BOTON_SECUNDARIO}>
                 Cancelar
               </button>
             )}
@@ -868,6 +1006,13 @@ function textoDeMadre(m: MadrePosible, companias: DatosCompania[]): string {
   ]
     .filter(Boolean)
     .join(' · ');
+}
+
+/** «Es la cuota de julio-septiembre de 2026 de RC Integral» */
+function textoDeLaCuota(h: Herramienta): string {
+  return h.cuotaPeriodo && h.serieDe
+    ? `Es la cuota de ${nombreDelPeriodo(h.cuotaPeriodo, h.serieDe.cadaMeses)} de ${h.serieDe.producto}`
+    : 'Es una cuota de su serie';
 }
 
 /** `proponerFirma`, salvo con una fecha a medio escribir: hasta que esté entera, no hay cálculo */
@@ -931,6 +1076,22 @@ function CampoUnidades({ etiqueta, valor, alCambiar }: { etiqueta: string; valor
         <span className="absolute top-1/2 right-3.5 -translate-y-1/2 text-apagado">u</span>
       </span>
     </label>
+  );
+}
+
+/**
+ * Las unidades para cobrar de una serie cuya firma cobra ella la cuota de su primer periodo (el RC de
+ * antes): se quedan como están y no se cambian aquí
+ */
+function UnidadesDeLaFirma({ unidades, periodo, cobrada }: { unidades: number; periodo: string; cobrada: boolean }) {
+  return (
+    <div>
+      <p className={ETIQUETA}>Unidades para cobrar en la firma</p>
+      <p className="cifras mt-1 flex min-h-11 items-center text-sm font-medium text-texto">{textoUnidades(unidades)}</p>
+      <p className="text-[13px] text-apagado">
+        {cobrada ? `Esta firma ya cobró la cuota de ${periodo}` : `Esta firma cobra la cuota de ${periodo}`}: las siguientes se programan solas.
+      </p>
+    </div>
   );
 }
 
@@ -1036,6 +1197,11 @@ function diferencias(
  * cambian (lo para la base de datos). Aquí, las notas, si está anulada sin extorno, volver a
  * cobrada, y si es única, engancharla a su herramienta o desengancharla (es solo el enlace). Se
  * mandan los datos tal como están guardados.
+ *
+ * Si es sobre recibo o sobre saldo y no está anulada (REQ-002), también si cobra cada periodo: así
+ * pasa a ser una serie el RC de antes, que ya cobró su primera cuota. Sus unidades para cobrar se
+ * quedan, de solo lectura, y las siguientes cuotas se programan al guardar (spec, sección 8). En una
+ * cuota no se pregunta: es la de su serie.
  */
 function CambiarCobrada({
   herramienta: h,
@@ -1046,11 +1212,14 @@ function CambiarCobrada({
   herramienta: HerramientaConAportaciones;
   madres: MadrePosible[];
   companias: DatosCompania[];
-  alTerminar?: () => void;
+  alTerminar?: (mensaje?: string) => void;
 }) {
   const [notas, setNotas] = useState(h.notas ?? '');
   const [estado, setEstado] = useState<EstadoHerramienta>(h.estado === 'anulada' ? 'anulada' : 'cobrada');
   const [madreId, setMadreId] = useState(h.aportacionDe ?? '');
+  const [cadaElegido, setCadaElegido] = useState<CadaElegido>(aCada(h.cuotasCadaMeses));
+  // De serie, lo que cobró la firma: en el RC, lo de cada trimestre
+  const [unidadesCuota, setUnidadesCuota] = useState(aCampo(h.unidadesCuota ?? (h.unidades > 0 ? h.unidades : null)));
   const [error, setError] = useState<string | null>(null);
   const [guardando, empezar] = useTransition();
 
@@ -1058,11 +1227,29 @@ function CambiarCobrada({
   const madresDelCliente = madres.filter(
     (m) => m.clienteId === h.clienteId && m.id !== h.id && (m.compania === h.compania || m.id === h.aportacionDe),
   );
-  const preguntarApex = h.periodicidad === 'unica' && h.aportaciones.length === 0 && madresDelCliente.length > 0;
+  const cuota = esCuota(h);
+  const preguntarApex = h.periodicidad === 'unica' && h.aportaciones.length === 0 && madresDelCliente.length > 0 && !cuota && !h.cuotasCadaMeses;
   const enlace = madreId || null;
+
+  // La serie: ni una APEX ni una cuota, y una anulada ya no programa nada
+  const puedeSerSerie = cobraPocoAPoco(h.tipoComision) && !esApex(h) && !cuota && h.estado !== 'anulada' && !enlace;
+  const cada = puedeSerSerie ? deCada(cadaElegido) : null;
+  const numUnidadesCuota = cada !== null ? noNegativo(leerNumero(unidadesCuota)) : null;
+  const cambiaLaSerie = puedeSerSerie && (cada !== h.cuotasCadaMeses || (cada !== null && numUnidadesCuota !== h.unidadesCuota));
+  const laFirma = h.unidades > 0 ? { cobro: h.fechaCobro } : null;
+  const lasCuotas = cada !== null ? textoDeLasCuotas(h.fechaEfecto, cada, laFirma) : null;
+  const importeCuota = numUnidadesCuota !== null ? calcularImportes(numUnidadesCuota, h.valorUnidad, h.pctHucha, h.pctIrpf).bruto : null;
 
   function guardar(evento: React.FormEvent) {
     evento.preventDefault();
+    if (cada !== null && !(numUnidadesCuota !== null && numUnidadesCuota > 0)) {
+      setError('Pon las unidades que cobra cada cuota: tienen que ser mayores que cero.');
+      return;
+    }
+    if (numUnidadesCuota !== null && !conDosDecimales(numUnidadesCuota)) {
+      setError('Las unidades por cuota, con dos decimales como mucho.');
+      return;
+    }
     setError(null);
     empezar(async () => {
       const resultado = await guardarFirma({
@@ -1089,19 +1276,71 @@ function CambiarCobrada({
         fechasProvisionales: h.fechasProvisionales,
         notas: notas.trim() || null,
         ...(enlace !== (h.aportacionDe ?? null) ? { aportacionDe: enlace } : {}),
+        ...(cambiaLaSerie ? { cuotasCadaMeses: cada, unidadesCuota: cada !== null ? numUnidadesCuota : null } : {}),
       });
       if (resultado.error) setError(resultado.error);
-      else alTerminar?.();
+      else alTerminar?.(resultado.ok);
     });
   }
 
   return (
-    <form onSubmit={guardar} className={TARJETA}>
-      <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">Cambiar la herramienta</h3>
+    <form onSubmit={guardar} noValidate className={TARJETA}>
+      <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-texto">{cuota ? 'Cambiar la cuota' : 'Cambiar la herramienta'}</h3>
       <p className="mt-1 max-w-prose text-sm text-tenue">
         Ya se cobró en una liquidación: sus unidades, su €/unidad, sus porcentajes y su mes de cobro no se cambian. Para eso,
         deshaz antes la liquidación.
       </p>
+      {cuota && <p className="mt-2 max-w-prose text-sm text-tenue">{textoDeLaCuota(h)}.</p>}
+
+      {puedeSerSerie && (
+        <div className="mt-4 flex flex-col gap-3">
+          <fieldset>
+            <legend className={ETIQUETA}>¿Cobra cada periodo?</legend>
+            <div className="sm:max-w-md">
+              <Opciones nombre="cada" valor={cadaElegido} alCambiar={setCadaElegido} opciones={OPCIONES_DE_CADA} />
+            </div>
+            <p className="mt-1 text-[13px] text-apagado">Si el recibo es mensual, la comisión va anualizada, de una vez: deja «No».</p>
+          </fieldset>
+          {cada !== null && (
+            <>
+              {/* Las dos de solo lectura, juntas también en el móvil: no se tocan y no necesitan su fila */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="col-span-2 sm:col-span-1">
+                  <CampoUnidades etiqueta="Unidades por cuota" valor={unidadesCuota} alCambiar={setUnidadesCuota} />
+                </div>
+                <div>
+                  <p className={ETIQUETA}>Unidades para cobrar</p>
+                  <p className="cifras mt-1 text-sm font-medium text-texto sm:flex sm:min-h-11 sm:items-center">{textoUnidades(h.unidades)}</p>
+                </div>
+                <div>
+                  <p className={ETIQUETA}>Unidades para el nivel</p>
+                  <p className="cifras mt-1 text-sm font-medium text-texto sm:flex sm:min-h-11 sm:items-center">
+                    {textoUnidades(h.unidadesNivel ?? h.unidades)}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-lg bg-superficie-2 px-3.5 py-3 text-sm">
+                {laFirma && lasCuotas && (
+                  <p className="text-texto">Esta firma ya cobró la cuota de {lasCuotas.periodo}: las siguientes se programan solas.</p>
+                )}
+                {lasCuotas && (
+                  <p className={laFirma ? 'mt-1 text-tenue' : 'text-tenue'}>
+                    Primera cuota: {lasCuotas.primera}. {lasCuotas.despues}
+                  </p>
+                )}
+                {importeCuota !== null && importeCuota > 0 && (
+                  <p className="mt-1 text-tenue">
+                    Cada cuota, <span className="cifras font-medium text-texto">{euros(importeCuota)}</span>
+                    {h.pctHucha === 0 ? ', sin hucha.' : `, con el ${pct(h.pctHucha)} a la hucha.`}
+                  </p>
+                )}
+              </div>
+              {cada === 6 && <AvisoConIcono caja>{AVISO_SEMESTRAL.texto}</AvisoConIcono>}
+            </>
+          )}
+        </div>
+      )}
+
       {preguntarApex && (
         <label className={`${ETIQUETA} mt-4 block`}>
           ¿Es una aportación extraordinaria a una herramienta que ya tiene?
@@ -1139,7 +1378,7 @@ function CambiarCobrada({
         <button type="submit" disabled={guardando} className={BOTON_PRINCIPAL}>
           {guardando ? 'Guardando…' : 'Guardar cambios'}
         </button>
-        <button type="button" onClick={alTerminar} className={BOTON_SECUNDARIO}>
+        <button type="button" onClick={() => alTerminar?.()} className={BOTON_SECUNDARIO}>
           Cancelar
         </button>
       </div>

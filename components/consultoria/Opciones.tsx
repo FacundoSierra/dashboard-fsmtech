@@ -13,7 +13,7 @@ export default function Opciones<T extends string>({
   opciones: { valor: T; etiqueta: string }[];
 }) {
   return (
-    <div className="mt-1 grid grid-cols-2 gap-2">
+    <div className={`mt-1 grid gap-2 ${opciones.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
       {opciones.map((opcion) => (
         <label
           key={opcion.valor}
