@@ -853,7 +853,9 @@ with (security_invoker = on) as
    where h.unidades > 0
      and (h.estado <> 'anulada' or h.liquidacion_id is not null);
 
-revoke all on table public.consultoria_lineas from public, anon, authenticated, service_role;
+-- `create or replace view` conserva los permisos de la 0001: no se le quitan a service_role,
+-- para que el panel no se quede sin la vista ni un instante si el editor no lo ejecuta todo de una vez
+revoke all on table public.consultoria_lineas from public, anon, authenticated;
 grant select on table public.consultoria_lineas to service_role;
 
 -- ───────────────── Que PostgREST vea lo nuevo ─────────────────

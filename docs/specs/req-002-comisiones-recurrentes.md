@@ -403,9 +403,21 @@ Sin migrar ningún dato: lo hace Facundo en el panel, y así se prueba el camino
 
 **Plan B** si algo sale mal entre el paso 1 y el 4:
 - en la página del RC: borrar sus cuotas sin cobrar y quitarle la serie (el disparador lo deja sin cuotas);
-- en el editor SQL, como `postgres`, el `update` de las dos columnas a nulo.
+- en el editor SQL, las dos sentencias juntas, en una sola ejecución (corregido por el `revisor-migraciones`: el disparador salta con cualquier rol, también con `postgres`, así que mientras la serie tenga cuotas no se le puede quitar la serie; primero se borran las cuotas sin cobrar):
+  ```sql
+  delete from public.consultoria_herramientas
+   where cuota_de = '3146870c-bedc-4ac4-975c-76de6fbabce2' and liquidacion_id is null;
+  update public.consultoria_herramientas
+     set cuotas_cada_meses = null, unidades_cuota = null
+   where id = '3146870c-bedc-4ac4-975c-76de6fbabce2';
+  ```
+  Ese `id` es el del RC Integral en `fsmtech` (no es un dato personal). Si ya hay alguna cuota cobrada (después de la n.º 6), el `update` se para: antes hay que deshacer esa liquidación.
 
 Nada de eso toca la fila de julio ni la n.º 5.
+
+**El orden importa**: primero convertir el RC y después «Ha llegado» de la n.º 6. La función no programa una cuota cuyo mes de cobro ya tiene liquidación, así que si se marca octubre antes, la cuota de julio-septiembre habría que apuntarla a mano.
+
+**Pendiente opcional (para una 0003)**: que el disparador compruebe también que el periodo de una cuota encaja con su serie (hoy solo lo comprueba `consultoria_programar_cuotas`; un `insert` a mano podría guardar un periodo que no empieza trimestre). Lo propuso el `revisor-migraciones` el 2026-11-01.
 
 ## 9. Generalidad y lo que no entra
 
