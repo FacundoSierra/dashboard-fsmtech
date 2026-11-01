@@ -4,7 +4,7 @@ import type { Herramienta } from '@/lib/consultoria/tipos';
 import { euros, fechaCorta, mesCorto } from '@/lib/consultoria/formato';
 import EstadoHerramienta from './EstadoHerramienta';
 import { PREVISTA } from './estilos';
-import { aportacionDe, cobraPocoAPoco, cuantoFalta, unidades } from './formato';
+import { aportacionDe, cobraPocoAPoco, cuantas, cuantoFalta, cuotasCobradas, textoDeLaSerie, unidades } from './formato';
 import InsigniaApex from './InsigniaApex';
 import ListaApex from './ListaApex';
 
@@ -13,7 +13,9 @@ import ListaApex from './ListaApex';
  * las unidades y la comisión, y sus fechas. Lleva a su página. En la ficha de un cliente, además,
  * cuándo queda libre de extorno y sus aportaciones extraordinarias (APEX) dentro, cada una con su
  * enlace: la tarjeta deja de ser un solo enlace, porque un enlace no puede ir dentro de otro. Si ella
- * misma es una APEX (en Producción), lleva la insignia «APEX de TopPlan».
+ * misma es una APEX (en Producción), lleva la insignia «APEX de TopPlan». Una serie (REQ-002) dice
+ * «Recurrente · trimestral» y, en la ficha del cliente, cuántas cuotas ha cobrado: las cuotas no salen
+ * sueltas.
  */
 export default function TarjetaHerramienta({
   herramienta: h,
@@ -21,6 +23,7 @@ export default function TarjetaHerramienta({
   conCliente = false,
   hoy,
   aportaciones = [],
+  cuotas,
 }: {
   herramienta: Herramienta;
   /** El nombre de la compañía, no el código */
@@ -30,6 +33,8 @@ export default function TarjetaHerramienta({
   hoy?: string;
   /** Sus APEX, de la más antigua a la más nueva */
   aportaciones?: Herramienta[];
+  /** Si es una serie, sus cuotas guardadas: con ellas, «· 2 cuotas cobradas». Producción no las trae */
+  cuotas?: Herramienta[];
 }) {
   const anulada = h.estado === 'anulada';
   const pocoAPoco = cobraPocoAPoco(h.tipoComision) && h.unidades === 0;
@@ -37,6 +42,7 @@ export default function TarjetaHerramienta({
   const prevista = h.estado === 'prevista';
   const enlace = `/consultoria/produccion/${h.id}`;
   const foco = 'focus-visible:outline-2 focus-visible:outline-acento';
+  const cobradas = h.cuotasCadaMeses && cuotas ? cuotasCobradas(h, cuotas) : 0;
 
   const contenido = (
     <>
@@ -49,6 +55,12 @@ export default function TarjetaHerramienta({
             {compania}
             {conCliente && ` · ${h.cliente}`}
           </span>
+          {h.cuotasCadaMeses && (
+            <span className="block text-sm text-tenue">
+              {textoDeLaSerie(h.cuotasCadaMeses)}
+              {cobradas > 0 && ` · ${cuantas(cobradas, 'cuota cobrada', 'cuotas cobradas')}`}
+            </span>
+          )}
           {esApex(h) && (
             <span className="mt-1.5 flex">
               <InsigniaApex de={h.de} />

@@ -154,8 +154,9 @@ function TarjetaMes({
   return (
     <Bloque titulo={titulo} periodo={periodo}>
       <p className="mt-3 text-sm text-tenue">
-        {/* «5 herramientas y 1 APEX · 2 previstas»: una APEX va con su herramienta */}
+        {/* «5 herramientas y 1 APEX · 2 previstas · 448,80 u»: una APEX va con su herramienta, y una cuota se cuenta aparte */}
         {textoDelRecuento(mes)}
+        {mes.unidades > 0 && ` · ${unidades(mes.unidades)}`}
         {llegado && mes.fecha && ` · pagado el ${fechaCorta(mes.fecha)}`}
       </p>
       {mes.aPagar === 0 && (

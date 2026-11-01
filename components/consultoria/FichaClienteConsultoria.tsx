@@ -5,18 +5,18 @@ import type { FichaCliente } from '@/lib/consultoria/tipos';
 import { euros, fechaCorta } from '@/lib/consultoria/formato';
 import DatosClienteConsultoria from './DatosClienteConsultoria';
 import { BOTON_PRINCIPAL, ENLACE_VOLVER } from './estilos';
-import { aportacionDe, cuantas, nombreDeCompania, productoConApex } from './formato';
+import { aportacionDe, cuantas, nombreDeCompania, productoDeLaLinea } from './formato';
 import TarjetaHerramienta from './TarjetaHerramienta';
 
 /**
  * La ficha de un cliente de la consultoría: sus datos (editables), lo que ha generado, sus
- * herramientas con su estado y cuándo quedan libres de extorno (cada una con sus APEX dentro), sus
- * extornos y «Nueva firma».
+ * herramientas con su estado y cuándo quedan libres de extorno (cada una con sus APEX dentro, y una
+ * serie con cuántas cuotas ha cobrado), sus extornos y «Nueva firma».
  */
 export default function FichaClienteConsultoria({ ficha, companias, hoy }: { ficha: FichaCliente; companias: DatosCompania[]; hoy: string }) {
   const { cliente, herramientas } = ficha;
-  // Las APEX van dentro de su herramienta: un extorno de una APEX también tiene que salir aquí
-  const conExtorno = herramientas.flatMap((h) => [h, ...h.aportaciones]).filter((h) => h.extorno);
+  // Las APEX y las cuotas van dentro de su herramienta: un extorno de una de ellas también tiene que salir aquí
+  const conExtorno = herramientas.flatMap((h) => [h, ...h.aportaciones, ...h.cuotas]).filter((h) => h.extorno);
   const sinDato = cliente.herramientas > 0 && cliente.aportacionMensual === 0 && cliente.aportacionUnica === 0;
 
   return (
@@ -73,7 +73,13 @@ export default function FichaClienteConsultoria({ ficha, companias, hoy }: { fic
           <ul className="mt-4 grid grid-cols-1 gap-2 xl:grid-cols-2">
             {herramientas.map((h) => (
               <li key={h.id} className="min-w-0">
-                <TarjetaHerramienta herramienta={h} compania={nombreDeCompania(h.compania, companias)} hoy={hoy} aportaciones={h.aportaciones} />
+                <TarjetaHerramienta
+                  herramienta={h}
+                  compania={nombreDeCompania(h.compania, companias)}
+                  hoy={hoy}
+                  aportaciones={h.aportaciones}
+                  cuotas={h.cuotas}
+                />
               </li>
             ))}
           </ul>
@@ -92,7 +98,7 @@ export default function FichaClienteConsultoria({ ficha, companias, hoy }: { fic
                 <li key={e.id} className="rounded-lg bg-superficie-2 px-4 py-3.5 text-sm">
                   <p className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <span className="min-w-0 font-medium text-texto">
-                      {productoConApex(h)} · {aportacionDe(h)}
+                      {productoDeLaLinea({ ...h, cuotaCadaMeses: h.serieDe?.cadaMeses ?? null })} · {aportacionDe(h)}
                     </span>
                     <span className="cifras font-semibold text-critico-texto">−{euros(e.importe)}</span>
                   </p>

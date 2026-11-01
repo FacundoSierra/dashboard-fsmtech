@@ -7,6 +7,7 @@ import type { LineaLiquidacion, MesLiquidacion, MovimientoDeCuenta } from '@/lib
 import { euros } from '@/lib/consultoria/formato';
 import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, ERROR } from './estilos';
 import { soloElMes } from './formato';
+import MensajeHecho from './MensajeHecho';
 
 // La hoja solo viaja cuando se abre
 const HaLlegado = dynamic(() => import('./HaLlegado'));
@@ -14,6 +15,8 @@ const HaLlegado = dynamic(() => import('./HaLlegado'));
 /**
  * En un mes sin liquidar, «Ha llegado», que abre su hoja. En uno liquidado, «Deshacer», con su
  * confirmación en línea: sus herramientas vuelven a estar por cobrar y su reserva sale de la hucha.
+ * Lo que dicen las dos al terminar se queda debajo de «Deshacer»: el mes ya ha cambiado de estado,
+ * pero este componente es el mismo y lo conserva (con las cuotas, «Ha llegado» puede avisar de algo)
  */
 export default function AccionesDelMes({
   mes,
@@ -38,8 +41,16 @@ export default function AccionesDelMes({
 
   if (!mes.liquidacionId) {
     return (
-      <>
-        <button type="button" onClick={() => setAbierta(true)} className={BOTON_PRINCIPAL}>
+      <div className="flex flex-col gap-2">
+        {aviso.ok && <MensajeHecho texto={aviso.ok} />}
+        <button
+          type="button"
+          onClick={() => {
+            setAviso({});
+            setAbierta(true);
+          }}
+          className={BOTON_PRINCIPAL}
+        >
           Ha llegado la de {soloElMes(mes.mes)}
         </button>
         {abierta && (
@@ -50,9 +61,10 @@ export default function AccionesDelMes({
             minimoTransferencia={minimoTransferencia}
             hoy={hoy}
             alCerrar={() => setAbierta(false)}
+            alApuntar={(ok) => setAviso({ ok })}
           />
         )}
-      </>
+      </div>
     );
   }
 
@@ -65,7 +77,7 @@ export default function AccionesDelMes({
         <button type="button" onClick={() => setConfirmando(true)} className={`${BOTON_SECUNDARIO} self-start`}>
           Deshacer esta liquidación
         </button>
-        {aviso.ok && <p className="text-sm font-medium text-bien-texto">{aviso.ok}</p>}
+        {aviso.ok && <MensajeHecho texto={aviso.ok} />}
       </div>
     );
   }

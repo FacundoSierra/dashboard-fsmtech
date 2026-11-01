@@ -6,7 +6,18 @@
  */
 import { diasEntre } from '@/lib/consultoria/calendario';
 import type { Herramienta } from '@/lib/consultoria/tipos';
-import { esApex, type Calendario, type EstadoHerramienta, type ReglaCompania, type TipoComision } from '@/lib/consultoria/reglas';
+import {
+  NOMBRE_DE_CADA_MESES,
+  esApex,
+  esCuota,
+  nombreDelPeriodo,
+  periodoCorto,
+  type Calendario,
+  type CuotasCadaMeses,
+  type EstadoHerramienta,
+  type ReglaCompania,
+  type TipoComision,
+} from '@/lib/consultoria/reglas';
 import { euros } from '@/lib/consultoria/formato';
 
 const DOS_DECIMALES = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' });
@@ -136,9 +147,44 @@ export function nombreDeCompania(codigo: string, companias: { codigo: string; no
   return companias.find((c) => c.codigo === codigo)?.nombre ?? codigo;
 }
 
-/** «TopPlan · APEX» si es una aportación extraordinaria enlazada a su herramienta; si no, el producto */
-export function productoConApex(h: { producto: string; aportacionDe: string | null }) {
+/**
+ * El producto de una línea o de una herramienta: «TopPlan · APEX» si es una aportación extraordinaria
+ * enlazada a su herramienta, «RC Integral · cuota jul-sep» si es una cuota de una serie; si no, el
+ * producto. De una cuota hace falta cada cuántos meses cobra su serie (`cuotaCadaMeses` en las líneas,
+ * `serieDe.cadaMeses` en las herramientas)
+ */
+export function productoDeLaLinea(h: {
+  producto: string;
+  aportacionDe: string | null;
+  cuotaDe?: string | null;
+  cuotaPeriodo?: string | null;
+  cuotaCadaMeses?: CuotasCadaMeses | null;
+}) {
+  if (esCuota(h)) return h.cuotaPeriodo && h.cuotaCadaMeses ? `${h.producto} · cuota ${periodoCorto(h.cuotaPeriodo, h.cuotaCadaMeses)}` : `${h.producto} · cuota`;
   return esApex(h) ? `${h.producto} · APEX` : h.producto;
+}
+
+/** «Recurrente · trimestral»: lo que se ve de una serie en Producción, en su página y en la ficha del cliente */
+export function textoDeLaSerie(cadaMeses: CuotasCadaMeses) {
+  return `Recurrente · ${NOMBRE_DE_CADA_MESES[cadaMeses].serie}`;
+}
+
+/** «abril-junio»: el periodo de una cuota sin el año, cuando se da por supuesto */
+export function periodoSinAnio(periodo: string, cadaMeses: CuotasCadaMeses) {
+  return nombreDelPeriodo(periodo, cadaMeses).replace(/ de \d{4}$/, '');
+}
+
+/**
+ * Las cuotas cobradas de una serie: las suyas que están en una liquidación y, si la firma cobró ella
+ * la primera (el RC de antes), también esa
+ */
+export function cuotasCobradas(h: Pick<Herramienta, 'unidades' | 'liquidada'>, cuotas: Pick<Herramienta, 'liquidada'>[]) {
+  return (h.unidades > 0 && h.liquidada ? 1 : 0) + cuotas.filter((c) => c.liquidada).length;
+}
+
+/** «enero-marzo de 2027», «enero-marzo de 2027 y abril-junio de 2027» */
+export function enLista(textos: string[]) {
+  return textos.length <= 1 ? (textos[0] ?? '') : `${textos.slice(0, -1).join(', ')} y ${textos[textos.length - 1]}`;
 }
 
 /** Lo que hace falta de una herramienta para ofrecerla como madre de una APEX en el formulario de la firma */

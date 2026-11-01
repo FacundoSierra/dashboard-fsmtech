@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { esCuota } from '@/lib/consultoria/reglas';
 import type { DetalleDelMes, MesLiquidacion } from '@/lib/consultoria/tipos';
 import { euros, fechaCorta } from '@/lib/consultoria/formato';
 import AccionesDelMes from './AccionesDelMes';
@@ -6,11 +7,13 @@ import Aviso from './Aviso';
 import { conSigno } from './DesgloseLiquidacion';
 import EstadoHerramienta from './EstadoHerramienta';
 import { PREVISTA } from './estilos';
-import { productoConApex, soloElMes, unidades } from './formato';
+import { productoDeLaLinea, soloElMes, unidades } from './formato';
+import InsigniaCuota from './InsigniaCuota';
 
 /**
  * Un mes por dentro: sus líneas (cada una lleva a su herramienta; la de una APEX, rotulada «TopPlan ·
- * APEX») y sus cargos y abonos, y «Ha llegado» o «Deshacer». En el móvil, filas de una columna.
+ * APEX», y la de una cuota, «RC Integral · cuota jul-sep» con la insignia «Cuota») y sus cargos y
+ * abonos, y «Ha llegado» o «Deshacer». En el móvil, filas de una columna.
  */
 export default function DetalleLiquidacion({
   mes,
@@ -45,9 +48,13 @@ export default function DetalleLiquidacion({
                   }`}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-texto">{l.cliente}</span>
-                    <span className="block truncate text-sm text-tenue">
-                      {l.compania} · {productoConApex(l)} · {unidades(l.unidades)}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="block min-w-0 truncate text-sm font-medium text-texto">{l.cliente}</span>
+                      {esCuota(l) && <InsigniaCuota />}
+                    </span>
+                    {/* Parte en vez de truncar: en el móvil, las unidades de una cuota («cuota jul-sep · 1,52 u») se perdían */}
+                    <span className="block text-sm break-words text-tenue">
+                      {l.compania} · {productoDeLaLinea(l)} · {unidades(l.unidades)}
                     </span>
                     {llegado && !l.cobrada && <Aviso como="span">Se quedó sin cobrar en este mes</Aviso>}
                   </span>

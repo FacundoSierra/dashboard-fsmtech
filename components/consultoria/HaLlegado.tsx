@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { X } from 'lucide-react';
 import { useDialogo } from '@/components/dialogo';
 import { marcarLiquidacion } from '@/lib/consultoria/acciones';
-import { calcularLiquidacion, cuentaDeComisiones } from '@/lib/consultoria/reglas';
+import { calcularLiquidacion, cuentaDeComisiones, esCuota } from '@/lib/consultoria/reglas';
 import type { LineaLiquidacion, MesLiquidacion, MovimientoDeCuenta } from '@/lib/consultoria/tipos';
 import { fechaONula } from '@/lib/consultoria/validar';
 import { nombreDelMes, sumarMeses } from '@/lib/consultoria/calendario';
@@ -12,7 +12,8 @@ import { euros, fechaCorta } from '@/lib/consultoria/formato';
 import Aviso from './Aviso';
 import { Fila, conSigno, menos } from './DesgloseLiquidacion';
 import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAMPO, ERROR, ETIQUETA } from './estilos';
-import { aCampo, conDosDecimales, leerNumero, productoConApex, unidades } from './formato';
+import { aCampo, conDosDecimales, leerNumero, productoDeLaLinea, unidades } from './formato';
+import InsigniaCuota from './InsigniaCuota';
 
 const MOTIVO_MAXIMO = 200;
 
@@ -33,6 +34,7 @@ export default function HaLlegado({
   minimoTransferencia,
   hoy,
   alCerrar,
+  alApuntar,
 }: {
   mes: MesLiquidacion;
   lineas: LineaLiquidacion[];
@@ -41,6 +43,11 @@ export default function HaLlegado({
   minimoTransferencia: number;
   hoy: string;
   alCerrar: () => void;
+  /**
+   * Al apuntarla, lo que dice la acción, antes de cerrar: puede avisar aunque se haya guardado (las
+   * cuotas que no se han podido programar, una cuota de este mes que no estaba programada)
+   */
+  alApuntar?: (mensaje: string) => void;
 }) {
   const hoja = useRef<HTMLDivElement>(null);
   const [marcadas, setMarcadas] = useState(() => new Set(lineas.filter((l) => l.estado === 'firmada' || l.estado === 'confirmada').map((l) => l.herramientaId)));
@@ -96,8 +103,12 @@ export default function HaLlegado({
         importeRecibido: recibido !== null && !recibido.trim() ? null : numRecibido,
         motivo: pasanAlSiguiente > 0 && motivo.trim() ? motivo.trim() : null,
       });
-      if (resultado.error) setError(resultado.error);
-      else alCerrar();
+      if (resultado.error) {
+        setError(resultado.error);
+        return;
+      }
+      if (resultado.ok) alApuntar?.(resultado.ok);
+      alCerrar();
     });
   }
 
@@ -133,7 +144,8 @@ export default function HaLlegado({
         </header>
 
         <div className="overflow-y-auto overscroll-contain px-5 pt-4" style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
-          <fieldset>
+          {/* `min-w-0`: un fieldset no encoge por debajo de su contenido, y un nombre largo sacaba el importe de la hoja en el móvil */}
+          <fieldset className="min-w-0">
             <legend className="text-sm font-semibold text-texto">Líneas del mes</legend>
             {lineas.length === 0 ? (
               <p className="mt-2 text-sm text-tenue">Este mes no tiene comisiones: solo cargos o abonos.</p>
@@ -149,9 +161,13 @@ export default function HaLlegado({
                         className="mt-1 h-4 w-4 shrink-0 accent-[var(--acento)]"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-texto">{l.cliente}</span>
-                        <span className="block truncate text-sm text-tenue">
-                          {l.compania} · {productoConApex(l)} · {unidades(l.unidades)}
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="block min-w-0 truncate text-sm font-medium text-texto">{l.cliente}</span>
+                          {esCuota(l) && <InsigniaCuota />}
+                        </span>
+                        {/* Parte en vez de truncar: en el móvil, las unidades de una cuota («cuota jul-sep · 1,52 u») se perdían */}
+                        <span className="block text-sm break-words text-tenue">
+                          {l.compania} · {productoDeLaLinea(l)} · {unidades(l.unidades)}
                           {l.prevista && ' · prevista'}
                           {l.estado === 'incidencia' && ' · con incidencia'}
                         </span>
@@ -165,7 +181,7 @@ export default function HaLlegado({
           </fieldset>
 
           {cargos.length > 0 && (
-            <fieldset className="mt-4">
+            <fieldset className="mt-4 min-w-0">
               <legend className="text-sm font-semibold text-texto">Cargos, abonos y restos de extornos</legend>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {cargos.map((c) => (

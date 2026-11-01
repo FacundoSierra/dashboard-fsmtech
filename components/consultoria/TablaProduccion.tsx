@@ -3,7 +3,7 @@ import { esApex, type DatosCompania } from '@/lib/consultoria/reglas';
 import type { Produccion } from '@/lib/consultoria/tipos';
 import { euros, fechaCorta, mesCorto } from '@/lib/consultoria/formato';
 import EstadoHerramienta from './EstadoHerramienta';
-import { aportacionDe, cobraPocoAPoco, cuantas, dosDecimales, nombreDeCompania, pct, unidades } from './formato';
+import { aportacionDe, cobraPocoAPoco, cuantas, dosDecimales, nombreDeCompania, pct, textoDeLaSerie, unidades } from './formato';
 import InsigniaApex from './InsigniaApex';
 import TarjetaHerramienta from './TarjetaHerramienta';
 
@@ -13,7 +13,8 @@ import TarjetaHerramienta from './TarjetaHerramienta';
  * por herramienta: en el móvil no hay tabla con desplazamiento. Cada una lleva a su página. Las
  * previstas, con fondo ámbar; las anuladas, tachadas y fuera de los totales. Una
  * APEX sigue en su fila, con la insignia «APEX de TopPlan», y en los totales va aparte de las
- * herramientas («2 y 1 APEX»); sus unidades sí suman.
+ * herramientas («2 y 1 APEX»); sus unidades sí suman. Sin las cuotas de las series (REQ-002), que
+ * van dentro de su herramienta: la serie lleva debajo del producto «Recurrente · trimestral».
  */
 export default function TablaProduccion({ produccion, companias }: { produccion: Produccion; companias: DatosCompania[] }) {
   const { filas, totales } = produccion;
@@ -98,6 +99,7 @@ export default function TablaProduccion({ produccion, companias }: { produccion:
                       <td className="py-2.5 pr-3">
                         <span className="block truncate">{h.producto}</span>
                         <span className="block truncate text-[13px] text-apagado">{nombreDeCompania(h.compania, companias)}</span>
+                        {h.cuotasCadaMeses && <span className="block truncate text-[13px] text-apagado">{textoDeLaSerie(h.cuotasCadaMeses)}</span>}
                         {esApex(h) && (
                           <span className="mt-1 flex">
                             <InsigniaApex de={h.de} />

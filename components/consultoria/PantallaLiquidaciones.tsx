@@ -8,7 +8,7 @@ import CuentaDeComisiones from './CuentaDeComisiones';
 import DesgloseLiquidacion, { conSigno } from './DesgloseLiquidacion';
 import DetalleLiquidacion from './DetalleLiquidacion';
 import { TARJETA } from './estilos';
-import { enlaceAlMes, mesConMayuscula, soloElMes } from './formato';
+import { enlaceAlMes, mesConMayuscula, soloElMes, unidades } from './formato';
 
 /**
  * Las liquidaciones de un año, cada mes como el documento de OVB, con los totales arriba y la
@@ -152,7 +152,9 @@ function TarjetaDelMes({
               ? [mes.numero ? `N.º ${mes.numero}` : null, mes.fecha ? `del ${fechaCorta(mes.fecha)}` : null].filter(Boolean).join(' ') || 'Ha llegado'
               : 'Aún no ha llegado'}
             {' · '}
+            {/* «1 herramienta y 1 cuota · 91,52 u», como la casilla de OVB */}
             {textoDelRecuento(mes)}
+            {mes.unidades > 0 && ` · ${unidades(mes.unidades)}`}
           </p>
         </div>
         <span className="shrink-0">
