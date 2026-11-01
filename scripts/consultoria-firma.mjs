@@ -9,7 +9,7 @@
  *        --fecha AAAA-MM-DD [--estado prevista|firmada|confirmada]
  *        [--mes-produccion AAAA-MM] [--efecto AAAA-MM-DD] [--cobro AAAA-MM] [--valor-unidad 2.5] [--nota "…"]
  *        [--calendario <nota.md>] [--produccion <carpeta|archivo.json>] [--unidades-previas N]
- *        [--repetida] [--guardar]
+ *        [--cuotas trimestral|semestral --unidades-cuota N] [--repetida] [--guardar]
  *
  * - `--fecha` es la de confirmar la solicitud (o, por transferencia, la del dinero). Sin `--estado`:
  *   prevista si la fecha es futura y confirmada si no
@@ -35,6 +35,15 @@
  *   extraordinaria, y el pago, el de su herramienta si no se da `--pago`. Si no tiene ninguna, para
  *   y lo dice; si tiene más de una, para y las enseña, y se elige con `--de-mes AAAA-MM` (su mes de
  *   producción). Sin base de datos, la busca en `--produccion`
+ * - **`--cuotas trimestral|semestral`** (REQ-002): un seguro que se cobra por recibo trimestral o
+ *   semestral es una **serie**, con su comisión recurrente. Hace falta `--unidades-cuota` (lo que cobra
+ *   cada cuota) y `--unidades-nivel`; `--unidades`, 0 o sin dar (la firma no cobra: cada periodo es su
+ *   cuota), y el tipo, sobre recibo o sobre saldo (el del producto, o `--tipo`). El cobro es el de la
+ *   primera cuota. La vista previa enseña las cuotas, las que se programan (hasta seis meses después de
+ *   hoy) y la casilla del mes de la primera que se programa, con ella. Con `--guardar`, inserta la
+ *   herramienta y programa sus cuotas con `consultoria_programar_cuotas`. **Hace falta la 0002**: sin
+ *   ella, la vista previa sale igual, con el aviso, y `--guardar` para. Los recibos mensuales no son
+ *   recurrentes: van anualizados, de una vez (`--tipo anualizada`, sin `--cuotas`)
  * - **Sin `--guardar` no escribe nada**, y la vista previa funciona siempre. Con `--guardar` inserta
  *   la herramienta (y antes el cliente, si es nuevo), con `origen` nulo. Hace falta la migración
  *   0001, la copia y que la base del panel ya sea la fuente: **hasta el cambio (`fuente_desde` nulo,
@@ -44,15 +53,22 @@
  * liquidación. Las rutas se pasan por argumento: el repo no sabe dónde están las notas.
  */
 import {
+  NOMBRE_DE_CADA_MESES,
   calcularImportes,
+  cuotasDeLaSerie,
+  cuotasQueFaltan,
   datosDeCompania,
   hoyEnMadrid,
+  nombreDelPeriodo,
+  periodoCorto,
   primerDiaDelMes,
   proponerFirma,
   ultimoDiaDelMes,
   valorUnidadDelMes,
+  ventanaDeProgramacion,
 } from "../lib/consultoria/reglas.ts";
 import {
+  AVISO_MIGRACION_0002,
   TIPOS_DE_COMISION,
   cargarContexto,
   claveDeNombre,
@@ -61,6 +77,7 @@ import {
   contextoDeSerie,
   cuentaEnLiquidacion,
   euros,
+  hayMigracion0002,
   lanzar,
   leerArgumentos,
   leerCalendario,
@@ -80,6 +97,7 @@ import {
   parar,
   porcentaje,
   prepararBase,
+  programarCuotasDeLaSerie,
   puedeSerSuMadre,
   separarCliente,
   unidades,
@@ -90,9 +108,15 @@ const USO = `Uso: npm run consultoria:firma -- --cliente "Nombre" --compania <c�
        [--unica] [--apex [--de-mes AAAA-MM]] [--propio] [--tipo …] [--unidades-nivel N] [--pct-hucha 10] [--estado prevista|firmada|confirmada]
        [--referencia "ref. …"] [--mes-produccion AAAA-MM] [--efecto AAAA-MM-DD] [--cobro AAAA-MM] [--valor-unidad 2.5]
        [--nota "…"] [--calendario <nota.md>] [--produccion <carpeta|json>] [--unidades-previas N]
-       [--repetida] [--guardar]`;
+       [--cuotas trimestral|semestral --unidades-cuota N] [--repetida] [--guardar]`;
 
 const centesimas = (valor) => Math.round(Number(valor) * 100);
+
+/** `--cuotas`: cada cuántos meses cobra la serie */
+const CADA_MESES = { trimestral: 3, semestral: 6 };
+
+/** `2026-10 (jul-sep)` */
+const cuotaEnTexto = (cuota, cadaMeses) => `${cuota.fechaCobro.slice(0, 7)} (${periodoCorto(cuota.periodo, cadaMeses)})`;
 
 /** `producción 2026-11 · TopPlan · 300,00 €/mes · prevista` */
 const describirMadre = (h) =>
@@ -133,7 +157,7 @@ async function principal() {
     valores: [
       "cliente", "referencia", "compania", "producto", "pago", "aportacion", "duracion", "unidades", "unidades-nivel",
       "tipo", "pct-hucha", "fecha", "estado", "mes-produccion", "efecto", "cobro", "valor-unidad", "nota",
-      "calendario", "produccion", "unidades-previas", "de-mes",
+      "calendario", "produccion", "unidades-previas", "de-mes", "cuotas", "unidades-cuota",
     ],
     banderas: ["unica", "apex", "propio", "repetida", "guardar"],
   });
@@ -176,6 +200,23 @@ async function principal() {
   const pctHuchaDado = opciones["pct-hucha"] === undefined ? null : leerCantidad(opciones["pct-hucha"], "--pct-hucha", { cero: true, maximo: 100 });
   const fecha = leerFecha(opciones.fecha, "--fecha");
 
+  // --cuotas: una serie (REQ-002). La firma no cobra; cada periodo es su cuota
+  const cuotasCadaMeses = opciones.cuotas === undefined ? null : (CADA_MESES[claveDeNombre(opciones.cuotas)] ?? null);
+  if (opciones.cuotas !== undefined && !cuotasCadaMeses) {
+    parar("--cuotas: trimestral o semestral. Si el recibo es mensual, no es recurrente: la comisión va anualizada, de una vez (sin --cuotas).");
+  }
+  if (opciones["unidades-cuota"] !== undefined && !cuotasCadaMeses) parar("--unidades-cuota solo vale con --cuotas trimestral|semestral.");
+  let unidadesCuota = null;
+  if (cuotasCadaMeses) {
+    if (opciones["unidades-cuota"] === undefined) parar("Con --cuotas, di lo que cobra cada cuota con --unidades-cuota N (el RC: 1.52).");
+    unidadesCuota = leerCantidad(opciones["unidades-cuota"], "--unidades-cuota", { maximo: 99_999_999.99 });
+    if (unidadesDadas !== undefined && unidadesDadas !== 0) {
+      parar("Con --cuotas la firma no cobra: cada periodo es su cuota. Quita --unidades (o pon 0) y di lo de cada cuota con --unidades-cuota.");
+    }
+    if (unidadesNivelDadas === undefined) parar("Con --cuotas, di las unidades que cuentan para el nivel con --unidades-nivel N.");
+    if (apex) parar("--cuotas y --apex no van juntas: una aportación extraordinaria no cobra en cuotas.");
+  }
+
   const hoy = hoyEnMadrid();
   const estado = opciones.estado ? claveDeNombre(opciones.estado) : fecha > hoy ? "prevista" : "confirmada";
   if (!["prevista", "firmada", "confirmada"].includes(estado)) parar("--estado: prevista, firmada o confirmada.");
@@ -192,6 +233,11 @@ async function principal() {
   // ── El contexto: de la base del panel o, para probar, de los archivos ─────
   const base = await prepararBase({ guardar });
   const { supabase, consultor, migracion } = base;
+  // La 0002 (las series y las cuotas): sin ella, las firmas de siempre van igual y una serie solo se ve
+  const hay0002 = migracion ? await hayMigracion0002(supabase) : false;
+  if (guardar && cuotasCadaMeses && !hay0002) {
+    parar(`${AVISO_MIGRACION_0002}. Hasta que se ejecute no se puede guardar una serie (--cuotas): sin --guardar se ve la vista previa. No se ha guardado nada.`);
+  }
   const cargado = migracion ? await cargarContexto(supabase, consultor.id) : contextoDeSerie();
   const contexto = { ...cargado.contexto, ajustes: { ...cargado.contexto.ajustes } };
   const fuentes = [`cuadro ${contexto.cuadro.version}`];
@@ -248,10 +294,11 @@ async function principal() {
       const { data, error: fallo } = await leerConApex(
         (columnas) =>
           supabase.from("consultoria_herramientas").select(columnas).eq("consultor_id", consultor.id).eq("cliente_id", clienteId).eq("compania", compania),
-        "id, compania, producto, periodicidad, pago, aportacion, unidades, fecha_confirmacion, mes_produccion, estado",
+        `id, compania, producto, periodicidad, pago, aportacion, unidades, fecha_confirmacion, mes_produccion, estado${hay0002 ? ", cuota_de" : ""}`,
       );
       if (fallo) parar(`No se han podido leer sus herramientas: ${fallo.message}`);
-      suyas = data.map((h) => ({
+      // Sus cuotas no son firmas: ni repetidas ni la herramienta de una APEX
+      suyas = data.filter((h) => !h.cuota_de).map((h) => ({
         id: h.id,
         compania: h.compania,
         producto: h.producto,
@@ -299,12 +346,13 @@ async function principal() {
       periodicidad,
       pago,
       fecha,
-      unidades: unidadesDadas,
+      unidades: cuotasCadaMeses ? 0 : unidadesDadas,
       unidadesNivel: unidadesNivelDadas,
       aportacion,
       duracionAnios,
       propio,
       fechaEfecto: aMano.efecto ?? undefined,
+      cuotasCadaMeses: cuotasCadaMeses ?? undefined,
     },
     contexto,
   );
@@ -324,6 +372,12 @@ async function principal() {
   const unidadesNivel = propuesta.unidadesNivel;
   const tipoComision = tipoDado ?? propuesta.tipoComision;
   if (tipoDado && tipoDado !== propuesta.tipoComision) cambiado.push("tipo");
+  if (cuotasCadaMeses && !["sobre_recibo", "sobre_saldo"].includes(tipoComision)) {
+    parar(
+      `--cuotas es para una comisión sobre recibo o sobre saldo, y «${producto}» es ${tipoComision}. ` +
+        "Si el recibo es mensual, la comisión va anualizada, de una vez: sin --cuotas. Si de verdad cobra por periodos, añade --tipo sobre_recibo.",
+    );
+  }
 
   if (aMano.mesProduccion && aMano.mesProduccion !== mesProduccion) {
     mesProduccion = aMano.mesProduccion;
@@ -367,8 +421,7 @@ async function principal() {
       .map((h) => `${h.mesProduccion.slice(0, 7)}, ${h.estado}`);
   }
 
-  // ── La liquidación del mes de cobro, con y sin esta firma ─────────────────
-  const mesCobro = primerDiaDelMes(fechaCobro);
+  // ── Lo guardado: las líneas, los cargos y las liquidaciones que han llegado ─
   let lineas = [];
   let cargos = [];
   let llegadas = new Map();
@@ -379,20 +432,56 @@ async function principal() {
     lineas = await leerLineasGuardadas(supabase, consultor.id);
     cargos = await leerCargosGuardados(supabase, consultor.id, llegadas);
   }
-  const estaFirma = {
-    mes: mesCobro,
-    prevista: estado === "prevista",
-    unidades: unidadesFirma,
-    bruto: importes.bruto,
-    hucha: importes.hucha,
-    pctIrpf,
-    // Una APEX cuenta con su herramienta: «4 herramientas y 1 APEX». En las notas, la madre no tiene id
-    aportacionDe: madre ? (madre.id ?? madre.origen) : null,
-  };
+
+  // ── Una serie (--cuotas): sus cuotas, con la regla de reglas.ts ───────────
+  // Se programan las que se cobran desde el mes siguiente a la última liquidación que llegó hasta seis
+  // meses después de hoy, como en el panel. La casilla que se enseña es la del mes de la primera que
+  // cuenta (no la de un mes ya liquidado), con su cuota
+  let serie = null;
+  if (cuotasCadaMeses) {
+    const laSerie = { fechaEfecto, cuotasCadaMeses, laFirmaCobraLaPrimera: false };
+    const ventana = ventanaDeProgramacion(hoy, [...llegadas.keys()].sort().at(-1) ?? null);
+    const plan = cuotasQueFaltan(laSerie, { ...ventana, guardadas: [] });
+    const desdeOEfecto = [ventana.desde, fechaEfecto].filter(Boolean).sort().at(-1);
+    const todas = cuotasDeLaSerie(laSerie, `${Number(desdeOEfecto.slice(0, 4)) + 2}-12-01`);
+    serie = {
+      plan,
+      primera: todas[0],
+      deLaCasilla: todas.find((c) => !ventana.desde || primerDiaDelMes(c.fechaCobro) >= ventana.desde),
+      importes: calcularImportes(unidadesCuota, valorUnidad, pctHucha, pctIrpf),
+    };
+    for (const aviso of plan.avisos) if (!avisos.includes(aviso.texto)) avisos.push(aviso.texto);
+    if (!hay0002) avisos.push(`${AVISO_MIGRACION_0002}. La vista previa sale igual, pero con --guardar no se puede guardar hasta que se ejecute.`);
+  }
+
+  // ── La liquidación del mes de cobro, con y sin esta firma ─────────────────
+  const mesCobro = primerDiaDelMes(serie ? serie.deLaCasilla.fechaCobro : fechaCobro);
+  const estaFirma = serie
+    ? {
+        mes: mesCobro,
+        prevista: estado === "prevista",
+        unidades: unidadesCuota,
+        bruto: serie.importes.bruto,
+        hucha: serie.importes.hucha,
+        pctIrpf,
+        aportacionDe: null,
+        // Cuenta como cuota: «1 herramienta y 1 cuota»
+        cuotaDe: "esta serie",
+      }
+    : {
+        mes: mesCobro,
+        prevista: estado === "prevista",
+        unidades: unidadesFirma,
+        bruto: importes.bruto,
+        hucha: importes.hucha,
+        pctIrpf,
+        // Una APEX cuenta con su herramienta: «4 herramientas y 1 APEX». En las notas, la madre no tiene id
+        aportacionDe: madre ? (madre.id ?? madre.origen) : null,
+      };
   const delMes = (resultado) => resultado.meses.find((m) => m.mes === mesCobro) ?? null;
   const sin = delMes(liquidacionesPorMes({ lineas, cargos, llegadas }));
-  const con = delMes(liquidacionesPorMes({ lineas: unidadesFirma > 0 ? [...lineas, estaFirma] : lineas, cargos, llegadas }));
-  if (llegadas.has(mesCobro)) {
+  const con = delMes(liquidacionesPorMes({ lineas: serie || unidadesFirma > 0 ? [...lineas, estaFirma] : lineas, cargos, llegadas }));
+  if (!serie && llegadas.has(mesCobro)) {
     avisos.push(`La liquidación de ${mesEnTexto(mesCobro)} ya llegó el ${llegadas.get(mesCobro).fecha}: esta firma quedaría pendiente en un mes cobrado. Revisa el cobro.`);
   }
 
@@ -409,7 +498,10 @@ async function principal() {
   console.log(`  Fecha:       ${fecha} · ${estado}`);
   console.log(`  Producción:  ${mesProduccion.slice(0, 7)}${marca("producción")}`);
   console.log(`  Efecto:      ${fechaEfecto}${marca("efecto")}${fechasProvisionales ? " (provisional: regla sin confirmar)" : ""}`);
-  console.log(`  Cobro:       ${fechaCobro}${marca("cobro")} (estimado)`);
+  console.log(
+    `  Cobro:       ${fechaCobro}${marca("cobro")} ` +
+      (serie ? `(la primera cuota, la de ${nombreDelPeriodo(serie.primera.periodo, cuotasCadaMeses)})` : "(estimado)"),
+  );
   console.log(
     `  Unidades:    ${unidades(unidadesFirma)}${unidadesDadas === undefined ? ` (propuestas por el cuadro ${propuesta.versionCuadro})` : ""}` +
       `${unidadesNivel !== null ? ` · ${unidades(unidadesNivel)} para el nivel${unidadesNivelDadas === undefined ? " (propuestas)" : ""}` : ""}`,
@@ -422,6 +514,22 @@ async function principal() {
     `  Importes:    comisión ${euros(importes.bruto)} · RC ${euros(importes.hucha)} (${porcentaje(pctHucha)}${marca("reserva")}) · ` +
       `IRPF ≈ ${euros(importes.irpf)} (${porcentaje(pctIrpf)}) · neto ≈ ${euros(importes.neto)}`,
   );
+  if (serie) {
+    const { periodo } = NOMBRE_DE_CADA_MESES[cuotasCadaMeses];
+    const reserva = pctHucha === 0 ? "sin hucha" : `con el ${porcentaje(pctHucha)} de hucha (${euros(serie.importes.hucha)})`;
+    const { cuotas, sinProgramar } = serie.plan;
+    console.log(`  Cuotas:      ${unidades(unidadesCuota)} (${euros(serie.importes.bruto)}) cada ${periodo}, ${reserva}`);
+    console.log(
+      `  Se programan: ${
+        cuotas.length
+          ? cuotas.map((c) => cuotaEnTexto(c, cuotasCadaMeses)).join(" · ")
+          : `ninguna todavía: la primera, ${cuotaEnTexto(serie.deLaCasilla, cuotasCadaMeses)}, se programará cuando falten seis meses para cobrarla (con «Ha llegado» o desde su herramienta)`
+      }`,
+    );
+    if (sinProgramar.length) {
+      console.log(`  Sin programar: ${sinProgramar.map((c) => cuotaEnTexto(c, cuotasCadaMeses)).join(" · ")} (su liquidación ya llegó: ver los avisos)`);
+    }
+  }
   console.log(`  Contexto:    ${fuentes.join(" · ")}`);
   if (base.nota) console.log(`\n  ${base.nota}`);
   if (avisos.length) {
@@ -433,10 +541,12 @@ async function principal() {
     if (!opciones.repetida) console.log("    No se guarda salvo con --repetida.");
   }
 
-  console.log(`\nLiquidación de ${mesEnTexto(mesCobro)} (la casilla de los cobros de OVB, sin nombres; el IRPF, sobre el total):`);
+  const conLaCuota = serie ? `, con la cuota de ${nombreDelPeriodo(serie.deLaCasilla.periodo, cuotasCadaMeses)}` : "";
+  console.log(`\nLiquidación de ${mesEnTexto(mesCobro)}${conLaCuota} (la casilla de los cobros de OVB, sin nombres; el IRPF, sobre el total):`);
   if (sin && sin.lineas.length) console.log(`  Sin esta firma: ${sin.texto}`);
   if (con) console.log(`  Con esta firma: ${con.texto}`);
-  if (!(unidadesFirma > 0)) console.log("  (Esta firma no es una línea: no se cobra de una vez. Cada comisión que llegue irá en su liquidación.)");
+  if (serie) console.log("  (La firma no cobra: cada periodo es su cuota, una línea en la liquidación de su mes.)");
+  else if (!(unidadesFirma > 0)) console.log("  (Esta firma no es una línea: no se cobra de una vez. Cada comisión que llegue irá en su liquidación.)");
   if (!deLasNotas && !migracion) console.log("  (Solo esta firma: sin base de datos ni --produccion no se sabe qué más hay ese mes.)");
 
   if (!guardar) {
@@ -462,7 +572,7 @@ async function principal() {
     clienteId = clienteCreado = data.id;
   }
 
-  const { error } = await supabase.from("consultoria_herramientas").insert({
+  const { data: guardada, error } = await supabase.from("consultoria_herramientas").insert({
     consultor_id: consultor.id,
     cliente_id: clienteId,
     compania,
@@ -487,10 +597,28 @@ async function principal() {
     notas: nota,
     origen: null,
     ...(madre ? { aportacion_de: madre.id } : {}),
-  });
+    ...(serie ? { cuotas_cada_meses: cuotasCadaMeses, unidades_cuota: unidadesCuota } : {}),
+  }).select("id").single();
   if (error) {
     if (clienteCreado) await supabase.from("consultoria_clientes").delete().eq("id", clienteCreado).eq("consultor_id", consultor.id);
     parar(`No se ha podido guardar la firma: ${error.message}. No se ha guardado nada.`);
+  }
+
+  // Una serie: sus cuotas, con la misma función que el panel. Si falla, la firma se queda: el botón de su herramienta lo repite
+  let deLasCuotas = "";
+  if (serie) {
+    const programadas = await programarCuotasDeLaSerie(
+      supabase,
+      consultor.id,
+      { id: guardada.id, fechaEfecto, cuotasCadaMeses, unidades: unidadesFirma },
+      { hoy, pctIrpf },
+    );
+    if (programadas.error) {
+      deLasCuotas = `, pero no se han podido programar sus cuotas (${programadas.error}): prográmalas desde su herramienta en el panel`;
+    } else {
+      const n = programadas.programadas;
+      deLasCuotas = `, con ${n === 1 ? "1 cuota programada" : `${n} cuotas programadas`}`;
+    }
   }
 
   const ahoraLlegadas = await leerLiquidacionesGuardadas(supabase, consultor.id);
@@ -501,7 +629,7 @@ async function principal() {
       llegadas: ahoraLlegadas,
     }),
   );
-  console.log(`\n✓ Guardada${clienteCreado ? ", con el cliente nuevo" : ""}.`);
+  console.log(`\n✓ Guardada${clienteCreado ? ", con el cliente nuevo" : ""}${deLasCuotas}.`);
   if (ahora) console.log(`  Ahora: ${ahora.texto}\n`);
 }
 

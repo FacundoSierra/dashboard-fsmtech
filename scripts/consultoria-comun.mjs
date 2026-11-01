@@ -20,6 +20,9 @@
  *   apunta en FSM-Finance
  * - **Una APEX es la herramienta con `aportacion_de`**: en el recuento va con la suya («4 herramientas
  *   y 1 APEX»); en la liquidación es su propia línea, y el importe no cambia
+ * - **Una cuota es la herramienta con `cuota_de`** (REQ-002, la 0002): en el recuento se cuenta aparte
+ *   («1 herramienta y 1 cuota»), y en la liquidación es su propia línea. Sin la 0002 se lee como antes
+ *   (sin cuotas), y lo que guarda una serie para con `AVISO_MIGRACION_0002`
  * - **Las notas se leen con un lector propio** de `clave: valor` del frontmatter, sin dependencias:
  *   es lo único que tienen estas notas
  * - **Ningún script llama a las funciones de las liquidaciones** («Ha llegado» y «Deshacer»): eso se
@@ -36,12 +39,14 @@ import {
   calcularImportes,
   calcularLiquidacion,
   cuentaDeComisiones,
+  cuotasQueFaltan,
   pctHuchaPara,
   primerDiaDelMes,
   productoDelCuadro,
   recuentoDelMes,
   textoDeHerramientas,
   ultimoDiaDelMes,
+  ventanaDeProgramacion,
 } from "../lib/consultoria/reglas.ts";
 import { CUADRO_VIGENTE, NIVELES_DE_SERIE } from "../lib/consultoria/cuadro.ts";
 
@@ -50,6 +55,8 @@ export { CUADRO_VIGENTE };
 export const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const AVISO_MIGRACION = "Falta la migración 0001 en la base del panel (supabase/migraciones/0001_consultoria.sql)";
+export const AVISO_MIGRACION_0002 =
+  "Falta la migración 0002 en la base del panel (supabase/migraciones/0002_cuotas_recurrentes.sql): sin ella no hay series ni cuotas";
 export const AVISO_COPIA = "La base nueva está vacía: copia antes los datos (`consultoria:copiar`)";
 export const AVISO_FUENTE = "La consultoría aún se lleva en FSM-Finance: el cambio no está hecho (spec 6.4)";
 
@@ -242,6 +249,22 @@ export function conectar({ obligatorio = false } = {}) {
 /** El error de PostgREST de una tabla, vista, columna o función que aún no existe: falta la migración */
 export function faltaLaMigracion(error) {
   return ["42P01", "42703", "PGRST205", "PGRST204", "PGRST202"].includes(error?.code);
+}
+
+/** Lo que trae la 0002: las cuatro columnas de la serie y de la cuota y la función que programa las cuotas */
+const DE_LA_0002 = /cuotas_cada_meses|unidades_cuota|cuota_de|cuota_periodo|consultoria_programar_cuotas/;
+
+/** ¿Es el error de una columna o función de la 0002 que aún no existe? */
+export function faltaLa0002(error) {
+  return faltaLaMigracion(error) && DE_LA_0002.test(String(error?.message ?? ""));
+}
+
+/** ¿Está ejecutada la 0002? Lee `cuota_de` de una herramienta; cualquier otro error, se para */
+export async function hayMigracion0002(supabase) {
+  const { error } = await supabase.from("consultoria_herramientas").select("cuota_de").limit(1);
+  if (!error) return true;
+  if (faltaLa0002(error)) return false;
+  return parar(`No se ha podido leer la base de datos: ${error.code ?? "sin código"} ${error.message}`);
 }
 
 /**
@@ -455,21 +478,26 @@ export function companiaConocida(codigo, contexto) {
 
 /**
  * Las comisiones guardadas (vista `consultoria_lineas`: solo las de `unidades > 0` que cuentan), con
- * `aportacionDe` si son una APEX
+ * `aportacionDe` si son una APEX y `cuotaDe` si son una cuota. Sin la 0002 (la vista aún no tiene
+ * `cuota_de`, como en la base de FSM-Finance), se leen como antes, sin cuotas
  */
 export async function leerLineasGuardadas(supabase, consultorId) {
-  const { data, error } = await leerConApex(
-    (columnas) =>
-      leerTodo(() =>
-        supabase
-          .from("consultoria_lineas")
-          .select(columnas)
-          .eq("consultor_id", consultorId)
-          .order("mes")
-          .order("herramienta_id"),
-      ),
-    "mes, prevista, cobrada, unidades, bruto, hucha, pct_irpf, liquidacion_id",
-  );
+  const leer = (columnas) =>
+    leerConApex(
+      (conApex) =>
+        leerTodo(() =>
+          supabase
+            .from("consultoria_lineas")
+            .select(conApex)
+            .eq("consultor_id", consultorId)
+            .order("mes")
+            .order("herramienta_id"),
+        ),
+      columnas,
+    );
+  const columnas = "mes, prevista, cobrada, unidades, bruto, hucha, pct_irpf, liquidacion_id";
+  let { data, error } = await leer(`${columnas}, cuota_de`);
+  if (error && faltaLa0002(error)) ({ data, error } = await leer(columnas));
   if (error) {
     if (faltaLaMigracion(error)) return [];
     parar(`No se han podido leer las liquidaciones: ${error.message}`);
@@ -483,6 +511,7 @@ export async function leerLineasGuardadas(supabase, consultorId) {
     hucha: numero(l.hucha),
     pctIrpf: numero(l.pct_irpf),
     aportacionDe: l.aportacion_de ?? null,
+    cuotaDe: l.cuota_de ?? null,
   }));
 }
 
@@ -568,16 +597,18 @@ const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Cuántas herramientas, APEX y previstas dicen esas líneas, como en la casilla de OVB: sin APEX,
- * exactamente como antes («5 herramientas (2 previstas)», «2 herramientas previstas»); con APEX, «4
- * herramientas y 1 APEX (2 previstas)». Las previstas cuentan también las APEX
+ * Cuántas herramientas, APEX, cuotas y previstas dicen esas líneas, como en la casilla de OVB: sin
+ * APEX ni cuotas, exactamente como antes («5 herramientas (2 previstas)», «2 herramientas
+ * previstas»); con APEX o cuotas, «4 herramientas y 1 APEX (2 previstas)», «1 herramienta y 1 cuota».
+ * Las previstas cuentan también las APEX y las cuotas
  */
 export function herramientasDeLaCasilla(lineas) {
   const recuento = recuentoDelMes(lineas);
-  const n = recuento.herramientas + recuento.apex;
+  const cuotas = recuento.cuotas ?? 0;
+  const n = recuento.herramientas + recuento.apex + cuotas;
   const { previstas } = recuento;
   if (n === 0) return "sin herramientas";
-  if (recuento.apex > 0) {
+  if (recuento.apex > 0 || cuotas > 0) {
     const texto = textoDeHerramientas(recuento);
     return previstas ? `${texto} (${plural(previstas, "prevista", "previstas")})` : texto;
   }
@@ -1104,5 +1135,46 @@ export function comoLinea(h) {
     hucha: h.hucha,
     pctIrpf: h.pctIrpf,
     aportacionDe: h.aportacionDe ?? null,
+    cuotaDe: h.cuotaDe ?? null,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Las cuotas de una serie (REQ-002)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Programa las cuotas que le faltan a una serie, como el ayudante `programar` de
+ * `lib/consultoria/acciones.ts`: con la regla de `reglas.ts` (`cuotasQueFaltan`), desde el mes
+ * siguiente a la última liquidación que llegó hasta seis meses después de `hoy`, y la fila la arma
+ * `consultoria_programar_cuotas` de la 0002. `serie`: `{ id, fechaEfecto, cuotasCadaMeses, unidades }`.
+ * Devuelve `{ programadas, cuotas, sinProgramar, avisos }`; si la base no deja, `{ error }` con su
+ * mensaje (los de la función dicen el producto, nunca el cliente)
+ */
+export async function programarCuotasDeLaSerie(supabase, consultorId, serie, { hoy, pctIrpf }) {
+  const { data: guardadas, error: alLeer } = await leerTodo(() =>
+    supabase
+      .from("consultoria_herramientas")
+      .select("cuota_periodo")
+      .eq("consultor_id", consultorId)
+      .eq("cuota_de", serie.id)
+      .order("cuota_periodo"),
+  );
+  if (alLeer) return { error: `${alLeer.code ?? "sin código"} ${alLeer.message}` };
+  const llegadas = await leerLiquidacionesGuardadas(supabase, consultorId);
+  const ultima = [...llegadas.keys()].sort().at(-1) ?? null;
+  const plan = cuotasQueFaltan(
+    { fechaEfecto: serie.fechaEfecto, cuotasCadaMeses: serie.cuotasCadaMeses, laFirmaCobraLaPrimera: serie.unidades > 0 },
+    { ...ventanaDeProgramacion(hoy, ultima), guardadas: guardadas.map((c) => c.cuota_periodo) },
+  );
+  if (!plan.cuotas.length) return { programadas: 0, ...plan };
+  const { data, error } = await supabase.rpc("consultoria_programar_cuotas", {
+    p_consultor: consultorId,
+    p_herramienta: serie.id,
+    p_periodos: plan.cuotas.map((c) => c.periodo),
+    p_cobros: plan.cuotas.map((c) => c.fechaCobro),
+    p_pct_irpf: pctIrpf,
+  });
+  if (error) return { error: `${error.code ?? "sin código"} ${error.message}` };
+  return { programadas: Number(data ?? 0), ...plan };
 }
