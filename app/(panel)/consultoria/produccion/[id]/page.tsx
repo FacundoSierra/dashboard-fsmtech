@@ -15,7 +15,8 @@ export const metadata: Metadata = { title: 'Herramienta' };
 
 /**
  * Una herramienta: verla, cambiarla, anularla (con su extorno) o borrarla. Para cambiarla, también las
- * herramientas de las que puede colgar si es una APEX (las de todos: al cambiarla se puede cambiar de cliente)
+ * herramientas de las que puede colgar si es una APEX (las de todos: al cambiarla se puede cambiar de
+ * cliente). Una serie, con sus cuotas; una cuota, con el enlace a su serie (REQ-002)
  */
 export default async function HerramientaPage({ params }: PageProps<'/consultoria/produccion/[id]'>) {
   const acceso = await exigirConsultoria();
@@ -23,8 +24,10 @@ export default async function HerramientaPage({ params }: PageProps<'/consultori
   const { consultor } = acceso;
   const { id } = await params;
 
+  // El mismo día para todo: decide también qué cuotas de una serie faltan y cuáles se enseñan
+  const hoy = hoyEnMadrid();
   const [encontrada, { contexto }, { clientes }, { productos }, hucha, todas] = await Promise.all([
-    herramienta(consultor.id, id),
+    herramienta(consultor.id, id, hoy),
     contextoDeReglas(consultor.id),
     clientesConsultoria(consultor.id),
     productosUsados(consultor.id),
@@ -35,7 +38,6 @@ export default async function HerramientaPage({ params }: PageProps<'/consultori
   const h = encontrada.herramienta;
   if (!h) notFound();
 
-  const hoy = hoyEnMadrid();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-x-5 px-1">

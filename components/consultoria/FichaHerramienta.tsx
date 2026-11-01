@@ -1,14 +1,26 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { IconoEstado } from '@/components/ui';
-import { esApex, primerDiaDelMes } from '@/lib/consultoria/reglas';
+import { esApex, esCuota, nombreDelPeriodo, primerDiaDelMes } from '@/lib/consultoria/reglas';
 import type { HerramientaConAportaciones } from '@/lib/consultoria/tipos';
 import { euros, fechaCorta } from '@/lib/consultoria/formato';
 import { nombreDelMes } from '@/lib/consultoria/calendario';
 import Aviso from './Aviso';
+import CuotasDeLaSerie from './CuotasDeLaSerie';
 import EstadoHerramienta from './EstadoHerramienta';
 import { TARJETA } from './estilos';
-import { NOMBRE_TIPO_COMISION, aportacionDe, cobraPocoAPoco, cuantoFalta, enlaceAlMes, euroPorUnidad, pct, soloElMes, unidades } from './formato';
+import {
+  NOMBRE_TIPO_COMISION,
+  aportacionDe,
+  cobraPocoAPoco,
+  cuantoFalta,
+  enlaceAlMes,
+  euroPorUnidad,
+  pct,
+  soloElMes,
+  textoDeLaSerie,
+  unidades,
+} from './formato';
 import ListaApex from './ListaApex';
 
 function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
@@ -22,7 +34,10 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode })
 
 /**
  * Todo lo de una herramienta, de solo lectura: lo que se apuntó, sus importes, sus fechas y su
- * extorno. Si es una APEX, «APEX de TopPlan» con el enlace a su herramienta; si tiene APEX, su lista
+ * extorno. Si es una APEX, «APEX de TopPlan» con el enlace a su herramienta; si tiene APEX, su lista.
+ * Si es una serie (REQ-002), «Recurrente · trimestral» y la sección «Cuotas»; si es una cuota, «Cuota
+ * de julio-septiembre de 2026 de RC Integral» con el enlace a su serie, y sin «Libre de extorno», que
+ * es de la serie
  */
 export default function FichaHerramienta({
   herramienta: h,
@@ -33,6 +48,7 @@ export default function FichaHerramienta({
   compania: string;
   hoy: string;
 }) {
+  const cuota = esCuota(h);
   const pocoAPoco = cobraPocoAPoco(h.tipoComision) && h.unidades === 0;
   const falta = h.libreDeExtornoEl ? cuantoFalta(hoy, h.libreDeExtornoEl) : null;
   const mesDeCobro = primerDiaDelMes(h.fechaCobro);
@@ -62,6 +78,20 @@ export default function FichaHerramienta({
               )}
             </p>
           )}
+          {cuota && (
+            <p className="mt-1 text-sm text-tenue">
+              {h.serieDe && h.cuotaPeriodo ? (
+                <>
+                  <span className="font-semibold text-texto">Cuota de {nombreDelPeriodo(h.cuotaPeriodo, h.serieDe.cadaMeses)}</span> de{' '}
+                  <Link href={`/consultoria/produccion/${h.serieDe.id}`} className="font-medium text-acento underline-offset-4 hover:underline">
+                    {h.serieDe.producto}
+                  </Link>
+                </>
+              ) : (
+                'Cuota de una herramienta que ya no encuentro'
+              )}
+            </p>
+          )}
         </div>
         <EstadoHerramienta estado={h.estado} />
       </header>
@@ -83,19 +113,29 @@ export default function FichaHerramienta({
       ) : null}
 
       <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
-        <Dato etiqueta="Aportación">{aportacionDe(h)}</Dato>
+        {/* Una cuota no lleva aportación: es la de su serie */}
+        {!cuota && <Dato etiqueta="Aportación">{aportacionDe(h)}</Dato>}
         <Dato etiqueta="Pago del primer recibo">{h.pago === 'transferencia' ? 'Transferencia' : 'Domiciliación'}</Dato>
         {h.duracionAnios !== null && <Dato etiqueta="Duración">{h.duracionAnios} años</Dato>}
         {h.propio && <Dato etiqueta="Contrato propio">Sí: reserva del 100 %</Dato>}
-        <Dato etiqueta="Tipo de comisión">{NOMBRE_TIPO_COMISION[h.tipoComision]}</Dato>
+        <Dato etiqueta="Tipo de comisión">
+          {NOMBRE_TIPO_COMISION[h.tipoComision]}
+          {h.cuotasCadaMeses && <span className="block text-[13px] font-normal text-apagado">{textoDeLaSerie(h.cuotasCadaMeses)}</span>}
+        </Dato>
         <Dato etiqueta={pocoAPoco ? 'Unidades para el nivel' : 'Unidades'}>
           {pocoAPoco ? unidades(h.unidadesNivel ?? 0) : unidades(h.unidades)}
-          {!pocoAPoco && h.unidadesNivel !== null && h.unidadesNivel !== h.unidades && (
-            <span className="block text-[13px] font-normal text-apagado">{unidades(h.unidadesNivel)} para el nivel</span>
+          {cuota ? (
+            <span className="block text-[13px] font-normal text-apagado">No cuenta para el nivel</span>
+          ) : (
+            !pocoAPoco &&
+            h.unidadesNivel !== null &&
+            h.unidadesNivel !== h.unidades && <span className="block text-[13px] font-normal text-apagado">{unidades(h.unidadesNivel)} para el nivel</span>
           )}
         </Dato>
+        {h.unidadesCuota !== null && <Dato etiqueta="Unidades por cuota">{unidades(h.unidadesCuota)}</Dato>}
         <Dato etiqueta="€ por unidad">{euroPorUnidad(h.valorUnidad)}</Dato>
-        <Dato etiqueta="Comisión">{euros(h.bruto)}</Dato>
+        {/* En una serie, la comisión de la herramienta es la de la firma: lo de cada periodo va en sus cuotas */}
+        <Dato etiqueta={h.cuotasCadaMeses ? 'Comisión de la firma' : 'Comisión'}>{euros(h.bruto)}</Dato>
         <Dato etiqueta={`RC (${pct(h.pctHucha)})`}>{euros(h.hucha)}</Dato>
         <Dato etiqueta={`IRPF aprox. (${pct(h.pctIrpf)})`}>{euros(h.irpf)}</Dato>
         <Dato etiqueta="Neto aprox.">{euros(h.neto)}</Dato>
@@ -106,7 +146,7 @@ export default function FichaHerramienta({
           {nombreDelMes(h.fechaCobro)}
           {h.fechasProvisionales && <span className="block text-[13px] font-normal text-apagado">Fechas sin confirmar</span>}
         </Dato>
-        {h.libreDeExtornoEl && (
+        {h.libreDeExtornoEl && !cuota && (
           <Dato etiqueta="Libre de extorno el">
             {fechaCorta(h.libreDeExtornoEl)}
             <span className="block text-[13px] font-normal text-apagado">{falta ?? 'Ya está libre'}</span>
@@ -114,6 +154,8 @@ export default function FichaHerramienta({
         )}
         {h.anuladaEl && <Dato etiqueta="Anulada el">{fechaCorta(h.anuladaEl)}</Dato>}
       </dl>
+
+      {h.serie && <CuotasDeLaSerie herramienta={h} serie={h.serie} />}
 
       {h.aportaciones.length > 0 && (
         <section className="mt-5" aria-labelledby="sus-apex">

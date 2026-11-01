@@ -2,14 +2,23 @@
 
 import { useState, useTransition } from 'react';
 import { anularHerramienta, guardarExtorno } from '@/lib/consultoria/acciones';
-import { extornoPropuesto, proponerExtorno, ultimoDiaDelMes, type Cuadro, type MovimientoHucha } from '@/lib/consultoria/reglas';
-import type { ExtornoAGuardar, Herramienta } from '@/lib/consultoria/tipos';
+import {
+  cuotasQueSeCortan,
+  extornoPropuesto,
+  nombreDelPeriodo,
+  proponerExtorno,
+  ultimoDiaDelMes,
+  type Cuadro,
+  type CuotasCadaMeses,
+  type MovimientoHucha,
+} from '@/lib/consultoria/reglas';
+import type { ExtornoAGuardar, HerramientaConAportaciones } from '@/lib/consultoria/tipos';
 import { fechaONula } from '@/lib/consultoria/validar';
 import { nombreDelMes, sumarMeses } from '@/lib/consultoria/calendario';
 import { euros } from '@/lib/consultoria/formato';
 import Aviso from './Aviso';
-import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, BOTON_TEXTO, CAMPO, ERROR, ETIQUETA, TARJETA } from './estilos';
-import { aCampo, conDosDecimales, leerNumero, pct } from './formato';
+import { AVISO, BOTON_PRINCIPAL, BOTON_SECUNDARIO, BOTON_TEXTO, CAMPO, ERROR, ETIQUETA, TARJETA } from './estilos';
+import { aCampo, conDosDecimales, enLista, leerNumero, pct } from './formato';
 
 /** Lo que se ha cambiado del reparto propuesto; null = lo propuesto */
 interface Cambios {
@@ -33,6 +42,10 @@ const centimos = (n: number) => Math.round(n * 100);
  *
  * Una que ya está anulada, se cobró y no tiene extorno (si al anularla el extorno no se pudo
  * guardar) usa lo mismo para apuntarlo, con su fecha de anulación fija.
+ *
+ * En una serie (REQ-002), antes de confirmar, qué cuotas sin cobrar se cortan con esa fecha
+ * (`cuotasQueSeCortan`) y cuáles siguen pendientes. `alTerminar` recibe lo que dice la acción, que
+ * puede avisar aunque se haya anulado («Pero no se han podido cortar sus cuotas…»).
  */
 export default function AnularHerramienta({
   herramienta: h,
@@ -41,12 +54,12 @@ export default function AnularHerramienta({
   cuadro,
   alTerminar,
 }: {
-  herramienta: Herramienta;
+  herramienta: HerramientaConAportaciones;
   hoy: string;
   /** El libro de la hucha, para su saldo del día del extorno */
   movimientos: MovimientoHucha[];
   cuadro: Cuadro;
-  alTerminar: () => void;
+  alTerminar: (mensaje?: string) => void;
 }) {
   // Ya anulada (cobrada y sin extorno): solo falta apuntar el extorno
   const soloElExtorno = h.estado === 'anulada' && h.liquidada && !h.extorno;
@@ -125,7 +138,7 @@ export default function AnularHerramienta({
       if (resultado.error) {
         setError(resultado.error);
         setConfirmando(false);
-      } else alTerminar();
+      } else alTerminar(resultado.ok);
     });
   }
 
@@ -148,6 +161,10 @@ export default function AnularHerramienta({
           className={`${CAMPO} mt-1`}
         />
       </label>
+
+      {h.cuotasCadaMeses && !soloElExtorno && fechaAnulacion && (
+        <LoQueSeCorta herramienta={h} cadaMeses={h.cuotasCadaMeses} anuladaEl={fechaAnulacion} />
+      )}
 
       {!h.liquidada ? (
         <p className="mt-4 text-sm text-tenue">No se llegó a cobrar: no hay extorno. Deja de contar en lo previsto.</p>
@@ -312,10 +329,40 @@ export default function AnularHerramienta({
                   : 'Sí, anularla'
                 : 'Anular'}
         </button>
-        <button type="button" onClick={alTerminar} className={BOTON_SECUNDARIO}>
+        <button type="button" onClick={() => alTerminar()} className={BOTON_SECUNDARIO}>
           {confirmando ? 'No' : 'Cancelar'}
         </button>
       </div>
     </section>
+  );
+}
+
+/**
+ * Lo que pasa con las cuotas de una serie al anularla ese día: las guardadas sin cobrar de un periodo
+ * que empieza después se borran (como `cortarCuotas` de las acciones, también las anuladas), y las de
+ * un periodo que ya había empezado se quedan pendientes (Facundo, 2026-11-01: se dan por cobradas o se
+ * quitan según llegue). Ninguna más se programa
+ */
+function LoQueSeCorta({ herramienta: h, cadaMeses, anuladaEl }: { herramienta: HerramientaConAportaciones; cadaMeses: CuotasCadaMeses; anuladaEl: string }) {
+  const guardadas = h.cuotas.flatMap((c) => (c.cuotaPeriodo ? [{ periodo: c.cuotaPeriodo, cobrada: c.liquidada, anulada: c.estado === 'anulada' }] : []));
+  const seCortan = cuotasQueSeCortan(guardadas, anuladaEl);
+  const pendientes = guardadas.filter((c) => !c.cobrada && !c.anulada && !seCortan.includes(c));
+  const nombres = (cuotas: { periodo: string }[]) => enLista(cuotas.map((c) => nombreDelPeriodo(c.periodo, cadaMeses)));
+
+  return (
+    <div className={`${AVISO} mt-4 flex flex-col gap-2`}>
+      <p>
+        Es una serie: al anularla no se programan más cuotas.
+        {seCortan.length === 1 && ` Se corta 1 cuota sin cobrar: ${nombres(seCortan)}.`}
+        {seCortan.length > 1 && ` Se cortan ${seCortan.length} cuotas sin cobrar: ${nombres(seCortan)}.`}
+      </p>
+      {pendientes.length > 0 && (
+        <Aviso>
+          {pendientes.length === 1
+            ? `Sigue pendiente la de ${nombres(pendientes)}: su periodo empezó antes de la anulación. Si no llega, bórrala.`
+            : `Siguen pendientes las de ${nombres(pendientes)}: sus periodos empezaron antes de la anulación. Si no llegan, bórralas.`}
+        </Aviso>
+      )}
+    </div>
   );
 }
