@@ -22,13 +22,31 @@
  * Una aportación extraordinaria (APEX) cuelga de su herramienta con `aportacion_de`:
  * `guardarFirma` la engancha o la desengancha (también en una cobrada: es solo el enlace), y la base
  * de datos comprueba que la madre es del mismo cliente y no es a su vez una APEX.
+ *
+ * Las comisiones recurrentes (REQ-002): una **serie** es la herramienta con `cuotas_cada_meses` y
+ * `unidades_cuota`, y cada **cuota**, una fila más con `cuota_de` y `cuota_periodo`. Las cuotas las
+ * crea `consultoria_programar_cuotas` de la 0002 con lo que calcula `cuotasQueFaltan` de `reglas.ts`
+ * (el ayudante `programar`): al apuntar o cambiar una serie, después de «Ha llegado» y con
+ * `programarCuotas`. No va en la misma transacción que lo demás: si falla, lo hecho queda bien, el
+ * mensaje lo dice y relanzarlo no duplica. Anular una serie corta sus cuotas sin cobrar de los
+ * periodos que empiezan después; borrarla borra antes sus cuotas, si ninguna se ha cobrado.
  */
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { baseDeDatos } from "@/lib/base/cliente";
+import { nombreDelMes } from "@/lib/consultoria/calendario";
 import { contextoDeReglas, saldoDeHuchaAhora } from "@/lib/consultoria/consultas";
-import { irpfDeReclamacion, pctHuchaPara } from "@/lib/consultoria/reglas";
-import type { EstadoHerramienta, Nivel, Pago, Periodicidad, TipoComision } from "@/lib/consultoria/reglas";
+import {
+  AJUSTES_DE_SERIE,
+  CUOTAS_CADA_MESES,
+  cuotasQueFaltan,
+  hoyEnMadrid,
+  irpfDeReclamacion,
+  nombreDelPeriodo,
+  pctHuchaPara,
+  ventanaDeProgramacion,
+} from "@/lib/consultoria/reglas";
+import type { CuotaDeLaSerie, CuotasCadaMeses, EstadoHerramienta, Nivel, Pago, Periodicidad, TipoComision } from "@/lib/consultoria/reglas";
 import type {
   AjustesAGuardar,
   AnulacionAGuardar,
@@ -60,6 +78,7 @@ import {
   porcentajeONulo,
   textoONulo,
   unoDe,
+  unoDeLosNumeros,
   uuid,
   uuids,
   vacio,
@@ -84,14 +103,19 @@ interface ErrorDeSupabase {
 }
 
 const MIGRACION = "Falta un paso en la base de datos: ejecuta la migración 0001 en Supabase.";
+const MIGRACION_0002 = "Falta un paso en la base de datos: ejecuta la migración 0002 (las comisiones recurrentes) en Supabase.";
 const NO_SE_HA_GUARDADO = "No se ha podido guardar. Vuelve a intentarlo dentro de un momento.";
 /** Antes del cambio (spec 6.2): la fuente sigue siendo FSM-Finance y aquí no se guarda nada */
 const AUN_EN_FSM_FINANCE = "La consultoría aún se lleva en FSM-Finance: el cambio no está hecho.";
+
+/** Lo que trae la 0002: si el error de algo que no existe nombra una de estas, falta la 0002 */
+const DE_LA_0002 = /cuotas_cada_meses|unidades_cuota|cuota_de|cuota_periodo|consultoria_programar_cuotas/;
 
 /** Lo que dice una acción si la sección aún no puede enseñar nada (`exigirConsultoria()`) */
 const PENDIENTE: Record<LoQueFalta, string> = {
   configuracion: "Falta configurar la base de datos del panel.",
   "0001": MIGRACION,
+  "0002": MIGRACION_0002,
   copia: "La base nueva está vacía: copia antes los datos de FSM-Finance (consultoria:copiar).",
 };
 
@@ -138,6 +162,10 @@ const RESTRICCIONES: Record<string, string> = {
   consultoria_herramientas_anulada_con_fecha: "Una herramienta anulada lleva su fecha de anulación, y las demás no.",
   consultoria_herramientas_aportacion_unica:
     "Solo una aportación única puede ser aportación extraordinaria de otra herramienta, y nunca de sí misma.",
+  consultoria_herramientas_serie:
+    "Una serie cobra cada trimestre o cada semestre, con unidades por cuota mayores que cero, y solo en una comisión sobre recibo o sobre saldo. Ni una aportación extraordinaria ni una cuota son una serie.",
+  consultoria_herramientas_cuota:
+    "Una cuota lleva su herramienta y su periodo, unidades que cobrar y 0 para el nivel, y no es una aportación extraordinaria.",
   consultoria_extornos_de_hucha_hasta_importe: "Lo que cubre la hucha va de 0 al importe del extorno.",
   consultoria_extornos_resto_con_mes: "Si la hucha no cubre el extorno entero, di en qué liquidación se carga el resto.",
   consultoria_extornos_irpf_resto_hasta_resto: "El IRPF del resto va de 0 a lo que la hucha no cubre.",
@@ -168,8 +196,10 @@ function mensajeDe(error: ErrorDeSupabase, propios: Record<string, string> = {})
   const restriccion = restriccionDe(error);
   if (restriccion && propios[restriccion]) return propios[restriccion];
   if (propios[codigo]) return propios[codigo];
-  // Lo que no existe: falta la 0001
-  if (["42P01", "42703", "42883", "PGRST205", "PGRST204", "PGRST202"].includes(codigo)) return MIGRACION;
+  // Lo que no existe: falta la 0002 si nombra lo suyo; si no, la 0001
+  if (["42P01", "42703", "42883", "PGRST205", "PGRST204", "PGRST202"].includes(codigo)) {
+    return DE_LA_0002.test(error.message ?? "") ? MIGRACION_0002 : MIGRACION;
+  }
   if (codigo === "42501") return "Esto solo lo puede hacer el consultor.";
   // Los disparadores y las funciones de la 0001 dicen cuál, en español
   if (codigo === "P0001" || codigo === "P0002") return conPunto(error.message);
@@ -196,6 +226,160 @@ const TIPOS_DE_COMISION: readonly TipoComision[] = ["anticipada", "anualizada", 
 /** Los estados que se ponen al apuntar o cambiar una firma: cobrada y anulada tienen su camino */
 const ESTADOS_DE_FIRMA: readonly EstadoHerramienta[] = ["prevista", "firmada", "confirmada", "incidencia"];
 const NOTAS_LARGAS = "Las notas son de 500 caracteres como mucho.";
+
+type Numerico = number | string | null;
+
+/** Un `numeric` de PostgREST como `number` (0 si es nulo) */
+const numero = (valor: unknown): number => (valor === null || valor === undefined ? 0 : Number(valor));
+/** El mismo importe, unidades o porcentaje, en centésimas */
+const mismaCantidad = (a: unknown, b: unknown): boolean => Math.round(numero(a) * 100) === Math.round(numero(b) * 100);
+/** 3 o 6 de la base; otra cosa es «no es una serie» */
+const comoCadaMeses = (valor: unknown): CuotasCadaMeses | null => (valor === 3 || valor === 6 ? valor : null);
+
+/** Identificadores por petición al buscar con `in`, como en las consultas */
+const POR_TANDA = 200;
+
+/** Todas las filas, de mil en mil (el tope de Supabase por petición). La consulta tiene que llevar un orden que no empate */
+async function leerTodas<T>(
+  pagina: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: ErrorDeSupabase | null }>,
+): Promise<{ filas: T[]; error: ErrorDeSupabase | null }> {
+  const filas: T[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await pagina(desde, desde + 999);
+    if (error) return { filas, error };
+    filas.push(...(data ?? []));
+    if (!data || data.length < 1000) return { filas, error: null };
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Las cuotas de las series (REQ-002)
+// ---------------------------------------------------------------------------------------------
+
+/** Una cuota que no se programa porque se cobraría antes de la última liquidación que llegó */
+type SinProgramar = CuotaDeLaSerie & { cadaMeses: CuotasCadaMeses; producto: string };
+
+interface Programadas {
+  /** Las que ha creado la base (0 si ya estaban todas) */
+  programadas: number;
+  /** El cobro de las que se han mandado, en orden */
+  cobros: string[];
+  sinProgramar: SinProgramar[];
+  /** Los textos de `cuotas_sin_programar` de `cuotasQueFaltan`, uno por serie */
+  avisos: string[];
+}
+
+/**
+ * Programa las cuotas que faltan de una serie (`herramientaId`) o de todas las que no están anuladas:
+ * 1. Lee las series, los `cuota_periodo` de sus cuotas, la última liquidación (`max(mes)`) y el IRPF
+ *    de Ajustes
+ * 2. Calcula `cuotasQueFaltan`, de `desde` (el mes siguiente a esa liquidación) a `hasta` (el mes de
+ *    hoy más `MESES_DE_CUOTAS_POR_DELANTE`)
+ * 3. Llama a `consultoria_programar_cuotas` por cada serie con algo que guardar. Las listas van como los
+ *    `uuid[]` de «Ha llegado»: un array de JSON es un array de Postgres
+ * **No lanza nunca**: lo que falle vuelve como `{ error }`, con el mensaje para el usuario, para que
+ * quien la llama después de haber guardado otra cosa no diga «no se ha podido guardar». Lo ya
+ * programado se queda: relanzarla no duplica
+ */
+async function programar(
+  supabase: Supabase,
+  consultorId: string,
+  opciones: { herramientaId?: string; hoy: string },
+): Promise<Programadas | { error: string }> {
+  try {
+    const series = await leerTodas<{ id: string; producto: string; fecha_efecto: string; cuotas_cada_meses: number | null; unidades: Numerico }>(
+      (desde, hasta) => {
+        let consulta = supabase
+          .from("consultoria_herramientas")
+          .select("id, producto, fecha_efecto, cuotas_cada_meses, unidades")
+          .eq("consultor_id", consultorId)
+          .not("cuotas_cada_meses", "is", null)
+          .neq("estado", "anulada");
+        if (opciones.herramientaId) consulta = consulta.eq("id", opciones.herramientaId);
+        return consulta.order("id").range(desde, hasta);
+      },
+    );
+    if (series.error) return { error: mensajeDe(series.error) };
+    const resultado: Programadas = { programadas: 0, cobros: [], sinProgramar: [], avisos: [] };
+    if (series.filas.length === 0) return resultado;
+
+    const guardadasDe = new Map<string, string[]>();
+    const ids = series.filas.map((s) => s.id);
+    for (let i = 0; i < ids.length; i += POR_TANDA) {
+      const tanda = ids.slice(i, i + POR_TANDA);
+      const cuotas = await leerTodas<{ cuota_de: string; cuota_periodo: string }>((desde, hasta) =>
+        supabase
+          .from("consultoria_herramientas")
+          .select("cuota_de, cuota_periodo")
+          .eq("consultor_id", consultorId)
+          .in("cuota_de", tanda)
+          .order("cuota_de")
+          .order("cuota_periodo")
+          .range(desde, hasta),
+      );
+      if (cuotas.error) return { error: mensajeDe(cuotas.error) };
+      for (const c of cuotas.filas) guardadasDe.set(c.cuota_de, [...(guardadasDe.get(c.cuota_de) ?? []), c.cuota_periodo]);
+    }
+
+    const [ultima, ajustes] = await Promise.all([
+      supabase.from("consultoria_liquidaciones").select("mes").eq("consultor_id", consultorId).order("mes", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("consultoria_ajustes").select("pct_irpf").eq("consultor_id", consultorId).maybeSingle(),
+    ]);
+    if (ultima.error) return { error: mensajeDe(ultima.error) };
+    if (ajustes.error) return { error: mensajeDe(ajustes.error) };
+    // `pct_irpf` es not null en la tabla: un 0 llega como 0. Sin fila, el de serie
+    const pctIrpf = ajustes.data ? numero(ajustes.data.pct_irpf) : AJUSTES_DE_SERIE.pctIrpf;
+    const ventana = ventanaDeProgramacion(opciones.hoy, (ultima.data?.mes as string | undefined) ?? null);
+
+    for (const serie of series.filas) {
+      const cadaMeses = comoCadaMeses(serie.cuotas_cada_meses);
+      if (!cadaMeses) continue;
+      const plan = cuotasQueFaltan(
+        { fechaEfecto: serie.fecha_efecto, cuotasCadaMeses: cadaMeses, laFirmaCobraLaPrimera: numero(serie.unidades) > 0 },
+        { ...ventana, guardadas: guardadasDe.get(serie.id) ?? [] },
+      );
+      resultado.sinProgramar.push(...plan.sinProgramar.map((c) => ({ ...c, cadaMeses, producto: serie.producto })));
+      resultado.avisos.push(...plan.avisos.filter((a) => a.codigo === "cuotas_sin_programar").map((a) => a.texto));
+      if (plan.cuotas.length === 0) continue;
+      const { data, error } = await supabase.rpc("consultoria_programar_cuotas", {
+        p_consultor: consultorId,
+        p_herramienta: serie.id,
+        p_periodos: plan.cuotas.map((c) => c.periodo),
+        p_cobros: plan.cuotas.map((c) => c.fechaCobro),
+        p_pct_irpf: pctIrpf,
+      });
+      if (error) return { error: mensajeDe(error) };
+      resultado.programadas += numero(data);
+      resultado.cobros.push(...plan.cuotas.map((c) => c.fechaCobro));
+    }
+    resultado.cobros.sort();
+    return resultado;
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error(`[consultoría] No se han podido programar las cuotas: ${paraElLog(error)}`);
+    return { error: NO_SE_HA_GUARDADO };
+  }
+}
+
+/** «octubre de 2026 y enero de 2027» */
+function enLista(textos: string[]): string {
+  return textos.length <= 1 ? (textos[0] ?? "") : `${textos.slice(0, -1).join(", ")} y ${textos[textos.length - 1]}`;
+}
+
+/** «Programadas 2 cuotas: octubre de 2026 y enero de 2027.»; sin ninguna, "" */
+function textoDeProgramadas(r: Programadas): string {
+  const n = r.programadas;
+  if (n === 0) return "";
+  const cuantas = n === 1 ? "Programada 1 cuota" : `Programadas ${n} cuotas`;
+  // Si la base ha creado menos de las que se mandaron (otra llamada a la vez), sin la lista: no se sabe cuáles
+  if (n !== r.cobros.length) return `${cuantas}.`;
+  return `${cuantas}: ${enLista([...new Set(r.cobros.map(nombreDelMes))])}.`;
+}
+
+/** Los avisos de las que no se han programado, uno detrás de otro, con un espacio delante; sin ninguno, "" */
+function textoDeSinProgramar(r: Programadas): string {
+  return r.avisos.length ? ` ${r.avisos.join(" ")}` : "";
+}
 
 // ---------------------------------------------------------------------------------------------
 // Herramientas
@@ -230,6 +414,121 @@ interface Madre {
   producto: string;
   pago: Pago;
   aportacion_de: string | null;
+  cuota_de: string | null;
+}
+
+/** Lo que hace falta de una herramienta que ya está para cambiarla: su estado, lo cobrado y su serie */
+const COLUMNAS_EXISTENTE =
+  "estado, liquidacion_id, unidades, valor_unidad, pct_hucha, pct_irpf, fecha_cobro, fecha_efecto, aportacion_de, cuota_de, cuotas_cada_meses, unidades_cuota, compania, producto, pago, periodicidad, tipo_comision, duracion_anios, propio, fecha_confirmacion, mes_produccion, fechas_provisionales";
+
+interface Existente {
+  estado: EstadoHerramienta;
+  liquidacion_id: string | null;
+  unidades: Numerico;
+  valor_unidad: Numerico;
+  pct_hucha: Numerico;
+  pct_irpf: Numerico;
+  fecha_cobro: string;
+  fecha_efecto: string;
+  aportacion_de: string | null;
+  cuota_de: string | null;
+  cuotas_cada_meses: number | null;
+  unidades_cuota: Numerico;
+  compania: string;
+  producto: string;
+  pago: Pago;
+  periodicidad: Periodicidad;
+  tipo_comision: TipoComision;
+  duracion_anios: number | null;
+  propio: boolean;
+  fecha_confirmacion: string | null;
+  mes_produccion: string;
+  fechas_provisionales: boolean;
+}
+
+/** Lo que una cuota copia de su serie al programarse y se le pone al día si cambia en la serie (sin cobrar) */
+const COPIADO_DE_LA_SERIE = [
+  "compania",
+  "producto",
+  "pago",
+  "periodicidad",
+  "tipo_comision",
+  "duracion_anios",
+  "propio",
+  "valor_unidad",
+  "pct_hucha",
+  "fecha_confirmacion",
+  "mes_produccion",
+  "fechas_provisionales",
+] as const satisfies readonly (keyof Existente)[];
+
+const NUMERICAS: ReadonlySet<string> = new Set(["valor_unidad", "pct_hucha"]);
+
+const ELIGE_CADA_CUANTO = "Elige cada cuánto cobra: trimestral o semestral.";
+
+/**
+ * Después de guardar una serie (REQ-002, spec 6.3), sus cuotas:
+ * - si es nueva, o le cambian cada cuánto cobra o el efecto, se borran las que no se han cobrado y se
+ *   vuelven a programar;
+ * - si no, a las que no se han cobrado ni están anuladas se les pone al día lo que cambie: las unidades
+ *   (si cambian las de cada cuota), el estado (prevista si lo está la serie; si no, confirmada) y lo que
+ *   copian de ella (`COPIADO_DE_LA_SERIE`). El IRPF no: el de cada cuota es el de cuando se programó;
+ * - y se programan las que falten, salvo si está anulada.
+ * Devuelve lo programado, si algo ha fallado (lo guardado se queda: el botón de la herramienta lo
+ * repite) y si se han rehecho sus cuotas (nueva, convertida, otro efecto o cada cuánto): solo entonces
+ * se repiten en el mensaje las que no se han podido programar, que si no ya se avisaron
+ */
+async function ponerAlDiaLasCuotas(
+  supabase: Supabase,
+  consultorId: string,
+  id: string,
+  antes: Existente | null,
+  ahora: { cadaMeses: CuotasCadaMeses; unidadesCuota: number; fechaEfecto: string; estado: EstadoHerramienta; copiado: Record<string, unknown> },
+): Promise<{ programadas: Programadas | null; fallo: boolean; rehecha: boolean }> {
+  const eraSerie = comoCadaMeses(antes?.cuotas_cada_meses);
+  // Anulada no se rehace nada: las pendientes que quedan son las de los periodos de antes de anularla
+  const rehacer =
+    ahora.estado !== "anulada" && (!antes || eraSerie !== ahora.cadaMeses || antes.fecha_efecto !== ahora.fechaEfecto);
+  const rehecha = rehacer;
+  if (antes && eraSerie && rehacer) {
+    const { error } = await supabase
+      .from("consultoria_herramientas")
+      .delete()
+      .eq("consultor_id", consultorId)
+      .eq("cuota_de", id)
+      .is("liquidacion_id", null);
+    if (error) {
+      console.error(`[consultoría] No se han podido borrar las cuotas sin cobrar de una serie: ${paraElLog(error)}`);
+      return { programadas: null, fallo: true, rehecha };
+    }
+  }
+  if (antes && eraSerie && !rehacer) {
+    const cambios: Record<string, unknown> = {};
+    if (!mismaCantidad(antes.unidades_cuota, ahora.unidadesCuota)) cambios.unidades = ahora.unidadesCuota;
+    if ((antes.estado === "prevista") !== (ahora.estado === "prevista")) cambios.estado = ahora.estado === "prevista" ? "prevista" : "confirmada";
+    for (const columna of COPIADO_DE_LA_SERIE) {
+      const nuevo = ahora.copiado[columna];
+      if (nuevo === undefined) continue;
+      const igual = NUMERICAS.has(columna) ? mismaCantidad(antes[columna], nuevo) : antes[columna] === nuevo;
+      if (!igual) cambios[columna] = nuevo;
+    }
+    if (Object.keys(cambios).length > 0) {
+      const { error } = await supabase
+        .from("consultoria_herramientas")
+        .update(cambios)
+        .eq("consultor_id", consultorId)
+        .eq("cuota_de", id)
+        .is("liquidacion_id", null)
+        .neq("estado", "anulada");
+      if (error) {
+        console.error(`[consultoría] No se han podido poner al día las cuotas de una serie: ${paraElLog(error)}`);
+        return { programadas: null, fallo: true, rehecha };
+      }
+    }
+  }
+  if (ahora.estado === "anulada") return { programadas: null, fallo: false, rehecha };
+  const programadas = await programar(supabase, consultorId, { herramientaId: id, hoy: hoyEnMadrid() });
+  return "error" in programadas ? { programadas: null, fallo: true, rehecha } : { programadas, fallo: false, rehecha };
 }
 
 /**
@@ -244,6 +543,14 @@ interface Madre {
  * de la madre. Sin decir, el enlace no se toca; `null` lo quita. Cambiarlo no es tocar dinero: vale
  * también en una cobrada. Lo demás (que la madre no sea a su vez una APEX, que una herramienta con
  * APEX no pase a ser una) lo para también la base de datos, con su mensaje
+ *
+ * **De una cobrada** (está en una liquidación), sus unidades, su €/unidad, sus porcentajes y su cobro
+ * se quedan como están: si no vienen, los guardados; si vienen iguales, no se escriben, y si vienen
+ * distintos, la base de datos lo para con su mensaje. Así, convertir en serie el RC ya cobrado solo
+ * toca la serie (REQ-002, sección 8)
+ *
+ * **Con `cuotasCadaMeses` y `unidadesCuota`** es una serie (REQ-002): solo sobre recibo o sobre saldo,
+ * ni APEX ni cuota, y una nueva con 0 u para cobrar. Después de guardarla, `ponerAlDiaLasCuotas`
  */
 export async function guardarFirma(firma: FirmaAGuardar): Promise<ResultadoConId> {
   return comoConsultor<ResultadoConId>(async ({ supabase, consultorId }) => {
@@ -257,12 +564,31 @@ export async function guardarFirma(firma: FirmaAGuardar): Promise<ResultadoConId
           : uuid(firma.aportacionDe, "No sé de qué herramienta es la aportación extraordinaria.");
     exigir(!id || aportacionDe !== id, "Una herramienta no puede ser aportación extraordinaria de sí misma.");
 
-    // La madre: suya, y que no sea a su vez una aportación (un solo nivel)
+    // Lo que ya está: qué estado se puede poner, lo cobrado que no cambia y su serie
+    let existente: Existente | null = null;
+    if (id) {
+      const { data, error } = await supabase
+        .from("consultoria_herramientas")
+        .select(COLUMNAS_EXISTENTE)
+        .eq("id", id)
+        .eq("consultor_id", consultorId)
+        .maybeSingle();
+      if (error) return { error: mensajeDe(error) };
+      if (!data) return { error: "Esa herramienta ya no está." };
+      existente = data as unknown as Existente;
+    } else {
+      exigir(firma.estado !== "anulada", "Una firma nueva no se apunta anulada.");
+    }
+    // De una cobrada no cambian sus unidades, su €/unidad, sus porcentajes ni su cobro (el disparador de la 0001)
+    const cobrada = existente !== null && existente.liquidacion_id !== null;
+    const esCuota = existente !== null && existente.cuota_de !== null;
+
+    // La madre: suya, y que no sea a su vez una aportación (un solo nivel) ni una cuota
     let madre: Madre | null = null;
     if (aportacionDe) {
       const { data, error } = await supabase
         .from("consultoria_herramientas")
-        .select("cliente_id, compania, producto, pago, aportacion_de")
+        .select("cliente_id, compania, producto, pago, aportacion_de, cuota_de")
         .eq("id", aportacionDe)
         .eq("consultor_id", consultorId)
         .maybeSingle();
@@ -270,6 +596,7 @@ export async function guardarFirma(firma: FirmaAGuardar): Promise<ResultadoConId
       if (!data) return { error: "La herramienta de la que es aportación extraordinaria ya no está." };
       madre = data as Madre;
       exigir(!madre.aportacion_de, `«${madre.producto}» ya es una aportación extraordinaria: elige la herramienta de la que cuelga.`);
+      exigir(!madre.cuota_de, `Eso es una cuota de «${madre.producto}»: una aportación extraordinaria va a la herramienta, no a una de sus cuotas.`);
     }
 
     const clienteId = vacio(firma.clienteId)
@@ -304,36 +631,66 @@ export async function guardarFirma(firma: FirmaAGuardar): Promise<ResultadoConId
     const aportacion = cantidadONula(firma.aportacion, "La aportación tiene que ser mayor que cero.", { mayorQue: 0, maximo: MAXIMO.euros });
     const duracionAnios = enteroONulo(firma.duracionAnios, "La duración va de 1 a 99 años.", 1, 99);
     const propio = firma.propio === true;
-    const unidades = cantidad(firma.unidades, "Las unidades tienen que ser mayores que cero.", { minimo: 0, maximo: MAXIMO.unidades });
-    const unidadesNivel = cantidadONula(firma.unidadesNivel, "Las unidades para el nivel no pueden ser negativas.", { minimo: 0, maximo: MAXIMO.unidades });
+    // De una cobrada, lo que no venga es lo guardado (no se recalcula: el disparador lo pararía)
+    const loCobrado = cobrada ? existente : null;
+    const unidades =
+      loCobrado && vacio(firma.unidades)
+        ? numero(loCobrado.unidades)
+        : cantidad(firma.unidades, "Las unidades tienen que ser mayores que cero.", { minimo: 0, maximo: MAXIMO.unidades });
+    const unidadesNivel = esCuota
+      ? 0 // una cuota no cuenta para el nivel (el `check` de la 0002)
+      : cantidadONula(firma.unidadesNivel, "Las unidades para el nivel no pueden ser negativas.", { minimo: 0, maximo: MAXIMO.unidades });
     // La firma de una sobre recibo o sobre saldo lleva 0 u que cobrar y las de producción para el nivel
     exigir(unidades > 0 || (unidadesNivel ?? 0) > 0, "Las unidades tienen que ser mayores que cero.");
-    const valorUnidad = cantidad(firma.valorUnidad, "Pon el €/unidad: tiene que ser mayor que cero.", { mayorQue: 0, maximo: MAXIMO.valorUnidad });
-    const pctHuchaDado = porcentajeONulo(firma.pctHucha, "La reserva va del 0 al 100 %.");
-    const pctIrpfDado = porcentajeONulo(firma.pctIrpf, "El IRPF va del 0 al 100 %.");
+    const valorUnidad =
+      loCobrado && vacio(firma.valorUnidad)
+        ? numero(loCobrado.valor_unidad)
+        : cantidad(firma.valorUnidad, "Pon el €/unidad: tiene que ser mayor que cero.", { mayorQue: 0, maximo: MAXIMO.valorUnidad });
+    const pctHuchaDado = porcentajeONulo(firma.pctHucha, "La reserva va del 0 al 100 %.") ?? (loCobrado ? numero(loCobrado.pct_hucha) : null);
+    const pctIrpfDado = porcentajeONulo(firma.pctIrpf, "El IRPF va del 0 al 100 %.") ?? (loCobrado ? numero(loCobrado.pct_irpf) : null);
     const fechaConfirmacion = vacio(firma.fechaConfirmacion) ? null : fecha(firma.fechaConfirmacion, "La fecha de confirmación no es válida.");
     const mesProduccion = mes(firma.mesProduccion, "Falta el mes de producción.");
     const fechaEfecto = fecha(firma.fechaEfecto, "Falta la fecha de efecto.");
-    const fechaCobro = finDeMes(firma.fechaCobro, "Falta el mes de cobro.");
+    const fechaCobro = loCobrado && vacio(firma.fechaCobro) ? loCobrado.fecha_cobro : finDeMes(firma.fechaCobro, "Falta el mes de cobro.");
     exigir(fechaCobro >= fechaEfecto, "El cobro no puede ser antes del efecto.");
     const notas = textoONulo(firma.notas, 500, NOTAS_LARGAS);
-
-    // Lo que ya está, para saber qué estado se puede poner
-    let existente: { estado: EstadoHerramienta; liquidacion_id: string | null } | null = null;
-    if (id) {
-      const { data, error } = await supabase
-        .from("consultoria_herramientas")
-        .select("estado, liquidacion_id")
-        .eq("id", id)
-        .eq("consultor_id", consultorId)
-        .maybeSingle();
-      if (error) return { error: mensajeDe(error) };
-      if (!data) return { error: "Esa herramienta ya no está." };
-      existente = data;
-    } else {
-      exigir(firma.estado !== "anulada", "Una firma nueva no se apunta anulada.");
-    }
     const estado = estadoAlCambiar(firma.estado, existente);
+    const estadoFinal = estado.estado ?? (existente?.estado as EstadoHerramienta);
+
+    // La serie (REQ-002): cada cuánto cobra y lo de cada cuota, los dos o ninguno. Sin decir, no se tocan
+    let cuotasCadaMeses: CuotasCadaMeses | null | undefined;
+    let unidadesCuota: number | null | undefined;
+    if (firma.cuotasCadaMeses !== undefined || firma.unidadesCuota !== undefined) {
+      if (vacio(firma.cuotasCadaMeses)) {
+        exigir(vacio(firma.unidadesCuota), ELIGE_CADA_CUANTO);
+        cuotasCadaMeses = null;
+        unidadesCuota = null;
+      } else {
+        cuotasCadaMeses = unoDeLosNumeros(firma.cuotasCadaMeses, CUOTAS_CADA_MESES, ELIGE_CADA_CUANTO);
+        unidadesCuota = cantidad(firma.unidadesCuota, "Pon las unidades que cobra cada cuota: tienen que ser mayores que cero.", {
+          mayorQue: 0,
+          maximo: MAXIMO.unidades,
+        });
+      }
+    }
+    const cadaFinal = cuotasCadaMeses !== undefined ? cuotasCadaMeses : comoCadaMeses(existente?.cuotas_cada_meses);
+    const unidadesCuotaFinal = unidadesCuota !== undefined ? unidadesCuota : existente?.unidades_cuota == null ? null : numero(existente.unidades_cuota);
+    const aportacionDeFinal = aportacionDe !== undefined ? aportacionDe : (existente?.aportacion_de ?? null);
+    if (esCuota) {
+      exigir(!cuotasCadaMeses, "Una cuota no lleva serie: la serie es la de su herramienta.");
+      exigir(!aportacionDeFinal, "Una cuota no es una aportación extraordinaria: es la comisión de un periodo de su herramienta.");
+      exigir(unidades > 0, "Una cuota cobra algo: pon sus unidades, mayores que cero.");
+    } else if (cadaFinal !== null) {
+      exigir(
+        tipoComision === "sobre_recibo" || tipoComision === "sobre_saldo",
+        "Solo una comisión sobre recibo (o sobre saldo) cobra en cuotas. Si el recibo es mensual, la comisión va anualizada, de una vez: elige “Anualizada”.",
+      );
+      exigir(!aportacionDeFinal, "Una aportación extraordinaria no cobra en cuotas: la serie es la de su herramienta.");
+      // La que ya cobró ella su primera cuota (el RC de antes) la conserva; en las demás, cada periodo es su cuota
+      if (!existente || numero(existente.unidades) === 0) {
+        exigir(unidades === 0, "Una serie nueva no cobra en la firma: cada periodo es su cuota. Deja a 0 las unidades para cobrar.");
+      }
+    }
 
     // La compañía tiene que estar en las suyas (si no, la FK lo pararía) y los porcentajes, si no vienen
     const { contexto: reglas, deSerie } = await contexto(consultorId);
@@ -353,7 +710,7 @@ export async function guardarFirma(firma: FirmaAGuardar): Promise<ResultadoConId
       cliente = clienteCreado = data.id as string;
     }
 
-    const fila = {
+    const fila: Record<string, unknown> = {
       cliente_id: cliente,
       compania,
       producto,
@@ -362,7 +719,8 @@ export async function guardarFirma(firma: FirmaAGuardar): Promise<ResultadoConId
       tipo_comision: tipoComision,
       duracion_anios: duracionAnios,
       propio,
-      aportacion,
+      // Una cuota no lleva aportación: así no suma dos veces
+      aportacion: esCuota ? null : aportacion,
       unidades,
       unidades_nivel: unidadesNivel,
       valor_unidad: valorUnidad,
@@ -377,7 +735,17 @@ export async function guardarFirma(firma: FirmaAGuardar): Promise<ResultadoConId
       ...estado,
       // Sin decir, el enlace no se toca
       ...(aportacionDe !== undefined ? { aportacion_de: aportacionDe } : {}),
+      // Sin decir, la serie tampoco; una cuota no la lleva nunca
+      ...(cuotasCadaMeses !== undefined && !esCuota ? { cuotas_cada_meses: cuotasCadaMeses, unidades_cuota: unidadesCuota } : {}),
     };
+    // De una cobrada, lo que protege su disparador solo se escribe si cambia (y entonces él lo para, con su mensaje)
+    if (loCobrado) {
+      if (mismaCantidad(unidades, loCobrado.unidades)) delete fila.unidades;
+      if (mismaCantidad(valorUnidad, loCobrado.valor_unidad)) delete fila.valor_unidad;
+      if (mismaCantidad(pctHucha, loCobrado.pct_hucha)) delete fila.pct_hucha;
+      if (mismaCantidad(pctIrpf, loCobrado.pct_irpf)) delete fila.pct_irpf;
+      if (fechaCobro === loCobrado.fecha_cobro) delete fila.fecha_cobro;
+    }
     const { data, error } = id
       ? await supabase.from("consultoria_herramientas").update(fila).eq("id", id).eq("consultor_id", consultorId).select("id")
       : await supabase.from("consultoria_herramientas").insert({ ...fila, consultor_id: consultorId }).select("id");
@@ -400,7 +768,43 @@ export async function guardarFirma(firma: FirmaAGuardar): Promise<ResultadoConId
         }),
       };
     }
-    return { ok: id ? "Herramienta guardada." : "Firma apuntada.", id: data[0].id as string };
+    const guardadaId = data[0].id as string;
+    const hecho = id ? "Herramienta guardada" : "Firma apuntada";
+    if (esCuota || cadaFinal === null) return { ok: `${hecho}.`, id: guardadaId };
+
+    // Una serie: sus cuotas, al día y programadas. Lo guardado se queda aunque esto falle
+    const { programadas, fallo, rehecha } = await ponerAlDiaLasCuotas(supabase, consultorId, guardadaId, existente, {
+      cadaMeses: cadaFinal,
+      unidadesCuota: unidadesCuotaFinal ?? 0,
+      fechaEfecto,
+      estado: estadoFinal,
+      copiado: {
+        compania,
+        producto,
+        pago,
+        periodicidad,
+        tipo_comision: tipoComision,
+        duracion_anios: duracionAnios,
+        propio,
+        valor_unidad: valorUnidad,
+        pct_hucha: pctHucha,
+        fecha_confirmacion: fechaConfirmacion,
+        mes_produccion: mesProduccion,
+        fechas_provisionales: firma.fechasProvisionales === true,
+      },
+    });
+    if (fallo) return { ok: `${hecho}, pero no se han podido programar sus cuotas: hazlo desde su herramienta.`, id: guardadaId };
+    if (!programadas) return { ok: `${hecho}.`, id: guardadaId };
+    const n = programadas.programadas;
+    const sinProgramar = rehecha ? textoDeSinProgramar(programadas) : "";
+    if (!id) {
+      const conCuotas = n > 0 ? `, con ${n === 1 ? "1 cuota programada" : `${n} cuotas programadas`}` : "";
+      const cuandoLaPrimera =
+        n === 0 && !sinProgramar ? " Su primera cuota se programará cuando falten seis meses para cobrarla, con «Ha llegado» o desde su herramienta." : "";
+      return { ok: `${hecho}${conCuotas}.${cuandoLaPrimera}${sinProgramar}`, id: guardadaId };
+    }
+    const lasProgramadas = textoDeProgramadas(programadas);
+    return { ok: `${hecho}.${lasProgramadas ? ` ${lasProgramadas}` : ""}${sinProgramar}`, id: guardadaId };
   });
 }
 
@@ -426,8 +830,34 @@ function leerExtorno(extorno: ExtornoAGuardar) {
 }
 
 /**
+ * Las cuotas sin cobrar de una serie recién anulada de los periodos que empiezan después de la
+ * anulación, como `cuotasQueSeCortan` de `reglas.ts`: se borran, porque nunca se cobraron. La del
+ * periodo en que cae la anulación se queda pendiente (Facundo, 2026-11-01). Devuelve lo que se añade
+ * al mensaje
+ */
+async function cortarCuotas(supabase: Supabase, consultorId: string, id: string, anuladaEl: string): Promise<string> {
+  const { data, error } = await supabase
+    .from("consultoria_herramientas")
+    .delete()
+    .eq("consultor_id", consultorId)
+    .eq("cuota_de", id)
+    .is("liquidacion_id", null)
+    .gt("cuota_periodo", anuladaEl)
+    .select("id");
+  if (error) {
+    console.error(`[consultoría] No se han podido cortar las cuotas de una serie anulada: ${paraElLog(error)}`);
+    return " Pero no se han podido cortar sus cuotas sin cobrar: bórralas desde la herramienta.";
+  }
+  const n = data?.length ?? 0;
+  if (n === 0) return "";
+  return n === 1 ? " Se ha cortado 1 cuota sin cobrar." : ` Se han cortado ${n} cuotas sin cobrar.`;
+}
+
+/**
  * Anular una herramienta y, si se cobró y viene `extorno`, crearlo con el reparto que se ha visto
- * (`proponerExtorno`). Si el extorno no se guarda, la herramienta vuelve a su estado
+ * (`proponerExtorno`). Si el extorno no se guarda, la herramienta vuelve a su estado. **Si es una
+ * serie** (REQ-002), después se cortan sus cuotas sin cobrar de los periodos que empiezan después
+ * (`cortarCuotas`), y ya no se programan más
  */
 export async function anularHerramienta(entrada: AnulacionAGuardar): Promise<Resultado> {
   return comoConsultor(async ({ supabase, consultorId }) => {
@@ -438,7 +868,7 @@ export async function anularHerramienta(entrada: AnulacionAGuardar): Promise<Res
 
     const { data: actual, error } = await supabase
       .from("consultoria_herramientas")
-      .select("estado, liquidacion_id")
+      .select("estado, liquidacion_id, cuotas_cada_meses")
       .eq("id", id)
       .eq("consultor_id", consultorId)
       .maybeSingle();
@@ -446,6 +876,7 @@ export async function anularHerramienta(entrada: AnulacionAGuardar): Promise<Res
     if (!actual) return { error: "Esa herramienta ya no está." };
     if (actual.estado === "anulada") return { error: "Ya está anulada." };
     if (extorno && !actual.liquidacion_id) return { error: "No se llegó a cobrar: no hay extorno." };
+    const esSerie = comoCadaMeses(actual.cuotas_cada_meses) !== null;
 
     const { error: alAnular } = await supabase
       .from("consultoria_herramientas")
@@ -454,13 +885,17 @@ export async function anularHerramienta(entrada: AnulacionAGuardar): Promise<Res
       .eq("consultor_id", consultorId);
     if (alAnular) return { error: mensajeDe(alAnular) };
     if (!extorno) {
-      return { ok: actual.liquidacion_id ? "Anulada, sin extorno." : "Anulada: deja de contar en lo previsto." };
+      const cortadas = esSerie ? await cortarCuotas(supabase, consultorId, id, anuladaEl) : "";
+      return { ok: `${actual.liquidacion_id ? "Anulada, sin extorno." : "Anulada: deja de contar en lo previsto."}${cortadas}` };
     }
 
     const { error: alCrear } = await supabase
       .from("consultoria_extornos")
       .insert({ ...extorno, consultor_id: consultorId, herramienta_id: id });
-    if (!alCrear) return { ok: await conAvisoDeHucha("Anulada, con su extorno.", consultorId) };
+    if (!alCrear) {
+      const cortadas = esSerie ? await cortarCuotas(supabase, consultorId, id, anuladaEl) : "";
+      return { ok: await conAvisoDeHucha(`Anulada, con su extorno.${cortadas}`, consultorId) };
+    }
 
     const { error: alDevolver } = await supabase
       .from("consultoria_herramientas")
@@ -514,27 +949,98 @@ export async function borrarExtorno(id: string): Promise<Resultado> {
 }
 
 /**
- * Borrar una herramienta que no se ha cobrado (una prevista que se cae). Cobrada, con extorno o con
- * aportaciones extraordinarias colgando (la FK de `aportacion_de`), no
+ * Borrar una herramienta que no se ha cobrado (una prevista que se cae, o una cuota pendiente que no
+ * va a llegar). Cobrada, con extorno o con aportaciones extraordinarias colgando (la FK de
+ * `aportacion_de`), no. **Una serie** (REQ-002) con alguna cuota cobrada tampoco (se anula); si
+ * ninguna se ha cobrado, se borran antes sus cuotas y después ella. Antes de borrar nada se mira lo que
+ * la pararía, para no dejarla sin cuotas y sin borrar
  */
 export async function borrarHerramienta(id: string): Promise<Resultado> {
   return comoConsultor(async ({ supabase, consultorId }) => {
+    const herramientaId = uuid(id, "No sé qué herramienta borrar.");
+    const { data: actual, error: alLeer } = await supabase
+      .from("consultoria_herramientas")
+      .select("producto, liquidacion_id, cuotas_cada_meses")
+      .eq("id", herramientaId)
+      .eq("consultor_id", consultorId)
+      .maybeSingle();
+    if (alLeer) return { error: mensajeDe(alLeer) };
+    if (!actual) return { error: "Esa herramienta ya no está." };
+
+    let cuotasBorradas = 0;
+    if (comoCadaMeses(actual.cuotas_cada_meses) !== null) {
+      if (actual.liquidacion_id) return { error: conPunto(`La herramienta «${actual.producto}» ya se cobró: deshaz antes la liquidación`) };
+      const cuenta = (columna: "cuota_de" | "aportacion_de", cobradas: boolean) => {
+        let consulta = supabase
+          .from("consultoria_herramientas")
+          .select("id", { count: "exact", head: true })
+          .eq("consultor_id", consultorId)
+          .eq(columna, herramientaId);
+        if (cobradas) consulta = consulta.not("liquidacion_id", "is", null);
+        return consulta;
+      };
+      const [cobradas, apex] = await Promise.all([cuenta("cuota_de", true), cuenta("aportacion_de", false)]);
+      if (cobradas.error) return { error: mensajeDe(cobradas.error) };
+      if (apex.error) return { error: mensajeDe(apex.error) };
+      if ((cobradas.count ?? 0) > 0) return { error: "Tiene cuotas cobradas: anúlala." };
+      if ((apex.count ?? 0) > 0) return { error: "Tiene aportaciones extraordinarias: bórralas o desengánchalas antes." };
+
+      const { data: borradas, error: alBorrarCuotas } = await supabase
+        .from("consultoria_herramientas")
+        .delete()
+        .eq("consultor_id", consultorId)
+        .eq("cuota_de", herramientaId)
+        .is("liquidacion_id", null)
+        .select("id");
+      if (alBorrarCuotas) return { error: mensajeDe(alBorrarCuotas) };
+      cuotasBorradas = borradas?.length ?? 0;
+    }
+
     const { data, error } = await supabase
       .from("consultoria_herramientas")
       .delete()
-      .eq("id", uuid(id, "No sé qué herramienta borrar."))
+      .eq("id", herramientaId)
       .eq("consultor_id", consultorId)
       .select("id");
     if (error) {
-      return {
-        error: mensajeDe(error, {
-          consultoria_herramientas_aportacion_fk: "Tiene aportaciones extraordinarias: bórralas o desengánchalas antes.",
-          "23503": "Tiene un extorno: quítalo antes de borrarla.",
-        }),
-      };
+      const motivo = mensajeDe(error, {
+        consultoria_herramientas_aportacion_fk: "Tiene aportaciones extraordinarias: bórralas o desengánchalas antes.",
+        consultoria_herramientas_cuota_fk: "Tiene cuotas: bórralas antes.",
+        "23503": "Tiene un extorno: quítalo antes de borrarla.",
+      });
+      // Sus cuotas sin cobrar ya se han borrado: el botón «Programar» de la herramienta las vuelve a poner
+      return { error: cuotasBorradas ? `${motivo} Sus cuotas sin cobrar sí se han borrado: vuelve a programarlas desde la herramienta.` : motivo };
     }
     if (!data?.length) return { error: "Esa herramienta ya no está." };
-    return { ok: "Herramienta borrada." };
+    if (cuotasBorradas === 0) return { ok: "Herramienta borrada." };
+    return { ok: cuotasBorradas === 1 ? "Herramienta borrada, con su cuota." : `Herramienta borrada, con sus ${cuotasBorradas} cuotas.` };
+  });
+}
+
+/**
+ * Programar las cuotas que faltan (REQ-002) de una serie (`herramientaId`) o, sin él, de todas las que
+ * no están anuladas: las que se cobran hasta seis meses después de hoy y no están guardadas. Relanzarla
+ * no duplica. Las que se cobrarían antes de la última liquidación que llegó no se programan: el
+ * mensaje lo dice y cómo arreglarlo
+ */
+export async function programarCuotas(herramientaId?: string): Promise<Resultado> {
+  return comoConsultor(async ({ supabase, consultorId }) => {
+    const id = vacio(herramientaId) ? undefined : uuid(herramientaId, "No sé de qué herramienta programar las cuotas.");
+    if (id) {
+      const { data, error } = await supabase
+        .from("consultoria_herramientas")
+        .select("producto, estado, cuotas_cada_meses")
+        .eq("id", id)
+        .eq("consultor_id", consultorId)
+        .maybeSingle();
+      if (error) return { error: mensajeDe(error) };
+      if (!data) return { error: "Esa herramienta ya no está." };
+      if (comoCadaMeses(data.cuotas_cada_meses) === null) return { error: `«${data.producto}» no se cobra en cuotas.` };
+      if (data.estado === "anulada") return { error: `«${data.producto}» está anulada: no se programan más cuotas.` };
+    }
+    const programadas = await programar(supabase, consultorId, { herramientaId: id, hoy: hoyEnMadrid() });
+    if ("error" in programadas) return { error: programadas.error };
+    return { ok: `${textoDeProgramadas(programadas) || "No faltaba ninguna."}${textoDeSinProgramar(programadas)}` };
   });
 }
 
@@ -587,15 +1093,18 @@ export async function borrarCliente(id: string): Promise<Resultado> {
  * «Ha llegado»: `consultoria_liquidar_mes()`, todo en una transacción. Las herramientas marcadas
  * pasan a cobradas; las demás del mes, al siguiente con el motivo en sus notas; los restos de
  * extornos y los cargos marcados se aplican. Vale también para un mes sin comisiones. Con la clave
- * secreta no hay `auth.uid()`: el consultor va en `p_consultor` (spec 4.3)
+ * secreta no hay `auth.uid()`: el consultor va en `p_consultor` (spec 4.3).
+ * Después, las cuotas que falten de todas las series (REQ-002): la ventana de seis meses avanza. Si eso
+ * falla, la liquidación queda apuntada y el mensaje lo dice
  */
 export async function marcarLiquidacion(entrada: LiquidacionAMarcar): Promise<ResultadoConId> {
   return comoConsultor<ResultadoConId>(async ({ supabase, consultorId }) => {
     exigir(entrada && typeof entrada === "object", "No sé qué liquidación marcar.");
     const motivo = vacio(entrada.motivo) ? null : textoONulo(entrada.motivo, 200, "El motivo es demasiado largo: 200 caracteres como mucho.");
+    const elMes = mes(entrada.mes, "No sé qué mes marcar.");
     const { data, error } = await supabase.rpc("consultoria_liquidar_mes", {
       p_consultor: consultorId,
-      p_mes: mes(entrada.mes, "No sé qué mes marcar."),
+      p_mes: elMes,
       p_fecha: fecha(entrada.fecha, "Pon la fecha de la liquidación."),
       p_entraron: uuids(entrada.entraron, "No sé qué herramientas han entrado."),
       p_extornos: uuids(entrada.extornos, "No sé qué extornos se aplican."),
@@ -605,7 +1114,24 @@ export async function marcarLiquidacion(entrada: LiquidacionAMarcar): Promise<Re
       p_motivo: motivo,
     });
     if (error) return { error: mensajeDe(error, { "23505": "Ese mes ya está marcado como cobrado." }) };
-    return { ok: "Liquidación apuntada.", id: data as string };
+    const liquidacionId = data as string;
+
+    const programadas = await programar(supabase, consultorId, { hoy: hoyEnMadrid() });
+    if ("error" in programadas) {
+      return { ok: "Liquidación apuntada, pero no se han podido programar las próximas cuotas: hazlo desde su herramienta.", id: liquidacionId };
+    }
+    const n = programadas.programadas;
+    const conCuotas = n > 0 ? ` ${n === 1 ? "Programada 1 cuota" : `Programadas ${n} cuotas`}.` : "";
+    // Solo las de este mes: las de antes ya se avisaron al programar su serie
+    const deEsteMes = programadas.sinProgramar
+      .filter((c) => c.fechaCobro.slice(0, 7) === elMes.slice(0, 7))
+      .map(
+        (c) =>
+          ` Ojo: la cuota de ${nombreDelPeriodo(c.periodo, c.cadaMeses)} de «${c.producto}» se cobraría en esta liquidación y no estaba programada. ` +
+          "Si llegó en ella, deshazla, programa las cuotas desde su herramienta y vuelve a marcar «Ha llegado»; si no, apúntala a mano.",
+      )
+      .join("");
+    return { ok: `Liquidación apuntada.${conCuotas}${deEsteMes}`, id: liquidacionId };
   });
 }
 

@@ -21,6 +21,15 @@ const TEXTO: Record<LoQueFalta, { titulo: string; texto: ReactNode }> = {
       </>
     ),
   },
+  '0002': {
+    titulo: 'Falta un paso en la base de datos',
+    texto: (
+      <>
+        Ejecuta la migración <code>0002_cuotas_recurrentes.sql</code> (las comisiones recurrentes) en el editor SQL de Supabase, en el
+        proyecto <code>fsmtech</code>, y vuelve a cargar esta página.
+      </>
+    ),
+  },
   copia: {
     titulo: 'La base nueva está vacía',
     texto: (
@@ -33,7 +42,7 @@ const TEXTO: Record<LoQueFalta, { titulo: string; texto: ReactNode }> = {
 
 /**
  * Lo que dice cada página de la consultoría mientras falte algo: la configuración o la copia (de
- * `exigirConsultoria()`) o la migración (el `falta` de la consulta). Sin `migracion`, la 0001
+ * `exigirConsultoria()`) o la migración, la 0001 o la 0002 (el `falta` de la consulta). Sin `migracion`, la 0001
  */
 export default function FaltaMigracion({ migracion = '0001' }: { migracion?: LoQueFalta }) {
   const { titulo, texto } = TEXTO[migracion];

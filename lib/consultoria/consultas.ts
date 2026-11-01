@@ -18,6 +18,11 @@
  * - **Una APEX es la herramienta que tiene `aportacion_de`** (cuelga de otra). Donde se habla de
  *   herramientas va con la suya (`recuentoDelMes` de `reglas.ts`); donde se habla de comisiones es su
  *   propia línea. Una única sin enlace (las de antes) cuenta como herramienta, como hasta ahora
+ * - **Una cuota es la herramienta que tiene `cuota_de`** (REQ-002, la 0002): la comisión de un
+ *   periodo de su serie. Es una línea más en las liquidaciones, la hucha y el Resumen; en el recuento
+ *   va aparte («1 herramienta y 1 cuota»); en Producción no sale, y en la ficha del cliente y en la
+ *   página de su serie va dentro de su herramienta. **Sin la 0002** (sus columnas dan `42703`),
+ *   `pendiente: true` con `falta: "0002"`: la página dice que se ejecute
  * - **Otro error de lectura no se tapa con ceros** (sería dinero que no es): el detalle va al log del
  *   servidor y se lanza un error sin detalles, que recoge el `error.tsx` de la sección
  * - Lo que se lee varias veces en una petición (el contexto, los meses, la hucha, los extornos) se
@@ -32,10 +37,17 @@ import { CUADRO_VIGENTE, NIVELES_DE_SERIE } from "@/lib/consultoria/cuadro";
 import {
   AJUSTES_DE_SERIE,
   COMPANIAS_DE_SERIE,
+  MESES_DE_CUOTAS_A_LA_VISTA,
+  calcularImportes,
   calcularLiquidacion,
+  cobroDeLaCuota,
+  cuotasDeLaSerie,
+  cuotasQueFaltan,
   finDelExtorno,
+  hoyEnMadrid,
   mesesDeLiquidacion,
   esApex,
+  numeroDeLaCuota,
   primerDiaDelMes,
   productoDelCuadro,
   proximosCierres,
@@ -43,17 +55,20 @@ import {
   saldoDeHucha,
   unidadesAcumuladas,
   valorUnidadDelMes,
+  ventanaDeProgramacion,
 } from "@/lib/consultoria/reglas";
 import type {
   Calendario,
   Cierre,
   ContextoReglas,
+  CuotasCadaMeses,
   DatosCompania,
   EstadoHerramienta,
   Nivel,
   Pago,
   Periodicidad,
   ReglaCompania,
+  SerieDeCuotas,
   TipoComision,
 } from "@/lib/consultoria/reglas";
 import type {
@@ -63,6 +78,7 @@ import type {
   ConPendiente,
   ContextoConsultoria,
   CuentaConsultoria,
+  CuotaVista,
   DeSerie,
   DetalleDelMes,
   Extorno,
@@ -80,6 +96,7 @@ import type {
   Produccion,
   ProductoUsado,
   ResumenConsultoria,
+  SerieVista,
 } from "@/lib/consultoria/tipos";
 import { esUuid, mesONulo } from "@/lib/consultoria/validar";
 import { euros } from "@/lib/consultoria/formato";
@@ -96,7 +113,10 @@ interface ErrorDeSupabase {
 /** Tabla, vista, columna o función que no existe: falta la migración */
 const CODIGOS_SIN_MIGRACION = new Set(["42P01", "42703", "PGRST205", "PGRST204", "PGRST202"]);
 
-/** Falta una migración (en el panel, solo hay una: la 0001): lo recogen las consultas de fuera y devuelven `pendiente` con cuál */
+/** Lo que trae la 0002: las cuatro columnas de la serie y de la cuota y la función que programa las cuotas */
+const DE_LA_0002 = /cuotas_cada_meses|unidades_cuota|cuota_de|cuota_periodo|consultoria_programar_cuotas/;
+
+/** Falta una migración (la 0001 o la 0002): lo recogen las consultas de fuera y devuelven `pendiente` con cuál */
 class FaltaLaMigracion extends Error {
   readonly migracion: MigracionQueFalta;
   constructor(migracion: MigracionQueFalta, que: string) {
@@ -105,9 +125,16 @@ class FaltaLaMigracion extends Error {
   }
 }
 
+/** Si el error es de algo que no existe, qué migración falta: la 0002 si nombra lo suyo; si no, la 0001 */
+function migracionQueFalta(error: ErrorDeSupabase): MigracionQueFalta | null {
+  if (!error.code || !CODIGOS_SIN_MIGRACION.has(error.code)) return null;
+  return DE_LA_0002.test(error.message ?? "") ? "0002" : "0001";
+}
+
 function comprobar(error: ErrorDeSupabase | null, que: string): void {
   if (!error) return;
-  if (error.code && CODIGOS_SIN_MIGRACION.has(error.code)) throw new FaltaLaMigracion("0001", que);
+  const falta = migracionQueFalta(error);
+  if (falta) throw new FaltaLaMigracion(falta, que);
   console.error(`[consultoría] No se han podido leer ${que}: ${error.code ?? "sin código"} ${error.message}`);
   throw new Error("No se ha podido leer la consultoría. Vuelve a intentarlo dentro de un momento.");
 }
@@ -183,6 +210,8 @@ interface FilaLinea {
   hucha: Numerico;
   pct_irpf: Numerico;
   aportacion_de: string | null;
+  cuota_de: string | null;
+  cuota_periodo: string | null;
 }
 
 interface FilaMovimientoCuenta {
@@ -254,6 +283,10 @@ interface FilaHerramienta {
   notas: string | null;
   origen: string | null;
   aportacion_de: string | null;
+  cuotas_cada_meses: number | null;
+  unidades_cuota: Numerico;
+  cuota_de: string | null;
+  cuota_periodo: string | null;
   cliente: { nombre: string } | { nombre: string }[] | null;
 }
 
@@ -273,7 +306,10 @@ interface FilaCliente {
 /** El cliente, por su única relación con las herramientas (la FK compuesta): sin ambigüedad (PGRST201) */
 // En una sola cadena literal: supabase-js lee sus tipos de ella, y una concatenada no la entiende
 const COLUMNAS_HERRAMIENTA =
-  "id, cliente_id, compania, producto, pago, periodicidad, tipo_comision, aportacion, duracion_anios, propio, unidades, unidades_nivel, valor_unidad, pct_hucha, pct_irpf, fecha_confirmacion, mes_produccion, fecha_efecto, fecha_cobro, estado, fechas_provisionales, liquidacion_id, anulada_el, bruto, hucha, irpf, neto, notas, origen, aportacion_de, cliente:consultoria_clientes!consultoria_herramientas_cliente_fk(nombre)";
+  "id, cliente_id, compania, producto, pago, periodicidad, tipo_comision, aportacion, duracion_anios, propio, unidades, unidades_nivel, valor_unidad, pct_hucha, pct_irpf, fecha_confirmacion, mes_produccion, fecha_efecto, fecha_cobro, estado, fechas_provisionales, liquidacion_id, anulada_el, bruto, hucha, irpf, neto, notas, origen, aportacion_de, cuotas_cada_meses, unidades_cuota, cuota_de, cuota_periodo, cliente:consultoria_clientes!consultoria_herramientas_cliente_fk(nombre)";
+
+/** 3 o 6 de la base; otra cosa (no debería: lo impide el `check` de la 0002) es «no es una serie» */
+const comoCadaMeses = (valor: unknown): CuotasCadaMeses | null => (valor === 3 || valor === 6 ? valor : null);
 
 const COLUMNAS_CLIENTE =
   "id, nombre, referencia, proxima_revision, notas, herramientas, previstas, aportacion_mensual, aportacion_unica, generado_bruto";
@@ -424,7 +460,7 @@ const cargarMeses = cache(
           supabase
             .from("consultoria_lineas")
             .select(
-              "herramienta_id, cliente_id, cliente, compania, producto, mes, fecha_cobro, estado, liquidacion_id, cobrada, prevista, unidades, bruto, hucha, pct_irpf, aportacion_de",
+              "herramienta_id, cliente_id, cliente, compania, producto, mes, fecha_cobro, estado, liquidacion_id, cobrada, prevista, unidades, bruto, hucha, pct_irpf, aportacion_de, cuota_de, cuota_periodo",
             )
             .eq("consultor_id", consultorId)
             .order("mes")
@@ -449,6 +485,18 @@ const cargarMeses = cache(
     const mesDeLaLiquidacion = new Map(
       filasMes.filter((f) => f.liquidacion_id).map((f) => [f.liquidacion_id as string, f.mes]),
     );
+    // Cada cuántos meses cobra la serie de cada cuota, para rotularla («cuota jul-sep»): con `in`, en tandas
+    const cadaDeLaSerie = new Map<string, CuotasCadaMeses | null>();
+    const series = [...new Set(filasLinea.flatMap((l) => (l.cuota_de ? [l.cuota_de] : [])))];
+    for (let i = 0; i < series.length; i += POR_TANDA) {
+      const { data, error } = await supabase
+        .from("consultoria_herramientas")
+        .select("id, cuotas_cada_meses")
+        .eq("consultor_id", consultorId)
+        .in("id", series.slice(i, i + POR_TANDA));
+      comprobar(error, "las series de las cuotas");
+      for (const serie of data ?? []) cadaDeLaSerie.set(serie.id as string, comoCadaMeses(serie.cuotas_cada_meses));
+    }
     const lineas = filasLinea.map<LineaLiquidacion>((l) => ({
       herramientaId: l.herramienta_id,
       clienteId: l.cliente_id,
@@ -466,6 +514,9 @@ const cargarMeses = cache(
       hucha: numero(l.hucha),
       pctIrpf: numero(l.pct_irpf),
       aportacionDe: l.aportacion_de,
+      cuotaDe: l.cuota_de,
+      cuotaPeriodo: l.cuota_periodo,
+      cuotaCadaMeses: l.cuota_de ? (cadaDeLaSerie.get(l.cuota_de) ?? null) : null,
     }));
     const cuenta = filasCuenta.map<MovimientoDeCuenta>((c) => ({
       fecha: c.fecha,
@@ -490,7 +541,8 @@ const cargarMeses = cache(
     });
 
     const filaDe = new Map(filasMes.map((f) => [primerDiaDelMes(f.mes), f]));
-    // El recuento sale de las líneas y no de la vista, que cuenta líneas: una APEX va con su herramienta
+    // El recuento sale de las líneas y no de la vista, que cuenta líneas: una APEX va con su herramienta,
+    // y una cuota se cuenta aparte
     const lineasDe = new Map<string, LineaLiquidacion[]>();
     for (const linea of lineas) {
       const mes = primerDiaDelMes(linea.mes);
@@ -510,6 +562,7 @@ const cargarMeses = cache(
           fecha: fila?.fecha ?? null,
           herramientas: recuento.herramientas,
           apex: recuento.apex,
+          cuotas: recuento.cuotas ?? 0,
           previstas: recuento.previstas,
           unidades: numero(fila?.unidades),
           liquidacion: m.liquidacion,
@@ -644,6 +697,12 @@ function herramientaDeFila(f: FilaHerramienta, extorno: Extorno | null): Herrami
     aportacionDe: f.aportacion_de,
     // El producto de la madre lo pone `leerHerramientas`, que la busca si no está entre las leídas
     de: null,
+    cuotasCadaMeses: comoCadaMeses(f.cuotas_cada_meses),
+    unidadesCuota: numeroONulo(f.unidades_cuota),
+    cuotaDe: f.cuota_de,
+    cuotaPeriodo: f.cuota_periodo,
+    // Como `de`: lo pone `leerHerramientas`
+    serieDe: null,
   };
 }
 
@@ -861,22 +920,28 @@ export async function clientesConsultoria(consultorId: string): Promise<{ client
   );
 }
 
-type ColumnaDeFiltro = "id" | "cliente_id" | "mes_produccion" | "compania" | "estado" | "aportacion_de";
+type ColumnaDeFiltro = "id" | "cliente_id" | "mes_produccion" | "compania" | "estado" | "aportacion_de" | "cuota_de";
 
 /** Identificadores por petición al buscar con `in`: la URL no crece sin límite */
 const POR_TANDA = 200;
 
 /**
  * Las herramientas del consultor con esas columnas iguales, de la más nueva a la más antigua, con su
- * extorno y, si son una APEX, la herramienta de la que cuelgan (`de`): de entre las leídas o, si no
- * está, con una consulta más (con `in`, en tandas)
+ * extorno; si son una APEX, la herramienta de la que cuelgan (`de`), y si son una cuota, su serie
+ * (`serieDe`): de entre las leídas o, si no está, con una consulta más (con `in`, en tandas). Con
+ * `sinCuotas`, sin las cuotas de las series (Producción)
  */
-async function leerHerramientas(consultorId: string, iguales: Partial<Record<ColumnaDeFiltro, string | null>> = {}): Promise<Herramienta[]> {
+async function leerHerramientas(
+  consultorId: string,
+  iguales: Partial<Record<ColumnaDeFiltro, string | null>> = {},
+  opciones: { sinCuotas?: boolean } = {},
+): Promise<Herramienta[]> {
   const supabase = await baseDeDatos();
   const [filas, extornos] = await Promise.all([
     todas<FilaHerramienta>((desde, hasta) => {
       let consulta = supabase.from("consultoria_herramientas").select(COLUMNAS_HERRAMIENTA).eq("consultor_id", consultorId);
       for (const [columna, valor] of Object.entries(iguales)) if (valor) consulta = consulta.eq(columna, valor);
+      if (opciones.sinCuotas) consulta = consulta.is("cuota_de", null);
       return consulta
         .order("mes_produccion", { ascending: false })
         .order("fecha_efecto", { ascending: false })
@@ -887,20 +952,31 @@ async function leerHerramientas(consultorId: string, iguales: Partial<Record<Col
   ]);
   const herramientas = filas.map((f) => herramientaDeFila(f, extornos.get(f.id) ?? null));
 
-  const productoDe = new Map(herramientas.map((h) => [h.id, h.producto]));
-  const faltan = [...new Set(herramientas.flatMap((h) => (h.aportacionDe && !productoDe.has(h.aportacionDe) ? [h.aportacionDe] : [])))];
+  const deCadaId = new Map(herramientas.map((h) => [h.id, { producto: h.producto, cadaMeses: h.cuotasCadaMeses }]));
+  const faltan = [
+    ...new Set(
+      herramientas.flatMap((h) => [h.aportacionDe, h.cuotaDe].filter((otra): otra is string => Boolean(otra) && !deCadaId.has(otra as string))),
+    ),
+  ];
   for (let i = 0; i < faltan.length; i += POR_TANDA) {
     const { data, error } = await supabase
       .from("consultoria_herramientas")
-      .select("id, producto")
+      .select("id, producto, cuotas_cada_meses")
       .eq("consultor_id", consultorId)
       .in("id", faltan.slice(i, i + POR_TANDA));
-    comprobar(error, "las herramientas de las aportaciones extraordinarias");
-    for (const madre of data ?? []) productoDe.set(madre.id as string, madre.producto as string);
+    comprobar(error, "las herramientas de las aportaciones extraordinarias y de las cuotas");
+    for (const otra of data ?? []) {
+      deCadaId.set(otra.id as string, { producto: otra.producto as string, cadaMeses: comoCadaMeses(otra.cuotas_cada_meses) });
+    }
   }
   return herramientas.map((h) => {
-    const producto = h.aportacionDe ? productoDe.get(h.aportacionDe) : undefined;
-    return h.aportacionDe && producto !== undefined ? { ...h, de: { id: h.aportacionDe, producto } } : h;
+    const madre = h.aportacionDe ? deCadaId.get(h.aportacionDe) : undefined;
+    const serie = h.cuotaDe ? deCadaId.get(h.cuotaDe) : undefined;
+    return {
+      ...h,
+      ...(h.aportacionDe && madre ? { de: { id: h.aportacionDe, producto: madre.producto } } : {}),
+      ...(h.cuotaDe && serie?.cadaMeses ? { serieDe: { id: h.cuotaDe, producto: serie.producto, cadaMeses: serie.cadaMeses } } : {}),
+    };
   });
 }
 
@@ -909,26 +985,122 @@ function porFecha(a: Herramienta, b: Herramienta): number {
   return a.fechaEfecto.localeCompare(b.fechaEfecto) || a.mesProduccion.localeCompare(b.mesProduccion) || a.id.localeCompare(b.id);
 }
 
+/** Por periodo: así se leen las cuotas de una serie */
+function porPeriodo(a: Herramienta, b: Herramienta): number {
+  return (a.cuotaPeriodo ?? "").localeCompare(b.cuotaPeriodo ?? "") || a.id.localeCompare(b.id);
+}
+
 /**
  * Las herramientas madre, en el orden en que llegan, cada una con sus APEX dentro (de la más antigua a
- * la más nueva). Una APEX cuya madre no está entre ellas sale suelta, como una herramienta más, para
- * no perderla de vista (no debería pasar: la madre es siempre del mismo cliente)
+ * la más nueva) y sus cuotas (por periodo). Una APEX o una cuota cuya herramienta no está entre ellas
+ * sale suelta, como una herramienta más, para no perderla de vista (no debería pasar: la madre y la
+ * serie son siempre del mismo cliente)
  */
 function conSusAportaciones(herramientas: Herramienta[]): HerramientaConAportaciones[] {
   const ids = new Set(herramientas.map((h) => h.id));
-  const deCadaUna = new Map<string, Herramienta[]>();
+  const apexDe = new Map<string, Herramienta[]>();
+  const cuotasDe = new Map<string, Herramienta[]>();
+  const cuelga = (h: Herramienta) => (h.cuotaDe && ids.has(h.cuotaDe) ? h.cuotaDe : h.aportacionDe && ids.has(h.aportacionDe) ? h.aportacionDe : null);
   for (const h of herramientas) {
-    if (!h.aportacionDe || !ids.has(h.aportacionDe)) continue;
-    deCadaUna.set(h.aportacionDe, [...(deCadaUna.get(h.aportacionDe) ?? []), h]);
+    if (h.cuotaDe && ids.has(h.cuotaDe)) cuotasDe.set(h.cuotaDe, [...(cuotasDe.get(h.cuotaDe) ?? []), h]);
+    else if (h.aportacionDe && ids.has(h.aportacionDe)) apexDe.set(h.aportacionDe, [...(apexDe.get(h.aportacionDe) ?? []), h]);
   }
   return herramientas
-    .filter((h) => !h.aportacionDe || !ids.has(h.aportacionDe))
-    .map((h) => ({ ...h, aportaciones: [...(deCadaUna.get(h.id) ?? [])].sort(porFecha) }));
+    .filter((h) => !cuelga(h))
+    .map((h) => ({
+      ...h,
+      aportaciones: [...(apexDe.get(h.id) ?? [])].sort(porFecha),
+      cuotas: [...(cuotasDe.get(h.id) ?? [])].sort(porPeriodo),
+      serie: null,
+    }));
+}
+
+/**
+ * La sección «Cuotas» de la página de una serie (spec 7): la de la propia firma (si la cobra ella),
+ * las guardadas y, si no está anulada, las que se programarán hasta `MESES_DE_CUOTAS_A_LA_VISTA` meses
+ * después de hoy; cuántas faltan por programar (hasta seis meses) y las que no se programan porque su
+ * mes ya está liquidado. `ultimaLiquidacion`: el día 1 del último mes que ha llegado, o null
+ */
+function serieVista(h: Herramienta, cuotas: Herramienta[], ultimaLiquidacion: string | null, hoy: string): SerieVista | null {
+  const cadaMeses = h.cuotasCadaMeses;
+  if (!cadaMeses) return null;
+  const unidadesCuota = h.unidadesCuota ?? 0;
+  const brutoCuota = calcularImportes(unidadesCuota, h.valorUnidad, h.pctHucha, h.pctIrpf).bruto;
+  const serie: SerieDeCuotas = { fechaEfecto: h.fechaEfecto, cuotasCadaMeses: cadaMeses, laFirmaCobraLaPrimera: h.unidades > 0 };
+  const anulada = h.estado === "anulada";
+
+  const guardadas = new Map(cuotas.filter((c) => c.cuotaPeriodo).map((c) => [c.cuotaPeriodo as string, c]));
+  const faltan = cuotasQueFaltan(serie, { ...ventanaDeProgramacion(hoy, ultimaLiquidacion), guardadas: [...guardadas.keys()] });
+
+  // Hasta dónde se enseña: 12 meses por delante (si está anulada, solo lo que hay) y, como poco, la última guardada
+  const deLaRegla = (periodo: string) => cobroDeLaCuota(periodo, cadaMeses);
+  const ultimaGuardada = [...guardadas.keys()].map(deLaRegla).sort().at(-1) ?? null;
+  const aLaVista = sumarMeses(primerDiaDelMes(hoy), MESES_DE_CUOTAS_A_LA_VISTA);
+  const tope = [anulada ? deLaRegla(h.fechaEfecto) : aLaVista, ultimaGuardada].filter((f): f is string => f !== null).sort().at(-1) as string;
+
+  const vistas: CuotaVista[] = [];
+  const vistos = new Set<string>();
+  for (const cuota of cuotasDeLaSerie(serie, tope)) {
+    const guardada = guardadas.get(cuota.periodo);
+    vistos.add(cuota.periodo);
+    if (cuota.numero === 1 && serie.laFirmaCobraLaPrimera) {
+      vistas.push({
+        ...cuota,
+        fechaCobro: h.fechaCobro,
+        herramientaId: h.id,
+        estado: h.estado,
+        liquidacionId: h.liquidacionId,
+        bruto: h.bruto,
+        retrasada: h.fechaCobro > cuota.fechaCobro,
+        esLaFirma: true,
+      });
+    } else if (guardada) {
+      vistas.push({
+        ...cuota,
+        fechaCobro: guardada.fechaCobro,
+        herramientaId: guardada.id,
+        estado: guardada.estado,
+        liquidacionId: guardada.liquidacionId,
+        bruto: guardada.bruto,
+        retrasada: guardada.fechaCobro > cuota.fechaCobro,
+        esLaFirma: false,
+      });
+    } else if (!anulada) {
+      vistas.push({ ...cuota, herramientaId: null, estado: "sin_programar", liquidacionId: null, bruto: brutoCuota, retrasada: false, esLaFirma: false });
+    }
+  }
+  // Las guardadas que no son de la regla de hoy (un efecto cambiado después de cobrarlas): también se ven
+  for (const [periodo, guardada] of guardadas) {
+    if (vistos.has(periodo)) continue;
+    vistas.push({
+      numero: numeroDeLaCuota(serie, periodo),
+      periodo,
+      fechaCobro: guardada.fechaCobro,
+      herramientaId: guardada.id,
+      estado: guardada.estado,
+      liquidacionId: guardada.liquidacionId,
+      bruto: guardada.bruto,
+      retrasada: guardada.fechaCobro > deLaRegla(periodo),
+      esLaFirma: false,
+    });
+  }
+  vistas.sort((a, b) => a.periodo.localeCompare(b.periodo));
+
+  return {
+    cadaMeses,
+    unidadesCuota,
+    brutoCuota,
+    pctHucha: h.pctHucha,
+    cuotas: vistas,
+    faltanPorProgramar: anulada ? 0 : faltan.cuotas.length,
+    sinProgramar: anulada ? [] : faltan.sinProgramar,
+    avisos: anulada ? faltan.avisos.filter((a) => a.codigo === "dato_provisional") : faltan.avisos,
+  };
 }
 
 /**
  * Un cliente con sus datos, lo generado y sus herramientas madre, cada una con su extorno (si lo
- * tiene) y sus APEX dentro. Null si no está
+ * tiene), sus APEX y sus cuotas dentro. Null si no está
  */
 export async function fichaDeCliente(consultorId: string, clienteId: string): Promise<{ ficha: FichaCliente | null } & ConPendiente> {
   return conPendiente(
@@ -953,7 +1125,9 @@ const ESTADOS: EstadoHerramienta[] = ["prevista", "firmada", "confirmada", "inci
  * de producción (`unidadesNivel ?? unidades`), sin las anuladas ni los recibos de una comisión sobre
  * recibo (0 unidades para el nivel), y la comisión y la RC de todas las que cuentan. Una APEX sigue
  * en su fila (con `de`, la herramienta de la que cuelga), y en los totales va en `apex`, no en
- * `herramientas`; sus unidades sí suman, porque cuentan para el nivel
+ * `herramientas`; sus unidades sí suman, porque cuentan para el nivel. **Sin las cuotas de las
+ * series** (REQ-002), ni en las filas ni en los totales: si no, la producción del mes de la firma
+ * crecería con cada trimestre. Salen dentro de su serie
  */
 export async function produccion(consultorId: string, filtros: FiltrosProduccion = {}): Promise<Produccion & ConPendiente> {
   return conPendiente(
@@ -963,7 +1137,7 @@ export async function produccion(consultorId: string, filtros: FiltrosProduccion
       const estado = ESTADOS.find((e) => e === filtros.estado) ?? null;
 
       const [filas, { contexto }] = await Promise.all([
-        leerHerramientas(consultorId, { mes_produccion: mes, compania, estado }),
+        leerHerramientas(consultorId, { mes_produccion: mes, compania, estado }, { sinCuotas: true }),
         cargarContexto(consultorId),
       ]);
 
@@ -989,20 +1163,33 @@ export async function produccion(consultorId: string, filtros: FiltrosProduccion
 
 /**
  * Una herramienta, con su extorno si lo tiene, sus APEX (`aportaciones`, de la más antigua a la más
- * nueva) y, si es una APEX, la herramienta de la que cuelga (`de`). Null si no está
+ * nueva) y, si es una APEX, la herramienta de la que cuelga (`de`). Si es una serie (REQ-002), sus
+ * cuotas guardadas (`cuotas`, por periodo) y su sección «Cuotas» (`serie`); si es una cuota, su serie
+ * (`serieDe`). `hoy` (de `hoyEnMadrid()`) decide qué cuotas faltan y cuáles se enseñan: lo pasa la
+ * página; sin él, el de ahora. Null si no está
  */
 export async function herramienta(
   consultorId: string,
   id: string,
+  hoy: string = hoyEnMadrid(),
 ): Promise<{ herramienta: HerramientaConAportaciones | null } & ConPendiente> {
   return conPendiente(
     async () => {
       if (!esUuid(id)) return { herramienta: null };
-      const [[encontrada], aportaciones] = await Promise.all([
+      const [[encontrada], aportaciones, cuotas] = await Promise.all([
         leerHerramientas(consultorId, { id }),
         leerHerramientas(consultorId, { aportacion_de: id }),
+        leerHerramientas(consultorId, { cuota_de: id }),
       ]);
-      return { herramienta: encontrada ? { ...encontrada, aportaciones: aportaciones.sort(porFecha) } : null };
+      if (!encontrada) return { herramienta: null };
+      let serie: SerieVista | null = null;
+      if (encontrada.cuotasCadaMeses) {
+        // La última liquidación que ha llegado: lo que se cobraría antes no se programa
+        const { meses } = await cargarMeses(consultorId);
+        const ultima = meses.filter((m) => m.liquidacionId).at(-1)?.mes ?? null;
+        serie = serieVista(encontrada, cuotas, ultima, hoy);
+      }
+      return { herramienta: { ...encontrada, aportaciones: aportaciones.sort(porFecha), cuotas: cuotas.sort(porPeriodo), serie } };
     },
     () => ({ herramienta: null }),
   );

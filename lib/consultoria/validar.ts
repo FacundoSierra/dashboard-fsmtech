@@ -127,6 +127,12 @@ export function unoDe<T extends string>(valor: unknown, lista: readonly T[], men
   return valor as T;
 }
 
+/** Uno de los números de la lista (un número, no un texto): cada cuántos meses cobra una serie, 3 o 6 */
+export function unoDeLosNumeros<T extends number>(valor: unknown, lista: readonly T[], mensaje: string): T {
+  exigir(typeof valor === "number" && (lista as readonly number[]).includes(valor), mensaje);
+  return valor as T;
+}
+
 /** El código de una compañía, como sale en la liquidación: `AXA`, `INTESA`, `ALL` */
 export function codigoDeCompania(valor: unknown, mensaje: string): string {
   const codigo = typeof valor === "string" ? valor.trim().toUpperCase() : "";

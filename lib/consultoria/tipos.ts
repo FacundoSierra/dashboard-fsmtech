@@ -13,6 +13,8 @@ import type {
   Cierre,
   ContextoReglas,
   Cuadro,
+  CuotaDeLaSerie,
+  CuotasCadaMeses,
   DatosCompania,
   EstadoHerramienta,
   Liquidacion,
@@ -32,8 +34,11 @@ export interface Resultado {
 /** El `Resultado` de siempre y, al crear algo, su `id` */
 export type ResultadoConId = Resultado & { id?: string };
 
-/** La migración que falta: la 0001 (las tablas, vistas y funciones de la consultoría en la base del panel) */
-export type MigracionQueFalta = "0001";
+/**
+ * La migración que falta: la 0001 (las tablas, vistas y funciones de la consultoría en la base del
+ * panel) o la 0002 (las columnas de las series y las cuotas y la función que las programa, REQ-002)
+ */
+export type MigracionQueFalta = "0001" | "0002";
 
 /**
  * Lo que le falta a la sección para enseñar algo (`exigirConsultoria()` de `sesion.ts`): las variables
@@ -72,12 +77,14 @@ export interface MesLiquidacion {
   fecha: string | null;
   /**
    * El recuento de las líneas del mes (las cobradas y las que no), como `recuentoDelMes()` de
-   * `reglas.ts`: «4 herramientas y 1 APEX · 2 previstas» (`textoDelRecuento`). `herramientas` no
-   * cuenta las APEX enlazadas, que van en `apex`; `previstas` las cuenta todas,
-   * también las APEX. `unidades`, las de todas las líneas
+   * `reglas.ts`: «4 herramientas y 1 APEX · 2 previstas», «1 herramienta y 1 cuota»
+   * (`textoDelRecuento`, que recibe el mes tal cual). `herramientas` no cuenta las APEX enlazadas,
+   * que van en `apex`, ni las cuotas de una serie, que van en `cuotas` (0 si no hay); `previstas` las
+   * cuenta todas, también las APEX y las cuotas. `unidades`, las de todas las líneas
    */
   herramientas: number;
   apex: number;
+  cuotas: number;
   previstas: number;
   unidades: number;
   /** Lo que ha llegado (si ha llegado) o lo que se espera, con el IRPF sobre el total */
@@ -150,6 +157,14 @@ export interface LineaLiquidacion {
   pctIrpf: number;
   /** Si es una APEX, la herramienta de la que cuelga (se rotula «TopPlan · APEX»); si no, null */
   aportacionDe: string | null;
+  /**
+   * Si es una cuota (REQ-002), su herramienta, el día 1 de su periodo y cada cuántos meses cobra su
+   * serie: se rotula «RC Integral · cuota jul-sep» (`periodoCorto(cuotaPeriodo, cuotaCadaMeses)` de
+   * `reglas.ts`). Los tres, null si no lo es
+   */
+  cuotaDe: string | null;
+  cuotaPeriodo: string | null;
+  cuotaCadaMeses: CuotasCadaMeses | null;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -250,7 +265,8 @@ export interface FichaCliente {
   cliente: ClienteDeLaLista & { notas: string | null };
   /**
    * Las herramientas madre (de la más nueva a la más antigua), cada una con sus APEX dentro, de la
-   * más antigua a la más nueva. Una APEX sin enlace (las de antes) sale aquí como una herramienta más
+   * más antigua a la más nueva, y sus cuotas (si es una serie), por periodo: las cuotas no salen
+   * sueltas. Una APEX sin enlace (las de antes) sale aquí como una herramienta más
    */
   herramientas: HerramientaConAportaciones[];
 }
@@ -317,12 +333,74 @@ export interface Herramienta {
   aportacionDe: string | null;
   /** La herramienta de la que es APEX, para «APEX de TopPlan» con su enlace; null si no lo es */
   de: { id: string; producto: string } | null;
+  /**
+   * Es una serie (REQ-002): cada cuántos meses cobra (3 trimestral, 6 semestral) y lo que cobra cada
+   * cuota. Los dos o ninguno: null = no es recurrente
+   */
+  cuotasCadaMeses: CuotasCadaMeses | null;
+  unidadesCuota: number | null;
+  /** Es una cuota: la herramienta de la que es cuota y el día 1 de su periodo natural. Los dos o ninguno */
+  cuotaDe: string | null;
+  cuotaPeriodo: string | null;
+  /**
+   * En una cuota, su herramienta, para «Cuota de julio-septiembre de 2026 de RC Integral» con su
+   * enlace (`nombreDelPeriodo(cuotaPeriodo, serieDe.cadaMeses)`); null en las demás
+   */
+  serieDe: { id: string; producto: string; cadaMeses: CuotasCadaMeses } | null;
 }
 
-/** Una herramienta con sus aportaciones extraordinarias (las que la tienen en `aportacionDe`) */
+/** Una herramienta con sus aportaciones extraordinarias (las que la tienen en `aportacionDe`) y sus cuotas */
 export interface HerramientaConAportaciones extends Herramienta {
   /** De la más antigua a la más nueva; vacío si no tiene. Una APEX no tiene aportaciones (un solo nivel) */
   aportaciones: Herramienta[];
+  /** Sus cuotas guardadas, por periodo; vacío si no es una serie */
+  cuotas: Herramienta[];
+  /** Solo lo rellena `herramienta()`, para su página, si es una serie; null en las listas y en lo demás */
+  serie: SerieVista | null;
+}
+
+/**
+ * La sección «Cuotas» de la página de una serie (REQ-002, spec 7). Cuando se programa una cuota, la
+ * fila copia de su serie el €/unidad, la reserva y lo demás, y lleva el IRPF de Ajustes de ese
+ * momento: `brutoCuota` es el de una cuota con los valores de hoy de la serie
+ */
+export interface SerieVista {
+  cadaMeses: CuotasCadaMeses;
+  unidadesCuota: number;
+  /** `unidadesCuota × €/unidad`, redondeado como la base */
+  brutoCuota: number;
+  pctHucha: number;
+  /**
+   * Por periodo: la de la propia firma (si la cobra ella), las guardadas y, si no está anulada, las que
+   * se programarán hasta 12 meses después de hoy (`estado: "sin_programar"`)
+   */
+  cuotas: CuotaVista[];
+  /** Las que deberían estar guardadas (hasta seis meses después de hoy) y no lo están: el botón «Programar las que faltan (N)». 0 si está anulada */
+  faltanPorProgramar: number;
+  /** Las de antes de la última liquidación que llegó que no se guardaron: «si llegó, apúntala a mano». Vacío si está anulada */
+  sinProgramar: CuotaDeLaSerie[];
+  /** `cuotas_sin_programar` (con su texto) y, en una semestral, el `dato_provisional` de la regla deducida */
+  avisos: Aviso[];
+}
+
+export interface CuotaVista {
+  /** 1 = la del periodo del efecto */
+  numero: number;
+  /** El día 1 del periodo: «julio-septiembre de 2026» con `nombreDelPeriodo(periodo, cadaMeses)` */
+  periodo: string;
+  /** El último día del mes en que se cobra: el de la fila si está guardada (puede haberla movido «no ha entrado»); si no, el de la regla */
+  fechaCobro: string;
+  /** La fila (la cuota, o la herramienta si es su primera); null = aún sin guardar */
+  herramientaId: string | null;
+  estado: EstadoHerramienta | "sin_programar";
+  /** Si se cobró, su liquidación (para `enlaceAlMes(fechaCobro)`) */
+  liquidacionId: string | null;
+  /** El de la fila si está guardada; si no, `brutoCuota` */
+  bruto: number;
+  /** «No ha entrado» la movió: su cobro es posterior al de la regla. «No entró en octubre: se espera en noviembre» */
+  retrasada: boolean;
+  /** Es la propia herramienta: la del RC de antes, que cobró ella misma su primera cuota */
+  esLaFirma: boolean;
 }
 
 /** Los filtros de Producción, de la URL: `?mes=2026-11&compania=AXA&estado=prevista` */
@@ -334,6 +412,7 @@ export interface FiltrosProduccion {
 }
 
 export interface Produccion {
+  /** Sin las cuotas de las series (REQ-002): cada una sale dentro de su herramienta, no aquí ni en los totales */
   filas: Herramienta[];
   /**
    * De las filas que cuentan (no anuladas). `herramientas`, `apex` y `unidades` son las de
@@ -451,6 +530,15 @@ export interface FirmaAGuardar {
   estado: EstadoHerramienta;
   fechasProvisionales: boolean;
   notas?: string | null;
+  /**
+   * Una comisión recurrente (REQ-002): cada cuántos meses cobra y lo que cobra cada cuota, **los dos o
+   * ninguno**. Sin decir (`undefined`), no se tocan; `null` en los dos quita la serie (la base no deja
+   * si tiene cuotas: se borran antes las que no se han cobrado). Solo con `sobre_recibo` o
+   * `sobre_saldo`, ni en una APEX ni en una cuota. Una serie nueva lleva `unidades: 0`: cada periodo es
+   * su cuota. El cobro que se manda es el de su primera cuota (`proponerFirma` con `cuotasCadaMeses`)
+   */
+  cuotasCadaMeses?: CuotasCadaMeses | null;
+  unidadesCuota?: number | null;
 }
 
 export interface ExtornoAGuardar {
